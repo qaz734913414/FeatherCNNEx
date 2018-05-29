@@ -42,9 +42,6 @@ public:
         int size = w * h;
         //printf("[DROPOUT] bottom:%s top:%s c:%d h:%d w:%d [%f %f %f %f]\n", _bottom[0].c_str(), _top[0].c_str(), c,h,w, input[0], input[1], input[2], input[3]);
 
-        if (scale == 1.f)
-            return 0;
-
         #pragma omp parallel for
         for (int q=0; q<c; q++)
         {

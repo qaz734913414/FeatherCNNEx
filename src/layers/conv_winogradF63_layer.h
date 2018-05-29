@@ -86,24 +86,21 @@ public:
         int nColBlocks = (inputh + 3) / 6;
         int nBlocks = nRowBlocks * nColBlocks;
 
-        size_t packArraySize = getPackArraySize_F6x6_3x3(input_channels);
+        size_t packArraySize = getPackArraySize_F6x6_3x3(input_channels, num_threads);
         size_t winograd_mem_size = 0;
         winograd_mem_size += 64 * nBlocks * input_channels;  //VT
         winograd_mem_size += 64 * nBlocks * output_channels; //WT
         winograd_mem_size += packArraySize; //WT
         winograd_mem_size += inputw * inputh * input_channels;                           //Padded Input
 
-        float* ST = NULL;
         MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float)));
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&UT, 64 * input_channels * output_channels * sizeof(float)));
-        MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&ST, 64 * input_channels * output_channels * sizeof(float)));
 
         if (0 == this->fractions)
-            transformKernel_F6x6_3x3(UT, kernel_data, input_channels, output_channels, ST);
+            transformKernel_F6x6_3x3(UT, kernel_data, input_channels, output_channels);
         else
-            transformKernel_F6x6_3x3Fix(UT, kernel_data_fix, input_channels, output_channels, ST);
+            transformKernel_F6x6_3x3Fix(UT, kernel_data_fix, input_channels, output_channels);
 
-        MEMPOOL_CHECK_RETURN(private_mempool.Free((void**)&ST));
         if(bias_term && fuse_relu)
         {
             winograd_out_type = BiasReLU;

@@ -57,11 +57,7 @@ public:
 
     int Init()
     {
-        for (int i = 0; i < input_size(); ++i)
-        {
-//			_top_blobs[_top[i]]->Alloc();
-        }
-        return 0;
+            return 0;
     }
 
     int CopyInput(std::string name, float *input_data)

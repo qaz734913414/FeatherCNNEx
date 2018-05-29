@@ -78,11 +78,16 @@ bool CaffeModelWeightsConvert::ReadNetParam()
 {
 	{
 		std::ifstream in(caffe_model_name.c_str());
+		if (!in)
+		{
+			std::cerr << "read caffe model weights file " << caffe_model_name  <<" fail!" << std::endl;
+			return false;
+		}
 		std::stringstream buffer;
 		buffer << in.rdbuf();
 		if (!caffe_weight.ParseFromString(std::string(buffer.str())))
 		{
-			std::cerr << "read caffe model weights file " << caffe_model_name  <<" fail!" << std::endl;
+			std::cerr << "parse weights file " << caffe_model_name  <<" fail!" << std::endl;
 			return false;
 		}
 
@@ -190,6 +195,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t fractions, float thresh
 		{
 			std::string layer_name = caffe_weight.layer(i).name();
 			caffe_model_layer_map[layer_name] = i;
+			//printf("[%d] %s\n", i, layer_name.c_str());
 		}
 
 		std::map<std::string, std::string> inplace_blob_map;
@@ -773,7 +779,11 @@ int main(int argc, char *argv[])
 
 	printf("%s caffe proto: %s caffe model: %s featherCNN: %s fractions:%d threshold:%.3f\n", argv[0], argv[1], argv[2], output_model_name.c_str(), fractions, threshold);
 	CaffeModelWeightsConvert convert(caffe_prototxt_name, caffe_model_name, output_model_name);
-	convert.Convert();
+	if (false == convert.Convert())
+	{
+		printf("Read file failed\n");
+		return -2;
+	}
 	convert.SaveModelWeights(fractions, threshold);
 	return 0;
 }
