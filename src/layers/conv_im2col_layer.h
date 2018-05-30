@@ -47,20 +47,25 @@ public:
     ConvIm2colLayer(const LayerParameter *layer_param, const RuntimeParameter<float>* rt_param)
         : img_buffer(0), ConvLayer(layer_param, rt_param)
     {
+        //printf("Im2col [%d %d %d %d %d %d]\n", kernel_width, kernel_height, stride_height, stride_width, output_channels, output_channels % 8);
     }
-
 
     int Forward()
     {
-        MEMPOOL_CHECK_RETURN(common_mempool->GetPtr(&img_buffer));
-
+        //printf("-kw %d kh %d sh %d sw %d c: %d bias_term: %d-\n", kernel_width, kernel_height, stride_height, stride_width, output_channels, bias_term);
         if(kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1)
         {
-            if (output_channels % 8 == 0)
+            if (output_channels % 8 == 0) //Todo
             {
-                block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
-                                                        (int)input_channels * (int)kernel_width * (int)kernel_height,
-                                                        (float *)packed_kernel, input, output, (int)num_threads);
+                if (0 == this->fractions)
+                    block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
+                                                            (int)input_channels * (int)kernel_width * (int)kernel_height,
+                                                            (float *)packed_kernel, input, output, (int)num_threads);
+                else
+                    block_sgemm_external_pack_threading_8x8Fix((int)output_channels, (int)output_width * (int)output_height,
+                            (int)input_channels * (int)kernel_width * (int)kernel_height,
+                            (short *)packed_kernel, input, output, (int)num_threads);
+
             }
             else
             {
@@ -71,6 +76,8 @@ public:
         }
         else
         {
+            MEMPOOL_CHECK_RETURN(common_mempool->GetPtr(&img_buffer));
+
             Im2col();
 
             //jintaomeng  support the case for group != input_channels
@@ -140,7 +147,6 @@ public:
                     }
                 }
             }
-
         }
         else
         {
@@ -149,7 +155,8 @@ public:
             for(int k=0; k<input_channels; k++)
             {
                 int retID = stride * k;
-                for(int u=0; u<kernel_height; u++)   for(int v=0; v<kernel_width; v++)
+                for(int u=0; u<kernel_height; u++)
+                    for(int v=0; v<kernel_width; v++)
                     {
                         for(int i=0; i<output_height; i++)
                         {
@@ -195,14 +202,14 @@ public:
         if (0 != this->fractions)
         {
             if (M % 8 == 0)
-                externalPackA8Fix(M, L, packed_kernel, kernel_data_fix, L);
+                externalPackA8<short>(M, L, (short *)packed_kernel, kernel_data_fix, L);
             else
                 externalPackAFix(M, L, packed_kernel, kernel_data_fix, L);
         }
         else
         {
             if (M % 8 == 0)
-                externalPackA8(M, L, (float *)packed_kernel, kernel_data, L);
+                externalPackA8<float>(M, L, (float *)packed_kernel, kernel_data, L);
             else
                 externalPackA(M, L, (float *)packed_kernel, kernel_data, L);
         }

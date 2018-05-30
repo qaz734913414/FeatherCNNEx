@@ -56,6 +56,7 @@ public:
         {
             kernel_data_fix = this->_weight_blobs_fix[0]->data();
             output_channels = this->_weight_blobs_fix[0]->num();
+            //printf("Conv %-40s, fractions: %d, %p\n", this->name().c_str(), fractions, kernel_data_fix);
         }
 
         if (bias_term)
@@ -91,12 +92,7 @@ public:
         return 0;
     }
 
-    virtual int Forward()
-    {
-        const float *input = _bottom_blobs[_bottom[0]]->data();
-        float *output = _top_blobs[_top[0]]->data();
-        return -1;
-    }
+    virtual int Forward() = 0;//pure virtual func, must be inplement
 
 protected:
     size_t input_channels;

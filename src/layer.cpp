@@ -42,13 +42,13 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
         if (0 != proto->fractions())
         {
             Blob<short>* p_blob = new Blob<short>();
-            p_blob->FromProto(layer_param->blobs()->Get(i));
+            p_blob->FromProto(proto);
             _weight_blobs_fix.push_back(p_blob);
         }
         else
         {
             Blob<float>* p_blob = new Blob<float>();
-            p_blob->FromProto(layer_param->blobs()->Get(i));
+            p_blob->FromProto(proto);
             _weight_blobs.push_back(p_blob);
         }
     }

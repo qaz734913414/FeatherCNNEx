@@ -20,7 +20,11 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
 
+#if 0
+#define PRINTF printf
+#else
 #define PRINTF
+#endif
 
 #ifndef MAX
 #define MAX(a,b) ((a)>(b))?(a):(b)
@@ -110,7 +114,7 @@ bool CaffeModelWeightsConvert::ReadNetParam()
     return true;
 }
 
-void CaffeModelWeightsConvert::SaveModelWeights(uint32_t fractions, float threshold)
+void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 {
 	//Writer
 	{
@@ -201,6 +205,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t fractions, float thresh
 		std::map<std::string, std::string> inplace_blob_map;
 		for (int i = 0; i != caffe_prototxt.layer_size(); ++i)
 		{
+			uint32_t fractions = 0;
 			auto caffe_layer = caffe_prototxt.layer(i);
 			std::string layer_name = caffe_layer.name();
 			std::string layer_type = caffe_layer.type();
@@ -217,9 +222,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t fractions, float thresh
 			   	top_vec.push_back(caffe_layer.top(j));
 
 			PRINTF("---------------------------------------\n");
-			PRINTF("Layer %d name %s type %s\n", i, layer_name.c_str(), layer_type.c_str());
+			PRINTF("Layer %d name %s type %s\nBottom: ", i, layer_name.c_str(), layer_type.c_str());
 			/*Print bottom and tops*/
-			PRINTF("Bottom: ");
 			for(int t = 0; t < bottom_vec.size(); ++t)
 				PRINTF("%s ", bottom_vec[t].c_str());
 			PRINTF("\nTop: ");
@@ -237,7 +241,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t fractions, float thresh
 					if(inplace_blob_map.find(bottom_name) == inplace_blob_map.end())
 						inplace_blob_map[bottom_name] = bottom_name;
 					bottom_vec[0] = inplace_blob_map[bottom_name];
-					PRINTF("*change top %s to %s\n", top_vec[0].c_str(), layer_name.c_str());
+					PRINTF("* change top %s to %s\n", top_vec[0].c_str(), layer_name.c_str());
 					top_vec[0] = layer_name;
 					inplace_blob_map[bottom_name] = layer_name;
 				}
@@ -267,11 +271,19 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t fractions, float thresh
 				top_fbstr_vec.push_back(fbb.CreateString(top_vec[i]));
 			auto top_fbvec = fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(top_fbstr_vec);
 
+			// First 1x1 conv sgemm used fix16
+			if (layer_type.compare("Convolution")==0)
+			{
+				auto caffe_conv_param = caffe_layer.convolution_param();
+				if (1 == caffe_conv_param.kernel_size(0))
+					fractions = frac;
+			}
+
 			/* Blobs */
 			auto caffe_model_layer = caffe_weight.layer(caffe_model_layer_map[layer_name]);
 			PRINTF("Blob num (%s): %d\n", layer_type.c_str(), caffe_model_layer.blobs_size());
 			std::vector<flatbuffers::Offset<feather::BlobProto> > blob_vec;
-				
+
 			for (int j = 0; j != caffe_model_layer.blobs_size(); ++j)
 			{
 				uint32_t zeroCnt = 0;
@@ -287,11 +299,10 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t fractions, float thresh
 				for(int k = 0; k != caffe_blob.data_size(); ++k)
 				{
 					float data = caffe_blob.data(k);
-					fix_t fix_data;
 					/* only weight blob of Conv layer do fix16 change (bias ignore) */
 					if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
 					{
-						fix_data = FLOAT2FIX((fix_t), fractions, data);
+						fix_t fix_data = FLOAT2FIX((fix_t), fractions, data);
 						blob_data_vec_fix.push_back(fix_data);
 						blob_data_vec.push_back(data);
 
@@ -333,10 +344,15 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t fractions, float thresh
 					}
 
 					PRINTF("	[%f, %f] [%f, %f] [%f]\n", minf, maxf, gminf, gmaxf, gabsminf);
-					PRINTF("	[%d %d] [%d %d] [%d %d] [%d] %d\n", minS, maxS, absminS, absmaxS, gminS, gmaxS, gabsmaxS, 1<<fractions);
-					for(int k = 0; k != caffe_blob.data_size(); ++k)
-						if (abs(blob_data_vec_fix[k]) < (absminS*threshold)) zeroCnt++;
-					printf("[%-20s] [%-40s] Sparse Info: %06.3f%% [%05d %05d] %f\n", layer_type.c_str(), layer_name.c_str(), (zeroCnt*100.0f)/caffe_blob.data_size(), absminS, absmaxS, threshold);
+					if (0 != fractions)
+					{
+						PRINTF("	[%d %d] [%d %d] [%d %d] [%d] %d\n", minS, maxS, absminS, absmaxS, gminS, gmaxS, gabsmaxS, 1<<fractions);
+						for(int k = 0; k != caffe_blob.data_size(); ++k)
+							if (abs(blob_data_vec_fix[k]) < (absminS*threshold)) zeroCnt++;
+						auto caffe_conv_param = caffe_layer.convolution_param();
+
+						printf("[%-20s] [%-40s] [%dX%d] Sparse Info: %06.3f%% [%05d %05d] %f\n", layer_type.c_str(), layer_name.c_str(),  caffe_conv_param.kernel_size(0), caffe_conv_param.kernel_size(0), (zeroCnt*100.0f)/caffe_blob.data_size(), absminS, absmaxS, threshold);
+					}
 				}
 
 				flatbuffers::Offset<flatbuffers::Vector<short> > blob_data_fbvec_fix;

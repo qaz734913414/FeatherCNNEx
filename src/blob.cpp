@@ -53,6 +53,7 @@ void Blob<Dtype>::FromProto(const void *proto_in)//proto MUST be of type BlobPro
     else
     {
         //Error handling
+        printf("Wrong weight blob size, [%d != %d]\n", _num * _channels * _height * _width, data_length);
     }
 }
 

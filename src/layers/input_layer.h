@@ -57,7 +57,7 @@ public:
 
     int Init()
     {
-            return 0;
+        return 0;
     }
 
     int CopyInput(std::string name, float *input_data)

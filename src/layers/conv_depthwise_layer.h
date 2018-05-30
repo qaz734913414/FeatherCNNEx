@@ -48,6 +48,7 @@ public:
         int inputw = input_width + padding_left + padding_right;
         int inputh = input_height + padding_top + padding_bottom;
         pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
+
         if (0 != this->fractions)
             dwConvFix(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data_fix, kernel_width, kernel_height, group, num_threads);
         else

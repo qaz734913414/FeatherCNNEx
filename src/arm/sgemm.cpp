@@ -23,16 +23,18 @@ const int mc = 1024;
 const int kc = 256;
 const int nc = 256;
 
+void (*sgemm_tiny_scale_fix)(int L, short *a, int lda, float *b, int ldb, float *c, int ldc) = NULL;
 void (*sgemm_tiny_scale)(int L, float *a, int lda, float *b, int ldb, float *c, int ldc) = NULL;
 void (*internalPackA)(int L, float* packA, float* a, int lda) = NULL;
 void block_sgemm_internal_pack( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc);
 void block_sgemm_pack( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc);
 
-static void internalPackA8(int L, float* packA, float* a, int lda)
+template<typename T>
+static void internalPackA8(int L, T* packA, T* a, int lda)
 {
-    float *packAptr = packA;
-    float *a_p0_ptr, *a_p1_ptr, *a_p2_ptr, *a_p3_ptr;
-    float *a_p4_ptr, *a_p5_ptr, *a_p6_ptr, *a_p7_ptr;
+    T *packAptr = packA;
+    T *a_p0_ptr, *a_p1_ptr, *a_p2_ptr, *a_p3_ptr;
+    T *a_p4_ptr, *a_p5_ptr, *a_p6_ptr, *a_p7_ptr;
     a_p0_ptr = a;
     a_p1_ptr = a + lda;
     a_p2_ptr = a + lda * 2;
@@ -54,6 +56,30 @@ static void internalPackA8(int L, float* packA, float* a, int lda)
         *packAptr++ = *a_p7_ptr++;
     }
 }
+
+template<typename T>
+void externalPackA8(int M, int L, T* packA, T* a, int lda)
+{
+    T* packAptr = packA;
+    int eM = M + (8 - M % 8) % 8;
+
+    for(int i = 0; i < eM; i += mc)
+    {
+        const int ib = min(eM - i, mc);
+        for(int p = 0; p < L; p += kc)
+        {
+            const int pb = min(L - p, kc);
+            for(int k = 0; k < ib; k += 8)
+            {
+                internalPackA8<T>(pb, packAptr, a + i * lda + p + k * lda, lda);
+                packAptr += 8 * pb;
+            }
+        }
+    }
+}
+
+template void externalPackA8<short>(int, int, short* packA, short* a, int);
+template void externalPackA8<float>(int, int, float* packA, float* a, int);
 
 static void internalPackA4(int L, float* packA, float* a, int lda)
 {
@@ -117,15 +143,47 @@ static void internalPackA1(int L, float* packA, float* a, int lda)
     }
 }
 
-static void internalPackB4(int L, float* packB, float* B, int ldb)
+void externalPackAFix(int M, int L, void* packA, short* a, int lda)
 {
-    float *bp = B;
-    float *packBptr = packB;
-    for(int i = 0; i < L; ++i)
+    printf("externalPackA fix\n");
+}
+
+void externalPackA(int M, int L, float* packA, float* a, int lda)
+{
+    float* packAptr = packA;
+    int remM = M % 4;
+    int eM = M + (4 - M % 4) % 4;//Ceil
+
+    void (*remPack)(int, float*, float*, int) = NULL;
+    switch(remM)
     {
-        vst1q_f32(packBptr, vld1q_f32(bp));
-        packBptr += 4;
-        bp += ldb;
+    case 0:
+        remPack = internalPackA4;
+        break;
+    case 1:
+        remPack = internalPackA1;
+        break;
+    case 2:
+        remPack = internalPackA2;
+        break;
+    case 3:
+        remPack = internalPackA3;
+        break;
+    }
+    for(int i = 0; i < eM; i += mc)
+    {
+        const int ib = min(eM - i, mc);
+        for(int p = 0; p < L; p += kc)
+        {
+            const int pb = min(L - p, kc);
+            for(int k = 0; k < ib -4; k += 4)
+            {
+                internalPackA4(pb, packAptr, a + i * lda + p + k * lda, lda);
+                packAptr += 4 * pb;
+            }
+            remPack(pb, packAptr, a + i * lda + p + (ib - 4) * lda, lda);
+            packAptr += 4 * pb;
+        }
     }
 }
 
@@ -141,6 +199,8 @@ static void internalPackB8(int L, float* packB, float* B, int ldb)
         bp += ldb;
     }
 }
+
+extern "C" void internalPackB8Fix(int L, short* packB, float* B, int ldb);
 
 void sgemm_4x1(int L, float *a, int lda, float* b, int ldb, float *c, int ldc)
 {
@@ -596,7 +656,83 @@ inline void sgemm_4x7(int L, float *a, int lda, float *b, int ldb, float *c, int
     vst1q_lane_f32(cptr + 6, vc6, 3);
 }
 
-void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+#ifndef FRACTION
+#define FRACTION 13
+#endif
+#define FRACTIONBX2 2*FRACTION
+
+static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
+{
+    short *aptr = a;
+    float *bptr = b;
+    float *cptr = c;
+    float b4;
+    float scale = 1.0/(1<<FRACTION);
+    int16x4x2_t va;
+    float32x4_t vc4;
+    float32x4_t vcE;
+
+    vc4[0] = *cptr;
+    cptr += ldc;
+    vc4[1] = *cptr;
+    cptr += ldc;
+    vc4[2] = *cptr;
+    cptr += ldc;
+    vc4[3] = *cptr;
+    cptr += ldc;
+
+    vcE[0] = *cptr;
+    cptr += ldc;
+    vcE[1] = *cptr;
+    cptr += ldc;
+    vcE[2] = *cptr;
+    cptr += ldc;
+    vcE[3] = *cptr;
+
+    for(int p = 0; p < L; ++p)
+    {
+        b4  = *(bptr);
+        va = vld1_s16_x2(aptr);
+        int32x4_t va_0 = vmovl_s16(va.val[0]);
+        int32x4_t va_1 = vmovl_s16(va.val[1]);
+
+        float32x4_t va0 = vcvtq_f32_s32(va_0);
+        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vmulq_n_f32(va0, scale);
+        va1 = vmulq_n_f32(va1, scale);
+
+        //A row in A multiplies a single value in B by column
+#if __aarch64__
+        vc4 = vfmaq_n_f32(vc4, va0, b4);
+        vcE = vfmaq_n_f32(vcE, va1, b4);
+#else
+        vc4 = vmlaq_n_f32(vc4, va0, b4);
+        vcE = vmlaq_n_f32(vcE, va1, b4);
+#endif // __aarch64__
+
+        bptr += ldb;
+        aptr += 8;
+    }
+
+    cptr = c;
+    *cptr = vc4[0];
+    cptr+=ldc;
+    *cptr = vc4[1];
+    cptr+=ldc;
+    *cptr = vc4[2];
+    cptr+=ldc;
+    *cptr = vc4[3];
+    cptr+=ldc;
+    *cptr = vcE[0];
+    cptr+=ldc;
+    *cptr = vcE[1];
+    cptr+=ldc;
+    *cptr = vcE[2];
+    cptr+=ldc;
+    *cptr = vcE[3];
+}
+
+static void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     float *aptr = a;
     float *bptr = b;
@@ -618,6 +754,7 @@ void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
     cptr += ldc;
     vc4 =  vld1q_lane_f32(cptr, vc4, 3);
     cptr += ldc;
+
     vcE =  vld1q_lane_f32(cptr, vcE, 0);
     cptr += ldc;
     vcE =  vld1q_lane_f32(cptr, vcE, 1);
@@ -662,9 +799,109 @@ void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
     vst1q_lane_f32(cptr, vcE, 2);
     cptr+=ldc;
     vst1q_lane_f32(cptr, vcE, 3);
-
 }
-void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+
+static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
+{
+    short *aptr = a;
+    float *bptr = b;
+    float *cptr = c;
+    float b4, b5;
+    float scale = 1.0/(1<<FRACTION);
+
+    int16x4x2_t va;
+    float32x4_t vb;
+    float32x4_t va0, va1;
+    float32x4_t vc4, vc5;
+    float32x4_t vcE, vcF;
+
+    vc4[0] = *cptr;
+    vc5[0] = *(cptr+1);
+    cptr += ldc;
+    vc4[1] = *cptr;
+    vc5[1] = *(cptr+1);
+    cptr += ldc;
+    vc4[2] = *cptr;
+    vc5[2] = *(cptr+1);
+    cptr += ldc;
+    vc4[3] = *cptr;
+    vc5[3] = *(cptr+1);
+    cptr += ldc;
+
+    vcE[0] = *cptr;
+    vcF[0] = *(cptr+1);
+    cptr += ldc;
+    vcE[1] = *cptr;
+    vcF[1] = *(cptr+1);
+    cptr += ldc;
+    vcE[2] = *cptr;
+    vcF[2] = *(cptr+1);
+    cptr += ldc;
+    vcE[3] = *cptr;
+    vcF[3] = *(cptr+1);
+
+    for(int p = 0; p < L; ++p)
+    {
+        vb  = vld1q_f32(bptr);
+        b4  = *(bptr    );
+        b5  = *(bptr + 1);
+
+        va = vld1_s16_x2(aptr);
+
+        int32x4_t va_0 = vmovl_s16(va.val[0]);
+        int32x4_t va_1 = vmovl_s16(va.val[1]);
+
+        float32x4_t va0 = vcvtq_f32_s32(va_0);
+        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vmulq_n_f32(va0, scale);
+        va1 = vmulq_n_f32(va1, scale);
+
+        //A row in A multiplies a single value in B by column
+#if __aarch64__
+        vc4 = vfmaq_n_f32(vc4, va0, b4);
+        vc5 = vfmaq_n_f32(vc5, va0, b5);
+
+        vcE = vfmaq_n_f32(vcE, va1, b4);
+        vcF = vfmaq_n_f32(vcF, va1, b5);
+#else
+        vc4 = vmlaq_n_f32(vc4, va0, b4);
+        vc5 = vmlaq_n_f32(vc5, va0, b5);
+
+        vcE = vmlaq_n_f32(vcE, va1, b4);
+        vcF = vmlaq_n_f32(vcF, va1, b5);
+#endif // __aarch64__
+
+        bptr += ldb;
+        aptr += 8;
+    }
+
+    cptr = c;
+    *cptr = vc4[0];
+    *(cptr+1) = vc5[0];
+    cptr+=ldc;
+    *cptr = vc4[1];
+    *(cptr+1) = vc5[1];
+    cptr+=ldc;
+    *cptr = vc4[2];
+    *(cptr+1) = vc5[2];
+    cptr+=ldc;
+    *cptr = vc4[3];
+    *(cptr+1) = vc5[3];
+    cptr+=ldc;
+    *cptr = vcE[0];
+    *(cptr+1) = vcF[0];
+    cptr+=ldc;
+    *cptr = vcE[1];
+    *(cptr+1) = vcF[1];
+    cptr+=ldc;
+    *cptr = vcE[2];
+    *(cptr+1) = vcF[2];
+    cptr+=ldc;
+    *cptr = vcE[3];
+    *(cptr+1) = vcF[3];
+}
+
+static void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     float *aptr = a;
     float *bptr = b;
@@ -755,7 +992,121 @@ void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
     vst1q_lane_f32(cptr + 1, vcF, 3);
 }
 
-void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
+{
+    short *aptr = a;
+    float *bptr = b;
+    float *cptr = c;
+    float b4, b5, b6;
+    float scale = 1.0/(1<<FRACTION);
+
+    int16x4x2_t va;
+    float32x4_t vb;
+    float32x4_t va0, va1;
+    float32x4_t vc4, vc5, vc6;
+    float32x4_t vcE, vcF, vcG;
+
+    vc4[0] = *cptr;
+    vc5[0] = *(cptr+1);
+    vc6[0] = *(cptr+2);
+    cptr += ldc;
+    vc4[1] = *cptr;
+    vc5[1] = *(cptr+1);
+    vc6[1] = *(cptr+2);
+    cptr += ldc;
+    vc4[2] = *cptr;
+    vc5[2] = *(cptr+1);
+    vc6[2] = *(cptr+2);
+    cptr += ldc;
+    vc4[3] = *cptr;
+    vc5[3] = *(cptr+1);
+    vc6[3] = *(cptr+2);
+    cptr += ldc;
+
+    vcE[0] = *cptr;
+    vcF[0] = *(cptr+1);
+    vcG[0] = *(cptr+2);
+    cptr += ldc;
+    vcE[1] = *cptr;
+    vcF[1] = *(cptr+1);
+    vcG[1] = *(cptr+2);
+    cptr += ldc;
+    vcE[2] = *cptr;
+    vcF[2] = *(cptr+1);
+    vcG[2] = *(cptr+2);
+    cptr += ldc;
+    vcE[3] = *cptr;
+    vcF[3] = *(cptr+1);
+    vcG[3] = *(cptr+2);
+
+    for(int p = 0; p < L; ++p)
+    {
+        vb  = vld1q_f32(bptr);
+        b4  = *(bptr    );
+        b5  = *(bptr + 1);
+        b6  = *(bptr + 2);
+
+        va = vld1_s16_x2(aptr);
+
+        int32x4_t va_0 = vmovl_s16(va.val[0]);
+        int32x4_t va_1 = vmovl_s16(va.val[1]);
+
+        float32x4_t va0 = vcvtq_f32_s32(va_0);
+        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vmulq_n_f32(va0, scale);
+        va1 = vmulq_n_f32(va1, scale);
+
+#if __aarch64__
+        //A row in A multiplies a single value in B by column
+        vc4 = vfmaq_n_f32(vc4, va0, b4);
+        vc5 = vfmaq_n_f32(vc5, va0, b5);
+        vc6 = vfmaq_n_f32(vc6, va0, b6);
+
+        vcE = vfmaq_n_f32(vcE, va1, b4);
+        vcF = vfmaq_n_f32(vcF, va1, b5);
+        vcG = vfmaq_n_f32(vcG, va1, b6);
+#else
+        vc4 = vmlaq_n_f32(vc4, va0, b4);
+        vc5 = vmlaq_n_f32(vc5, va0, b5);
+        vc6 = vmlaq_n_f32(vc6, va0, b6);
+
+        vcE = vmlaq_n_f32(vcE, va1, b4);
+        vcF = vmlaq_n_f32(vcF, va1, b5);
+        vcG = vmlaq_n_f32(vcG, va1, b6);
+#endif // __aarch64__
+
+        bptr += ldb;
+        aptr += 8;
+    }
+
+    cptr = c;
+    *cptr = vc4[0];
+    *(cptr+1) = vc5[0];
+    cptr+=ldc;
+    *cptr = vc4[1];
+    *(cptr+1) = vc5[1];
+    cptr+=ldc;
+    *cptr = vc4[2];
+    *(cptr+1) = vc5[2];
+    cptr+=ldc;
+    *cptr = vc4[3];
+    *(cptr+1) = vc5[3];
+    cptr+=ldc;
+    *cptr = vcE[0];
+    *(cptr+1) = vcF[0];
+    cptr+=ldc;
+    *cptr = vcE[1];
+    *(cptr+1) = vcF[1];
+    cptr+=ldc;
+    *cptr = vcE[2];
+    *(cptr+1) = vcF[2];
+    cptr+=ldc;
+    *cptr = vcE[3];
+    *(cptr+1) = vcF[3];
+
+}
+
+static void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     float *aptr = a;
     float *bptr = b;
@@ -867,7 +1218,94 @@ void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
     vst1q_lane_f32(cptr + 2, vcG, 3);
 }
 
-void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
+{
+    short *aptr = a;
+    float *bptr = b;
+    float *cptr = c;
+    float scale = 1.0/(1<<FRACTION);
+
+    int16x4x2_t va;
+    float32x4_t vb;
+    float32x4_t va0, va1;
+    float32x4_t vc0, vc1, vc2, vc3;
+    float32x4_t vcA, vcB, vcC, vcD;
+
+    vc0 = vld1q_f32(cptr);
+    cptr += ldc;
+    vc1 = vld1q_f32(cptr);
+    cptr += ldc;
+    vc2 = vld1q_f32(cptr);
+    cptr += ldc;
+    vc3 = vld1q_f32(cptr);
+    cptr += ldc;
+    vcA = vld1q_f32(cptr);
+    cptr += ldc;
+    vcB = vld1q_f32(cptr);
+    cptr += ldc;
+    vcC = vld1q_f32(cptr);
+    cptr += ldc;
+    vcD = vld1q_f32(cptr);
+
+    for(int p = 0; p < L; ++p)
+    {
+        vb  = vld1q_f32(bptr);
+        va = vld1_s16_x2(aptr);
+
+        int32x4_t va_0 = vmovl_s16(va.val[0]);
+        int32x4_t va_1 = vmovl_s16(va.val[1]);
+
+        float32x4_t va0 = vcvtq_f32_s32(va_0);
+        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vmulq_n_f32(va0, scale);
+        va1 = vmulq_n_f32(va1, scale);
+
+#if __aarch64__
+        vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
+        vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
+        vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
+        vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+
+        vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
+        vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
+        vcC = vfmaq_laneq_f32(vcC, vb, va1, 2);
+        vcD = vfmaq_laneq_f32(vcD, vb, va1, 3);
+#else
+        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
+        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
+        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
+        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
+
+        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
+        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
+        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
+        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
+#endif // __aarch64__
+
+        bptr += ldb;
+        aptr += 8;
+    }
+
+    cptr = c;
+    vst1q_f32(cptr, vc0);
+    cptr+=ldc;
+    vst1q_f32(cptr, vc1);
+    cptr+=ldc;
+    vst1q_f32(cptr, vc2);
+    cptr+=ldc;
+    vst1q_f32(cptr, vc3);
+    cptr+=ldc;
+    vst1q_f32(cptr, vcA);
+    cptr+=ldc;
+    vst1q_f32(cptr, vcB);
+    cptr+=ldc;
+    vst1q_f32(cptr, vcC);
+    cptr+=ldc;
+    vst1q_f32(cptr, vcD);
+
+}
+
+static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     float *aptr = a;
     float *bptr = b;
@@ -947,7 +1385,121 @@ void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
     vst1q_f32(cptr, vcD);
 }
 
-void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
+{
+    short *aptr = a;
+    float *bptr = b;
+    float *cptr = c;
+    float b4;
+    float scale = 1.0/(1<<FRACTION);
+
+    int16x4x2_t va;
+    float32x4_t vb;
+    float32x4_t va0, va1;
+    float32x4_t vc0, vc1, vc2, vc3, vc4;
+    float32x4_t vcA, vcB, vcC, vcD, vcE;
+
+    vc0 = vld1q_f32(cptr);
+    vc4[0] = *(cptr + 4 + 0);
+    cptr += ldc;
+    vc1 = vld1q_f32(cptr);
+    vc4[1] = *(cptr + 4 + 1);
+    cptr += ldc;
+    vc2 = vld1q_f32(cptr);
+    vc4[2] = *(cptr + 4 + 2);
+    cptr += ldc;
+    vc3 = vld1q_f32(cptr);
+    vc4[3] = *(cptr + 4 + 3);
+    cptr += ldc;
+    vcA = vld1q_f32(cptr);
+    vcE[0] = *(cptr + 4 + 0);
+    cptr += ldc;
+    vcB = vld1q_f32(cptr);
+    vcE[1] = *(cptr + 4 + 1);
+    cptr += ldc;
+    vcC = vld1q_f32(cptr);
+    vcE[2] = *(cptr + 4 + 2);
+    cptr += ldc;
+    vcD = vld1q_f32(cptr);
+    vcE[3] = *(cptr + 4 + 3);
+
+    for(int p = 0; p < L; ++p)
+    {
+        vb  = vld1q_f32(bptr);
+        b4  = *(bptr + 4);
+        va = vld1_s16_x2(aptr);
+
+        int32x4_t va_0 = vmovl_s16(va.val[0]);
+        int32x4_t va_1 = vmovl_s16(va.val[1]);
+
+        float32x4_t va0 = vcvtq_f32_s32(va_0);
+        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vmulq_n_f32(va0, scale);
+        va1 = vmulq_n_f32(va1, scale);
+
+#if __aarch64__
+        vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
+        vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
+        vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
+        vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+
+        vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
+        vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
+        vcC = vfmaq_laneq_f32(vcC, vb, va1, 2);
+        vcD = vfmaq_laneq_f32(vcD, vb, va1, 3);
+
+        //A row in A multiplies a single value in B by column
+        vc4 = vfmaq_n_f32(vc4, va0, b4);
+
+        vcE = vfmaq_n_f32(vcE, va1, b4);
+#else
+        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
+        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
+        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
+        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
+
+        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
+        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
+        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
+        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
+
+        //A row in A multiplies a single value in B by column
+        vc4 = vmlaq_n_f32(vc4, va0, b4);
+
+        vcE = vmlaq_n_f32(vcE, va1, b4);
+#endif // __aarch64__
+
+        bptr += ldb;
+        aptr += 8;
+    }
+
+    cptr = c;
+    vst1q_f32(cptr, vc0);
+    *(cptr + 4 + 0) = vc4[0];
+    cptr+=ldc;
+    vst1q_f32(cptr, vc1);
+    *(cptr + 4 + 1) = vc4[1];
+    cptr+=ldc;
+    vst1q_f32(cptr, vc2);
+    *(cptr + 4 + 2) = vc4[2];
+    cptr+=ldc;
+    vst1q_f32(cptr, vc3);
+    *(cptr + 4 + 3) = vc4[3];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcA);
+    *(cptr + 4 + 0) = vcE[0];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcB);
+    *(cptr + 4 + 1) = vcE[1];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcC);
+    *(cptr + 4 + 2) = vcE[2];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcD);
+    *(cptr + 4 + 3) = vcE[3];
+}
+
+static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     float *aptr = a;
     float *bptr = b;
@@ -1057,7 +1609,142 @@ void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
     vst1q_lane_f32(cptr + 4, vcE, 3);
 }
 
-void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
+{
+    short *aptr = a;
+    float *bptr = b;
+    float *cptr = c;
+    float b4, b5;
+    float scale = 1.0/(1<<FRACTION);
+
+    int16x4x2_t va;
+    float32x4_t vb;
+    float32x4_t va0, va1;
+    float32x4_t vc0, vc1, vc2, vc3, vc4, vc5;
+    float32x4_t vcA, vcB, vcC, vcD, vcE, vcF;
+
+    vc0 = vld1q_f32(cptr);
+    vc4[0] = *(cptr + 4 + 0);
+    vc5[0] = *(cptr + 5 + 0);
+    cptr += ldc;
+    vc1 = vld1q_f32(cptr);
+    vc4[1] = *(cptr + 4 + 1);
+    vc5[1] = *(cptr + 5 + 1);
+    cptr += ldc;
+    vc2 = vld1q_f32(cptr);
+    vc4[2] = *(cptr + 4 + 2);
+    vc5[2] = *(cptr + 5 + 2);
+    cptr += ldc;
+    vc3 = vld1q_f32(cptr);
+    vc4[3] = *(cptr + 4 + 3);
+    vc5[3] = *(cptr + 5 + 3);
+    cptr += ldc;
+    vcA = vld1q_f32(cptr);
+    vcE[0] = *(cptr + 4 + 0);
+    vcF[0] = *(cptr + 5 + 0);
+    cptr += ldc;
+    vcB = vld1q_f32(cptr);
+    vcE[1] = *(cptr + 4 + 1);
+    vcF[1] = *(cptr + 5 + 1);
+    cptr += ldc;
+    vcC = vld1q_f32(cptr);
+    vcE[2] = *(cptr + 4 + 2);
+    vcF[2] = *(cptr + 5 + 2);
+    cptr += ldc;
+    vcD = vld1q_f32(cptr);
+    vcE[3] = *(cptr + 4 + 3);
+    vcF[3] = *(cptr + 5 + 3);
+
+    for(int p = 0; p < L; ++p)
+    {
+        vb  = vld1q_f32(bptr);
+        b4  = *(bptr + 4);
+        b5  = *(bptr + 5);
+        va = vld1_s16_x2(aptr);
+
+        int32x4_t va_0 = vmovl_s16(va.val[0]);
+        int32x4_t va_1 = vmovl_s16(va.val[1]);
+
+        float32x4_t va0 = vcvtq_f32_s32(va_0);
+        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vmulq_n_f32(va0, scale);
+        va1 = vmulq_n_f32(va1, scale);
+
+#if __aarch64__
+        vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
+        vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
+        vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
+        vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+
+        vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
+        vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
+        vcC = vfmaq_laneq_f32(vcC, vb, va1, 2);
+        vcD = vfmaq_laneq_f32(vcD, vb, va1, 3);
+
+        //A row in A multiplies a single value in B by column
+        vc4 = vfmaq_n_f32(vc4, va0, b4);
+        vc5 = vfmaq_n_f32(vc5, va0, b5);
+
+        vcE = vfmaq_n_f32(vcE, va1, b4);
+        vcF = vfmaq_n_f32(vcF, va1, b5);
+#else
+        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
+        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 0));
+        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 0));
+        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 0));
+
+        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
+        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
+        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
+        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
+
+        //A row in A multiplies a single value in B by column
+        vc4 = vmlaq_n_f32(vc4, va0, b4);
+        vc5 = vmlaq_n_f32(vc5, va0, b5);
+
+        vcE = vmlaq_n_f32(vcE, va1, b4);
+        vcF = vmlaq_n_f32(vcF, va1, b5);
+#endif // __aarch64__
+
+        bptr += ldb;
+        aptr += 8;
+    }
+
+    cptr = c;
+    vst1q_f32(cptr, vc0);
+    *(cptr + 4 + 0) = vc4[0];
+    *(cptr + 5 + 0) = vc5[0];
+    cptr+=ldc;
+    vst1q_f32(cptr, vc1);
+    *(cptr + 4 + 1) = vc4[1];
+    *(cptr + 5 + 1) = vc5[1];
+    cptr+=ldc;
+    vst1q_f32(cptr, vc2);
+    *(cptr + 4 + 2) = vc4[2];
+    *(cptr + 5 + 2) = vc5[2];
+    cptr+=ldc;
+    vst1q_f32(cptr, vc3);
+    *(cptr + 4 + 3) = vc4[3];
+    *(cptr + 5 + 3) = vc5[3];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcA);
+    *(cptr + 4 + 0) = vcE[0];
+    *(cptr + 5 + 0) = vcF[0];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcB);
+    *(cptr + 4 + 1) = vcE[1];
+    *(cptr + 5 + 1) = vcF[1];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcC);
+    *(cptr + 4 + 2) = vcE[2];
+    *(cptr + 5 + 2) = vcF[2];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcD);
+    *(cptr + 4 + 3) = vcE[3];
+    *(cptr + 5 + 3) = vcF[3];
+}
+
+static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     float *aptr = a;
     float *bptr = b;
@@ -1187,7 +1874,163 @@ void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
     vst1q_lane_f32(cptr + 5, vcF, 3);
 }
 
-void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
+{
+    short *aptr = a;
+    float *bptr = b;
+    float *cptr = c;
+    float b4, b5, b6;
+    float scale = 1.0/(1<<FRACTION);
+
+    int16x4x2_t va;
+    float32x4_t vb;
+    float32x4_t va0, va1;
+    float32x4_t vc0, vc1, vc2, vc3, vc4, vc5, vc6;
+    float32x4_t vcA, vcB, vcC, vcD, vcE, vcF, vcG;
+
+    vc0 = vld1q_f32(cptr);
+    vc4[0] = *(cptr + 4 + 0);
+    vc5[0] = *(cptr + 5 + 0);
+    vc6[0] = *(cptr + 6 + 0);
+    cptr += ldc;
+    vc1 = vld1q_f32(cptr);
+    vc4[1] = *(cptr + 4 + 1);
+    vc5[1] = *(cptr + 5 + 1);
+    vc6[1] = *(cptr + 6 + 1);
+    cptr += ldc;
+    vc2 = vld1q_f32(cptr);
+    vc4[2] = *(cptr + 4 + 2);
+    vc5[2] = *(cptr + 5 + 2);
+    vc6[2] = *(cptr + 6 + 2);
+    cptr += ldc;
+    vc3 = vld1q_f32(cptr);
+    vc4[3] = *(cptr + 4 + 3);
+    vc5[3] = *(cptr + 5 + 3);
+    vc6[3] = *(cptr + 6 + 3);
+    cptr += ldc;
+    vcA = vld1q_f32(cptr);
+    vcE[0] = *(cptr + 4 + 0);
+    vcF[0] = *(cptr + 5 + 0);
+    vcG[0] = *(cptr + 6 + 0);
+    cptr += ldc;
+    vcB = vld1q_f32(cptr);
+    vcE[1] = *(cptr + 4 + 1);
+    vcF[1] = *(cptr + 5 + 1);
+    vcG[1] = *(cptr + 6 + 0);
+    cptr += ldc;
+    vcC = vld1q_f32(cptr);
+    vcE[2] = *(cptr + 4 + 2);
+    vcF[2] = *(cptr + 5 + 2);
+    vcG[2] = *(cptr + 6 + 0);
+    cptr += ldc;
+    vcD = vld1q_f32(cptr);
+    vcE[3] = *(cptr + 4 + 3);
+    vcF[3] = *(cptr + 5 + 3);
+    vcG[3] = *(cptr + 6 + 0);
+
+    for(int p = 0; p < L; ++p)
+    {
+        vb  = vld1q_f32(bptr);
+        b4  = *(bptr + 4);
+        b5  = *(bptr + 5);
+        b6  = *(bptr + 6);
+        va = vld1_s16_x2(aptr);
+
+        int32x4_t va_0 = vmovl_s16(va.val[0]);
+        int32x4_t va_1 = vmovl_s16(va.val[1]);
+
+        float32x4_t va0 = vcvtq_f32_s32(va_0);
+        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vmulq_n_f32(va0, scale);
+        va1 = vmulq_n_f32(va1, scale);
+
+#if __aarch64__
+        vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
+        vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
+        vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
+        vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+
+        vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
+        vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
+        vcC = vfmaq_laneq_f32(vcC, vb, va1, 2);
+        vcD = vfmaq_laneq_f32(vcD, vb, va1, 3);
+
+        //A row in A multiplies a single value in B by column
+        vc4 = vfmaq_n_f32(vc4, va0, b4);
+        vc5 = vfmaq_n_f32(vc5, va0, b5);
+        vc6 = vfmaq_n_f32(vc6, va0, b6);
+
+        vcE = vfmaq_n_f32(vcE, va1, b4);
+        vcF = vfmaq_n_f32(vcF, va1, b5);
+        vcG = vfmaq_n_f32(vcG, va1, b6);
+#else
+        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
+        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
+        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
+        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
+
+        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
+        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
+        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
+        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
+
+        //A row in A multiplies a single value in B by column
+        vc4 = vmlaq_n_f32(vc4, va0, b4);
+        vc5 = vmlaq_n_f32(vc5, va0, b5);
+        vc6 = vmlaq_n_f32(vc6, va0, b6);
+
+        vcE = vmlaq_n_f32(vcE, va1, b4);
+        vcF = vmlaq_n_f32(vcF, va1, b5);
+        vcG = vmlaq_n_f32(vcG, va1, b6);
+#endif // __aarch64__
+
+        bptr += ldb;
+        aptr += 8;
+    }
+
+    cptr = c;
+    vst1q_f32(cptr, vc0);
+    *(cptr + 4 + 0) = vc4[0];
+    *(cptr + 5 + 0) = vc5[0];
+    *(cptr + 6 + 0) = vc6[0];
+    cptr+=ldc;
+    vst1q_f32(cptr, vc1);
+    *(cptr + 4 + 1) = vc4[1];
+    *(cptr + 5 + 1) = vc5[1];
+    *(cptr + 6 + 1) = vc6[1];
+    cptr+=ldc;
+    vst1q_f32(cptr, vc2);
+    *(cptr + 4 + 2) = vc4[2];
+    *(cptr + 5 + 2) = vc5[2];
+    *(cptr + 6 + 2) = vc6[2];
+    cptr+=ldc;
+    vst1q_f32(cptr, vc3);
+    *(cptr + 4 + 3) = vc4[3];
+    *(cptr + 5 + 3) = vc5[3];
+    *(cptr + 6 + 3) = vc6[3];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcA);
+    *(cptr + 4 + 0) = vcE[0];
+    *(cptr + 5 + 0) = vcF[0];
+    *(cptr + 6 + 0) = vcG[0];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcB);
+    *(cptr + 4 + 1) = vcE[1];
+    *(cptr + 5 + 1) = vcF[1];
+    *(cptr + 6 + 1) = vcG[1];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcC);
+    *(cptr + 4 + 2) = vcE[2];
+    *(cptr + 5 + 2) = vcF[2];
+    *(cptr + 6 + 2) = vcG[2];
+    cptr+=ldc;
+    vst1q_f32(cptr, vcD);
+    *(cptr + 4 + 3) = vcE[3];
+    *(cptr + 5 + 3) = vcF[3];
+    *(cptr + 6 + 3) = vcG[3];
+}
+
+static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     float *aptr = a;
     float *bptr = b;
@@ -1501,6 +2344,8 @@ void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int lda, flo
     }
 }
 
+extern "C" void sgemm_8x8_pack_fix( int L, short *a, int lda, short *b, int ldb, float *c, int ldc );
+
 inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int ldc )
 {
     float *aptr = a;
@@ -1537,10 +2382,11 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
     {
         vb0  = vld1q_f32(bptr);
         vb1  = vld1q_f32(bptr + 4);
+
+#if __aarch64__
         va0 = vld1q_f32(aptr);
         va1 = vld1q_f32(aptr + 4);
 
-#if __aarch64__
         vc0 = vfmaq_laneq_f32(vc0, vb0, va0, 0);
         vc1 = vfmaq_laneq_f32(vc1, vb0, va0, 1);
         vc2 = vfmaq_laneq_f32(vc2, vb0, va0, 2);
@@ -1611,12 +2457,33 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
     vst1q_f32(cptr + 4, vcF);
 }
 
+static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, short* packB)
+{
+    int eL = L + (4 - L % 4) % 4;
+    int remN = N % 8;
+    int fN = N - remN;
+    (void)packA;
+
+    for(int i=0; i<M; i+=8 )
+    {
+        for(int j=0; j<fN; j+=8 )
+        {
+            if(i == 0)
+                internalPackB8Fix(L, packB + j * eL, b + j, ldb);
+            sgemm_8x8_pack_fix(L, a + i * L, lda, packB + j * eL, 8, c + i * ldc + j, ldc);
+        }
+        if(remN)
+            sgemm_tiny_scale_fix(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc);
+    }
+}
+
 void SGEBP_externalPackA_tiny_scale_8x8( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB)
 {
     //Align L to achieve better performance for better cache line alignment.
     int eL = L + (4 - L % 4) % 4;
     int remN = N % 8;
     int fN = N - remN;
+    (void)packA;
 
     for(int i=0; i<M; i+=8 )
     {
@@ -1665,7 +2532,6 @@ void SGEBP_internalPack_tiny_scale( int M, int N, int L, float *a, int lda, floa
     }
 }
 
-
 void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     for(int i = 0; i < M; ++i)
@@ -1691,30 +2557,57 @@ void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb,
     _mm_free(packB);
 }
 
-void block_sgemm_pack_8x8( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+template<typename T>
+void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc)
 {
     for(int i = 0; i < M; ++i)
         memset(c + ldc * i, 0, sizeof(float) * N);
-    float* packB = (float *)_mm_malloc(sizeof(float) * kc *  N, 16);
+    T* packB = (T *)_mm_malloc(sizeof(T) * kc *  N, 16);
     if (NULL == packB) return;
-
-    for(int l = 0; l < N; l += nc)
+    if (4 == sizeof(T)) /* float */
     {
-        float* packAptr = a;
-        for(int i = 0; i < M; i += mc)
+        for(int l = 0; l < N; l += nc)
         {
-            for(int p = 0; p < L; p += kc)
+            float* packAptr = (float*)a;
+            int lb = min(N - l, nc);
+            for(int i = 0; i < M; i += mc)
             {
-                int lb = min(N - l, nc);
                 int ib = min(M - i, mc);
-                int pb = min(L - p, kc);
-                SGEBP_externalPackA_tiny_scale_8x8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, packB);
-                packAptr += ib * pb;
+                for(int p = 0; p < L; p += kc)
+                {
+                    int pb = min(L - p, kc);
+                    SGEBP_externalPackA_tiny_scale_8x8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (float*)packB);
+                    packAptr += ib * pb;
+                }
             }
         }
     }
+    else if (2 == sizeof(T))  /* short */
+    {
+        for(int l = 0; l < N; l += nc)
+        {
+            short* packAptr = (short*)a;
+            int lb = min(N - l, nc);
+            for(int i = 0; i < M; i += mc)
+            {
+                int ib = min(M - i, mc);
+                for(int p = 0; p < L; p += kc)
+                {
+                    int pb = min(L - p, kc);
+                    SGEBP_externalPackA_tiny_scale_8x8_fix(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (short*)packB);
+                    packAptr += ib * pb;
+                }
+            }
+        }
+    }
+    else
+        printf("Wrong tpye, %d\n", sizeof(T));
+
     _mm_free(packB);
 }
+
+template void block_sgemm_pack_8x8<float>( int, int, int, float*, int, float*, int, float*, int);
+template void block_sgemm_pack_8x8<short>( int, int, int, short*, int, float*, int, float*, int);
 
 void block_sgemm_internal_pack( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
@@ -1745,50 +2638,6 @@ void block_sgemm_internal_pack( int M, int N, int L, float *a, int lda, float *b
     }
     _mm_free(packA);
     _mm_free(packB);
-}
-
-void externalPackAFix(int M, int L, void* packA, short* a, int lda)
-{
-    printf("externalPackA fix\n");
-}
-
-void externalPackA(int M, int L, float* packA, float* a, int lda)
-{
-    float* packAptr = packA;
-    int remM = M % 4;
-    int eM = M + (4 - M % 4) % 4;//Ceil
-
-    void (*remPack)(int, float*, float*, int) = NULL;
-    switch(remM)
-    {
-    case 0:
-        remPack = internalPackA4;
-        break;
-    case 1:
-        remPack = internalPackA1;
-        break;
-    case 2:
-        remPack = internalPackA2;
-        break;
-    case 3:
-        remPack = internalPackA3;
-        break;
-    }
-    for(int i = 0; i < eM; i += mc)
-    {
-        const int ib = min(eM - i, mc);
-        for(int p = 0; p < L; p += kc)
-        {
-            const int pb = min(L - p, kc);
-            for(int k = 0; k < ib -4; k += 4)
-            {
-                internalPackA4(pb, packAptr, a + i * lda + p + k * lda, lda);
-                packAptr += 4 * pb;
-            }
-            remPack(pb, packAptr, a + i * lda + p + (ib - 4) * lda, lda);
-            packAptr += 4 * pb;
-        }
-    }
 }
 
 void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *b, float *c, int num_threads)
@@ -1836,27 +2685,60 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
     }
 }
 
-void externalPackA8Fix(int M, int L, void* packA, short* a, int lda)
+void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, float *b, float *c, int num_threads)
 {
-    printf("externalPackA8 fix\n");
-}
-
-void externalPackA8(int M, int L, float* packA, float* a, int lda)
-{
-    float* packAptr = packA;
     int eM = M + (8 - M % 8) % 8;
-
-    for(int i = 0; i < eM; i += mc)
+    switch(N % 8)
     {
-        const int ib = min(eM - i, mc);
-        for(int p = 0; p < L; p += kc)
+    case 1:
+        sgemm_tiny_scale_fix = sgemm_8x1_fix;
+        break;
+    case 2:
+        sgemm_tiny_scale_fix = sgemm_8x2_fix;
+        break;
+    case 3:
+        sgemm_tiny_scale_fix = sgemm_8x3_fix;
+        break;
+    case 4:
+        sgemm_tiny_scale_fix = sgemm_8x4_fix;
+        break;
+    case 5:
+        sgemm_tiny_scale_fix = sgemm_8x5_fix;
+        break;
+    case 6:
+        sgemm_tiny_scale_fix = sgemm_8x6_fix;
+        break;
+    case 7:
+        sgemm_tiny_scale_fix = sgemm_8x7_fix;
+        break;
+    }
+
+    if(num_threads>8)	num_threads = 8;
+
+    unsigned int tN = N / num_threads;
+
+    tN = (tN + 7) & 0xFFFFFFF8;
+    unsigned int lastSN = N - (num_threads - 1) * tN;
+    while(lastSN <= 0)
+    {
+        --num_threads;
+        lastSN = N - (num_threads - 1) * tN;
+    }
+    num_threads = (num_threads <= 0) ? 1 : num_threads;
+
+    if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
+    {
+        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N);
+    }
+    else
+    {
+        #pragma omp parallel num_threads(num_threads)
         {
-            const int pb = min(L - p, kc);
-            for(int k = 0; k < ib; k += 8)
-            {
-                internalPackA8(pb, packAptr, a + i * lda + p + k * lda, lda);
-                packAptr += 8 * pb;
-            }
+            int tid = omp_get_thread_num();
+            int sN = tN;
+            if(tid == num_threads - 1)
+                sN = N - tid * tN;
+            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N);
         }
     }
 }
@@ -1907,7 +2789,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
 
     if (num_threads == 1 || N <= 8 || N - (num_threads * factor - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8(eM, N, L, a, L, b, N, c, N);
+        block_sgemm_pack_8x8<float>(eM, N, L, a, L, b, N, c, N);
     }
     else
     {
@@ -1917,7 +2799,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N);
+            block_sgemm_pack_8x8<float>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N);
         }
     }
 }
