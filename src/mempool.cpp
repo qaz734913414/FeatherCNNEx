@@ -36,6 +36,7 @@ bool CommonMemPool<PTR_TYPE>::Alloc()
         fprintf(stderr, "Error: common memory already allocated.\n");
         return false;
     }
+
     if(common_size > 0)
     {
         common_memory = (PTR_TYPE *) _mm_malloc(common_size, 128);
@@ -45,6 +46,7 @@ bool CommonMemPool<PTR_TYPE>::Alloc()
             return false;
         }
     }
+
     if(common_size_map.size())
     {
         std::map<size_t, size_t>::iterator it
@@ -61,6 +63,7 @@ bool CommonMemPool<PTR_TYPE>::Alloc()
             ++it;
         }
     }
+
     return (common_ptr_map.size() == common_size_map.size()) ? true : false;
 }
 

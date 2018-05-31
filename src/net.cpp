@@ -21,7 +21,6 @@
 
 #include <stdio.h>
 #include <cstring>
-//#define LAYER_TIMING
 
 namespace feather
 {
@@ -139,9 +138,9 @@ void Net::InitFromFile(FILE* fp)
 }
 bool Net::InitFromBuffer(const void *net_buffer)
 {
-    //rt_param in the param list just to distinguish.
     const NetParameter *net_param = feather::GetNetParameter(net_buffer);
     size_t layer_num = VectorLength(net_param->layer());
+
     //Find input layer.
     //printf("Loading %d layers\n", layer_num);
     for (int i = 0; i < layer_num; ++i)
@@ -152,6 +151,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
             break;
         }
     }
+
     for (int i = 1; i < layer_num; ++i)
     {
         const LayerParameter *layer_param = net_param->layer()->Get(i);
@@ -159,28 +159,31 @@ bool Net::InitFromBuffer(const void *net_buffer)
         //printf("setup layer %s\n", layer_param->name()->c_str());
         layers.push_back(new_layer);
     }
-    //Generate top blobs, will check the dependency.
+    printf("Layer setup ok\n");
+
+    //Generate top blobs, with dependency check.
     for (int i = 0; i < layers.size(); ++i)
     {
         size_t top_num = layers[i]->top_size();
         size_t top_blob_num = layers[i]->top_blob_size();
+        //printf("top_num: %d top_blob_num: %d\n", top_num, top_blob_num);
         if (top_blob_num == 0)
         {
             for (int b = 0; b < layers[i]->bottom_size(); ++b)
             {
                 std::string blob_name = layers[i]->bottom(b);
                 // printf("blob name %s\n", blob_name.c_str());
-                //TODO handle error: when blob_name has not been inserted into map.
                 if (blob_map.find(blob_name) != blob_map.end())
                     layers[i]->SetupBottomBlob(blob_map[blob_name], blob_name);
                 else
                 {
-                    fprintf(stderr, "Blob %s not setup yet, may be casued by wrong layer order. Aborted.\n");
+                    printf("Blob %s in layer %s not setup yet, may be casued by wrong layer order. Aborted.\n", blob_name.c_str(), net_param->layer()->Get(i)->name()->c_str());
                     exit(-1);
                 }
             }
             layers[i]->GenerateTopBlobs();
         }
+
         for (int t = 0; t < top_num; ++t)
         {
             std::string blob_name = layers[i]->top(t);
@@ -188,39 +191,44 @@ bool Net::InitFromBuffer(const void *net_buffer)
             //blob_map[blob_name]->PrintBlobInfo();
         }
     }
+    printf("Top blobs create ok\n");
 
     //Try to fuse some layers together
     for (int i = 1; i < layers.size() - 1; ++i)
     {
-        if (!layers[i]->fusible())
-            continue;
+        Layer *cur_layer = layers[i];
+        if (!cur_layer->fusible()) continue;
+        //printf("Layer %s try fused\n", layers[i]->name().c_str());
+
         for (int j = i + 1; j < layers.size(); ++j)
         {
             Layer *next_layer = layers[j];
-            while (layers[i]->TryFuse(next_layer) == 1)
+            while (cur_layer->TryFuse(next_layer) == 1)
             {
                 //Update the respective bottoms in other layers.
                 std::string new_bottom = layers[i]->top(0);
                 std::string old_bottom = next_layer->top(0);
-                //printf("old bottom %s to new bottom %s\n", old_bottom.c_str(), new_bottom.c_str());
+                //printf("%-40s [%03d %03d] old bottom %-40s to new bottom %-40s\n", layers[i]->name().c_str(), i, j, old_bottom.c_str(), new_bottom.c_str());
                 for (int k = i + 1; k < layers.size(); ++k)
                 {
-                    if (k == j)
-                        continue;
+                    if (k == j) continue;
 
                     for (int b = 0; b < layers[k]->bottom_size(); ++b)
                     {
                         if (layers[k]->bottom(b).compare(old_bottom) == 0)
-                            layers[k]->ReplaceBottomBlob(old_bottom, new_bottom, layers[i]->top_blob(0));
+                            layers[k]->ReplaceBottomBlob(old_bottom, new_bottom, cur_layer->top_blob(0));
                     }
                 }
-                //printf("Erasing layer %d %s\n", j, next_layer->name().c_str());
+                //printf("Erasing layer %d %-40s\n", j, next_layer->name().c_str());
                 layers.erase(layers.begin() + j);
                 next_layer = layers[j];
-                //printf("Layer %d after erasing: %s type %s\n", j, next_layer->name().c_str(), next_layer->type().c_str());
+                //printf("Layer %d after erasing: %-40s type %s\n", j, next_layer->name().c_str(), next_layer->type().c_str());
+
+                if (0 == old_bottom.compare(next_layer->name())) break;
             }
         }
     }
+    printf("Blobs fuse ok\n");
 
     //Rebuild blob map
     blob_map.clear();
@@ -234,9 +242,11 @@ bool Net::InitFromBuffer(const void *net_buffer)
         }
         layers[i]->Init();
     }
+    printf("Layers init ok\n");
 
-    //Allocate for common mempool.
     rt_param->common_mempool()->Alloc();
+    rt_param->common_mempool()->PrintStats();
+
     return true;
 }
 };

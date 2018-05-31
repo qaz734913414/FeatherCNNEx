@@ -30,13 +30,10 @@ public:
     InputLayer(const LayerParameter *layer_param, const RuntimeParameter<float>* rt_param)
         : Layer(layer_param, rt_param)
     {
-        //printf("name %s\n", _name.c_str());
-        //printf("type %s\n", _type.c_str());
-        //From proto
         const InputParameter *input_param = layer_param->input_param();
         size_t input_num = VectorLength(input_param->name());
         size_t input_dim_num = VectorLength(input_param->dim());
-        printf("input num %ld input dim num %ld\n", input_num, input_dim_num);
+        //printf("input num %ld input dim num %ld\n", input_num, input_dim_num);
         assert(input_num > 0);
         assert(input_dim_num == input_num * 4);
         for (int i = 0; i < input_num; ++i)
@@ -50,8 +47,8 @@ public:
             _top.push_back(input_name);
             _top_blobs[input_name] = new Blob<float>(num, channels, height, width);
             _top_blobs[input_name]->Alloc();
-            //_top_blobs[input_name]->PrintBlobInfo();
-            printf("input_name %s (n c h w) (%ld %ld %ld %ld)\n", input_name.c_str(), num, channels, height, width);
+
+            //printf("input_name %s (n c h w) (%ld %ld %ld %ld)\n", input_name.c_str(), num, channels, height, width);
         }
     }
 

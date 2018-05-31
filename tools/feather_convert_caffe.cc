@@ -129,12 +129,15 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 
 		size_t input_num = caffe_prototxt.input_size();
 		PRINTF("Input Num: %ld\n", input_num);
+		const char *InputLayerName = "Input";
 		if(input_num > 0)
 		{
+			assert(input_num == 1);
 			for (int i = 0; i < input_num; ++i)
 			{
 				std::string input_name = caffe_prototxt.input(i);
-				PRINTF("Input name: %s\n", input_name.c_str());
+				InputLayerName = input_name.c_str();
+				PRINTF("Input name: %s\n", InputLayerName);
 				input_name_vec.push_back(fbb.CreateString(input_name));
 			}
 
@@ -164,7 +167,13 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 
 				if(layer_type.compare("Input") == 0)
 				{
-					input_name_vec.push_back(fbb.CreateString(caffe_layer.name()));
+					assert(caffe_layer.top_size() == 1);
+					for(int j = 0; j < caffe_layer.top_size(); ++j)
+					{
+						InputLayerName = caffe_layer.top(j).c_str();
+						PRINTF("Input name: %s\n", InputLayerName);
+						input_name_vec.push_back(fbb.CreateString(caffe_layer.top(j)));
+					}
 					
 					assert(caffe_layer.input_param().shape_size() == 1);
 					for(int j = 0; j < caffe_layer.input_param().shape(0).dim_size(); ++j)
@@ -173,6 +182,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 						PRINTF("dim[%d]: %ld\n", j, dim);
 						input_dim_vec.push_back(dim);
 					}
+
+					break;
 				}
 			}
 		}
@@ -181,7 +192,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 		auto input_param = feather::CreateInputParameterDirect(fbb,
 				&input_name_vec,
 				&input_dim_vec);
-		auto input_layer_name = fbb.CreateString("input_layer");
+		auto input_layer_name = fbb.CreateString(InputLayerName);
 		auto input_layer_type = fbb.CreateString("Input");
 		feather::LayerParameterBuilder layer_builder(fbb);
 		layer_builder.add_name(input_layer_name);
@@ -252,7 +263,6 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 						std::string bottom_name = bottom_vec[t];
 						if(inplace_blob_map.find(bottom_name) != inplace_blob_map.end())
 						{
-							std::string bottom_name = bottom_vec[t];
 							bottom_vec[t] = inplace_blob_map[bottom_name];
 							PRINTF("* change bottom %s to %s\n", bottom_name.c_str(), bottom_vec[t].c_str());
 						}
@@ -260,15 +270,24 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				}
 			}
 
+			PRINTF("After change:\nBottoms:");
 			/* create flat buffer for bottom & top names  */
 			std::vector<flatbuffers::Offset<flatbuffers::String>> bottom_fbstr_vec;
 			for(int i = 0; i < bottom_vec.size(); ++i)
+			{
 				bottom_fbstr_vec.push_back(fbb.CreateString(bottom_vec[i]));
+				PRINTF(" %s", bottom_vec[i].c_str());
+			}
+			PRINTF("\nTop:");
 			auto bottom_fbvec = fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(bottom_fbstr_vec);
 
 			std::vector<flatbuffers::Offset<flatbuffers::String>> top_fbstr_vec;
 			for(int i = 0; i < top_vec.size(); ++i)
+			{
 				top_fbstr_vec.push_back(fbb.CreateString(top_vec[i]));
+				PRINTF(" %s", top_vec[i].c_str());
+			}
+			PRINTF("\n");
 			auto top_fbvec = fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(top_fbstr_vec);
 
 			// First 1x1 conv sgemm used fix16

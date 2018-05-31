@@ -28,7 +28,6 @@ int ScaleLayer::Forward()
 
 int ScaleLayer::Init()
 {
-    printf("Init Scale layer ");
     const Blob<float>* p_blob = _bottom_blobs[_bottom[0]];
     input_channels = p_blob->channels();
     input_height   = p_blob->height();
