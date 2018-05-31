@@ -20,7 +20,7 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
 
-#if 0
+#if 1
 #define PRINTF printf
 #else
 #define PRINTF
@@ -468,26 +468,46 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				feather::ConvolutionParameterBuilder conv_param_builder(fbb);
 				PRINTF("+ bias term %d\n", caffe_conv_param.bias_term());
 				conv_param_builder.add_bias_term(caffe_conv_param.bias_term());
-				conv_param_builder.add_kernel_h(caffe_conv_param.kernel_size(0));
 				if(caffe_conv_param.kernel_size_size() == 1)
+				{
+					PRINTF("+ k [%d %d]\n", caffe_conv_param.kernel_size(0), caffe_conv_param.kernel_size(0));
+					conv_param_builder.add_kernel_h(caffe_conv_param.kernel_size(0));
 					conv_param_builder.add_kernel_w(caffe_conv_param.kernel_size(0));
+				}
 				else if(caffe_conv_param.kernel_size_size() == 2)
+				{
+					PRINTF("+ k [%d %d]\n", caffe_conv_param.kernel_size(0), caffe_conv_param.kernel_size(1));
+					conv_param_builder.add_kernel_h(caffe_conv_param.kernel_size(0));
 					conv_param_builder.add_kernel_w(caffe_conv_param.kernel_size(1));
+				}
 				else
-					;
+				{
+					if (caffe_conv_param.has_kernel_h() && caffe_conv_param.has_kernel_w())
+					{
+						PRINTF("+ k [%d %d]\n", caffe_conv_param.kernel_h(), caffe_conv_param.kernel_w());
+						conv_param_builder.add_kernel_h(caffe_conv_param.kernel_h());
+						conv_param_builder.add_kernel_w(caffe_conv_param.kernel_w());
+					}
+					else
+					{
+						PRINTF("\nERR: should not be show\n");
+						exit(-1);
+					}
+				}
 
 				if(caffe_conv_param.stride_size() == 1){
-					PRINTF("+ stride %d\n", caffe_conv_param.stride(0));
+					PRINTF("+ stride [%d %d]\n", caffe_conv_param.stride(0), caffe_conv_param.stride(0));
 					conv_param_builder.add_stride_h(caffe_conv_param.stride(0));
 					conv_param_builder.add_stride_w(caffe_conv_param.stride(0));
 				}
 				else if(caffe_conv_param.stride_size() == 2){
+					PRINTF("+ stride [%d %d]\n", caffe_conv_param.stride(0), caffe_conv_param.stride(1));
 					conv_param_builder.add_stride_h(caffe_conv_param.stride(0));
 					conv_param_builder.add_stride_w(caffe_conv_param.stride(1));
 				}
 				else if(caffe_conv_param.stride_size() == 0)
 				{
-					//defaults to 1 
+					PRINTF("+ stride [1 1]\n");
 					conv_param_builder.add_stride_h(1);
 					conv_param_builder.add_stride_w(1);
 				}
@@ -496,26 +516,29 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 					PRINTF("More stride dim than expected!\n");
 					exit(-1);
 				}
-				PRINTF("+ pad %d has_pad_h %d has_pad_w %d\n", caffe_conv_param.pad_size(), caffe_conv_param.has_pad_h(),caffe_conv_param.has_pad_w());
+				//PRINTF("+ pad %d has_pad_h %d has_pad_w %d\n", caffe_conv_param.pad_size(), caffe_conv_param.has_pad_h(),caffe_conv_param.has_pad_w());
 				if(caffe_conv_param.pad_size() == 1)
 				{
+					PRINTF("+ pad [%d %d] (1)\n", caffe_conv_param.pad(0), caffe_conv_param.pad(0));
 					conv_param_builder.add_pad_h(caffe_conv_param.pad(0));
 					conv_param_builder.add_pad_w(caffe_conv_param.pad(0));
 				}
 				else if(caffe_conv_param.pad_size() == 2)
 				{
+					PRINTF("+ pad [%d %d] (2)\n", caffe_conv_param.pad(0), caffe_conv_param.pad(1));
 					conv_param_builder.add_pad_h(caffe_conv_param.pad(0));
 					conv_param_builder.add_pad_w(caffe_conv_param.pad(1));
 				}
 				else if(caffe_conv_param.pad_size() == 0 && caffe_conv_param.has_pad_h() && caffe_conv_param.has_pad_w())
 				{
+					PRINTF("+ pad [%d %d] (3)\n", caffe_conv_param.pad_h(), caffe_conv_param.pad_h());
 					conv_param_builder.add_pad_h(caffe_conv_param.pad_h());
 					conv_param_builder.add_pad_w(caffe_conv_param.pad_w());
 				}
 				else
 				{
-					PRINTF("+ default padding config pad_size %d\n", caffe_conv_param.pad_size());
-					//Go for default padding
+					PRINTF("+ pad [0 0] (3)\n");
+
 					conv_param_builder.add_pad_h(0);
 					conv_param_builder.add_pad_w(0);
 				}
@@ -526,8 +549,6 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				else
 					conv_param_builder.add_group(caffe_conv_param.group());
 				PRINTF("+ num_output %u\n", caffe_conv_param.num_output());
-				PRINTF("+ kernel_h %d\n", caffe_conv_param.kernel_size(0));
-				PRINTF("+ stride_size %d\n", caffe_conv_param.stride_size());
 				if (layer_type.compare("ConvolutionDepthwise")==0)
 					PRINTF("+ group %d\n", caffe_conv_param.num_output());
 				else
