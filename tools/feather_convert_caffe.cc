@@ -20,7 +20,7 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
 
-#if 1
+#if 0
 #define PRINTF printf
 #else
 #define PRINTF
@@ -63,8 +63,7 @@ CaffeModelWeightsConvert::CaffeModelWeightsConvert(std::string caffe_prototxt_na
 {
     this->caffe_prototxt_name = caffe_prototxt_name;
     this->caffe_model_name = caffe_model_name;
-    this->output_name = output_name + ".feathermodel";
-    PRINTF("Model Name: %s\n", this->output_name.c_str());
+    this->output_name = output_name;
 }
 
 bool CaffeModelWeightsConvert::Convert()
@@ -116,6 +115,7 @@ bool CaffeModelWeightsConvert::ReadNetParam()
 
 void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 {
+	std::string OutputLayerName;
 	{
 		uint32_t totalConvCnt = 0, dwConvCnt = 0, sgemmConvCnt = 0, winogradConvCnt = 0;
 		float gminf, gmaxf, gabsminf;
@@ -286,6 +286,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 			for(int i = 0; i < top_vec.size(); ++i)
 			{
 				top_fbstr_vec.push_back(fbb.CreateString(top_vec[i]));
+				OutputLayerName = top_vec[i];
 				PRINTF(" %s", top_vec[i].c_str());
 			}
 			auto top_fbvec = fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(top_fbstr_vec);
@@ -785,8 +786,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 			layer_vec.push_back(layer_builder.Finish());
 		}
 
-		PRINTF("\nTotal Conv: %02d, Sgemm Conv: %02d, DW Conv: %02d, winograd Conv: %02d\n\n", totalConvCnt, sgemmConvCnt, dwConvCnt, totalConvCnt - sgemmConvCnt -dwConvCnt);
-		PRINTF("---------------------------------------\n\n");
+		printf("\nTotal Conv: %02d, Sgemm Conv: %02d, DW Conv: %02d, winograd Conv: %02d\n", totalConvCnt, sgemmConvCnt, dwConvCnt, totalConvCnt - sgemmConvCnt -dwConvCnt);
 
 		auto layer_fbvec = fbb.CreateVector<flatbuffers::Offset<feather::LayerParameter>>(layer_vec);
 		auto name_fbb = fbb.CreateString(caffe_prototxt.name());
@@ -797,12 +797,15 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 		fbb.Finish(net);
 		uint8_t* net_buffer_pointer = fbb.GetBufferPointer();
 		size_t size = fbb.GetSize();
-		PRINTF("Model size: %ld\n", size);
 
+		std::stringstream tmp; tmp<<frac;
+		std::string outfile = output_name+"_"+OutputLayerName+"_"+tmp.str()+".feathermodel";
+		printf("Model %s, size: %ld\n", outfile.c_str(), size);
 		FILE *netfp = NULL;
-		netfp = fopen(output_name.c_str(), "wb");
+		netfp = fopen(outfile.c_str(), "wb");
 		fwrite(net_buffer_pointer, sizeof(uint8_t), size, netfp);
 		fclose(netfp);
+		printf("---------------------------------------\n\n");
 	}
 
 #if 0
