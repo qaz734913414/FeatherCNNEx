@@ -657,7 +657,7 @@ inline void sgemm_4x7(int L, float *a, int lda, float *b, int ldb, float *c, int
 }
 
 #ifndef FRACTION
-#define FRACTION 13
+#define FRACTION 14
 #endif
 #define FRACTIONBX2 2*FRACTION
 

@@ -364,7 +364,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 						gabsminf = MIN(absminf, gabsminf);
 					}
 
-					PRINTF("	[%f, %f] [%f, %f] [%f]\n", minf, maxf, gminf, gmaxf, gabsminf);
+					printf("	[%f, %f] [%f, %f] [%f]\n", minf, maxf, gminf, gmaxf, gabsminf);
 					if (0 != fractions)
 					{
 						PRINTF("	[%d %d] [%d %d] [%d %d] [%d] %d\n", minS, maxS, absminS, absmaxS, gminS, gmaxS, gabsmaxS, 1<<fractions);

@@ -18,7 +18,7 @@
 #define VSRC_8H_FIX    V4.8H
 
 #ifndef FRACTION
-#define FRACTION 13
+#define FRACTION 14
 #endif
 
 #define FRACTIONBX2 2*FRACTION

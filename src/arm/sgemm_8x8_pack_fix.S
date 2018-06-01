@@ -54,7 +54,7 @@
 #define VSRC_4S_CF     V27.4S
 
 #ifndef FRACTION
-#define FRACTION 13
+#define FRACTION 14
 #endif
 
 #define FRACTIONBX2 2*FRACTION
