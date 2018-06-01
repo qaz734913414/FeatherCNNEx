@@ -669,6 +669,7 @@ static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     float b4;
     float scale = 1.0/(1<<FRACTION);
     int16x4x2_t va;
+    float32x4_t va0, va1;
     float32x4_t vc4;
     float32x4_t vcE;
 
@@ -696,8 +697,8 @@ static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t va_0 = vmovl_s16(va.val[0]);
         int32x4_t va_1 = vmovl_s16(va.val[1]);
 
-        float32x4_t va0 = vcvtq_f32_s32(va_0);
-        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vcvtq_f32_s32(va_0);
+        va1 = vcvtq_f32_s32(va_1);
         va0 = vmulq_n_f32(va0, scale);
         va1 = vmulq_n_f32(va1, scale);
 
@@ -715,6 +716,7 @@ static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     }
 
     cptr = c;
+
     *cptr = vc4[0];
     cptr+=ldc;
     *cptr = vc4[1];
@@ -815,29 +817,29 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     float32x4_t vc4, vc5;
     float32x4_t vcE, vcF;
 
-    vc4[0] = *cptr;
+    vc4[0] = *(cptr+0);
     vc5[0] = *(cptr+1);
     cptr += ldc;
-    vc4[1] = *cptr;
+    vc4[1] = *(cptr+0);
     vc5[1] = *(cptr+1);
     cptr += ldc;
-    vc4[2] = *cptr;
+    vc4[2] = *(cptr+0);
     vc5[2] = *(cptr+1);
     cptr += ldc;
-    vc4[3] = *cptr;
+    vc4[3] = *(cptr+0);
     vc5[3] = *(cptr+1);
     cptr += ldc;
 
-    vcE[0] = *cptr;
+    vcE[0] = *(cptr+0);
     vcF[0] = *(cptr+1);
     cptr += ldc;
-    vcE[1] = *cptr;
+    vcE[1] = *(cptr+0);
     vcF[1] = *(cptr+1);
     cptr += ldc;
-    vcE[2] = *cptr;
+    vcE[2] = *(cptr+0);
     vcF[2] = *(cptr+1);
     cptr += ldc;
-    vcE[3] = *cptr;
+    vcE[3] = *(cptr+0);
     vcF[3] = *(cptr+1);
 
     for(int p = 0; p < L; ++p)
@@ -851,8 +853,8 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t va_0 = vmovl_s16(va.val[0]);
         int32x4_t va_1 = vmovl_s16(va.val[1]);
 
-        float32x4_t va0 = vcvtq_f32_s32(va_0);
-        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vcvtq_f32_s32(va_0);
+        va1 = vcvtq_f32_s32(va_1);
         va0 = vmulq_n_f32(va0, scale);
         va1 = vmulq_n_f32(va1, scale);
 
@@ -876,28 +878,29 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     }
 
     cptr = c;
-    *cptr = vc4[0];
+
+    *(cptr+0) = vc4[0];
     *(cptr+1) = vc5[0];
     cptr+=ldc;
-    *cptr = vc4[1];
+    *(cptr+0) = vc4[1];
     *(cptr+1) = vc5[1];
     cptr+=ldc;
-    *cptr = vc4[2];
+    *(cptr+0) = vc4[2];
     *(cptr+1) = vc5[2];
     cptr+=ldc;
-    *cptr = vc4[3];
+    *(cptr+0) = vc4[3];
     *(cptr+1) = vc5[3];
     cptr+=ldc;
-    *cptr = vcE[0];
+    *(cptr+0) = vcE[0];
     *(cptr+1) = vcF[0];
     cptr+=ldc;
-    *cptr = vcE[1];
+    *(cptr+0) = vcE[1];
     *(cptr+1) = vcF[1];
     cptr+=ldc;
-    *cptr = vcE[2];
+    *(cptr+0) = vcE[2];
     *(cptr+1) = vcF[2];
     cptr+=ldc;
-    *cptr = vcE[3];
+    *(cptr+0) = vcE[3];
     *(cptr+1) = vcF[3];
 }
 
@@ -1006,36 +1009,36 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     float32x4_t vc4, vc5, vc6;
     float32x4_t vcE, vcF, vcG;
 
-    vc4[0] = *cptr;
+    vc4[0] = *(cptr+0);
     vc5[0] = *(cptr+1);
     vc6[0] = *(cptr+2);
     cptr += ldc;
-    vc4[1] = *cptr;
+    vc4[1] = *(cptr+0);
     vc5[1] = *(cptr+1);
     vc6[1] = *(cptr+2);
     cptr += ldc;
-    vc4[2] = *cptr;
+    vc4[2] = *(cptr+0);
     vc5[2] = *(cptr+1);
     vc6[2] = *(cptr+2);
     cptr += ldc;
-    vc4[3] = *cptr;
+    vc4[3] = *(cptr+0);
     vc5[3] = *(cptr+1);
     vc6[3] = *(cptr+2);
     cptr += ldc;
 
-    vcE[0] = *cptr;
+    vcE[0] = *(cptr+0);
     vcF[0] = *(cptr+1);
     vcG[0] = *(cptr+2);
     cptr += ldc;
-    vcE[1] = *cptr;
+    vcE[1] = *(cptr+0);
     vcF[1] = *(cptr+1);
     vcG[1] = *(cptr+2);
     cptr += ldc;
-    vcE[2] = *cptr;
+    vcE[2] = *(cptr+0);
     vcF[2] = *(cptr+1);
     vcG[2] = *(cptr+2);
     cptr += ldc;
-    vcE[3] = *cptr;
+    vcE[3] = *(cptr+0);
     vcF[3] = *(cptr+1);
     vcG[3] = *(cptr+2);
 
@@ -1051,8 +1054,8 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t va_0 = vmovl_s16(va.val[0]);
         int32x4_t va_1 = vmovl_s16(va.val[1]);
 
-        float32x4_t va0 = vcvtq_f32_s32(va_0);
-        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vcvtq_f32_s32(va_0);
+        va1 = vcvtq_f32_s32(va_1);
         va0 = vmulq_n_f32(va0, scale);
         va1 = vmulq_n_f32(va1, scale);
 
@@ -1080,29 +1083,38 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     }
 
     cptr = c;
-    *cptr = vc4[0];
+
+    *(cptr+0) = vc4[0];
     *(cptr+1) = vc5[0];
+    *(cptr+2) = vc6[0];
     cptr+=ldc;
-    *cptr = vc4[1];
+    *(cptr+0) = vc4[1];
     *(cptr+1) = vc5[1];
+    *(cptr+2) = vc6[1];
     cptr+=ldc;
-    *cptr = vc4[2];
+    *(cptr+0) = vc4[2];
     *(cptr+1) = vc5[2];
+    *(cptr+2) = vc6[2];
     cptr+=ldc;
-    *cptr = vc4[3];
+    *(cptr+0) = vc4[3];
     *(cptr+1) = vc5[3];
+    *(cptr+2) = vc6[3];
     cptr+=ldc;
-    *cptr = vcE[0];
+    *(cptr+0) = vcE[0];
     *(cptr+1) = vcF[0];
+    *(cptr+2) = vcG[0];
     cptr+=ldc;
-    *cptr = vcE[1];
+    *(cptr+0) = vcE[1];
     *(cptr+1) = vcF[1];
+    *(cptr+2) = vcG[1];
     cptr+=ldc;
-    *cptr = vcE[2];
+    *(cptr+0) = vcE[2];
     *(cptr+1) = vcF[2];
+    *(cptr+2) = vcG[2];
     cptr+=ldc;
-    *cptr = vcE[3];
+    *(cptr+0) = vcE[3];
     *(cptr+1) = vcF[3];
+    *(cptr+2) = vcG[3];
 
 }
 
@@ -1255,8 +1267,8 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t va_0 = vmovl_s16(va.val[0]);
         int32x4_t va_1 = vmovl_s16(va.val[1]);
 
-        float32x4_t va0 = vcvtq_f32_s32(va_0);
-        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vcvtq_f32_s32(va_0);
+        va1 = vcvtq_f32_s32(va_1);
         va0 = vmulq_n_f32(va0, scale);
         va1 = vmulq_n_f32(va1, scale);
 
@@ -1432,8 +1444,8 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t va_0 = vmovl_s16(va.val[0]);
         int32x4_t va_1 = vmovl_s16(va.val[1]);
 
-        float32x4_t va0 = vcvtq_f32_s32(va_0);
-        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vcvtq_f32_s32(va_0);
+        va1 = vcvtq_f32_s32(va_1);
         va0 = vmulq_n_f32(va0, scale);
         va1 = vmulq_n_f32(va1, scale);
 
@@ -1665,8 +1677,8 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t va_0 = vmovl_s16(va.val[0]);
         int32x4_t va_1 = vmovl_s16(va.val[1]);
 
-        float32x4_t va0 = vcvtq_f32_s32(va_0);
-        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vcvtq_f32_s32(va_0);
+        va1 = vcvtq_f32_s32(va_1);
         va0 = vmulq_n_f32(va0, scale);
         va1 = vmulq_n_f32(va1, scale);
 
@@ -1916,17 +1928,17 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     vcB = vld1q_f32(cptr);
     vcE[1] = *(cptr + 4 + 1);
     vcF[1] = *(cptr + 5 + 1);
-    vcG[1] = *(cptr + 6 + 0);
+    vcG[1] = *(cptr + 6 + 1);
     cptr += ldc;
     vcC = vld1q_f32(cptr);
     vcE[2] = *(cptr + 4 + 2);
     vcF[2] = *(cptr + 5 + 2);
-    vcG[2] = *(cptr + 6 + 0);
+    vcG[2] = *(cptr + 6 + 2);
     cptr += ldc;
     vcD = vld1q_f32(cptr);
     vcE[3] = *(cptr + 4 + 3);
     vcF[3] = *(cptr + 5 + 3);
-    vcG[3] = *(cptr + 6 + 0);
+    vcG[3] = *(cptr + 6 + 3);
 
     for(int p = 0; p < L; ++p)
     {
@@ -1939,8 +1951,8 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t va_0 = vmovl_s16(va.val[0]);
         int32x4_t va_1 = vmovl_s16(va.val[1]);
 
-        float32x4_t va0 = vcvtq_f32_s32(va_0);
-        float32x4_t va1 = vcvtq_f32_s32(va_1);
+        va0 = vcvtq_f32_s32(va_0);
+        va1 = vcvtq_f32_s32(va_1);
         va0 = vmulq_n_f32(va0, scale);
         va1 = vmulq_n_f32(va1, scale);
 
@@ -2688,6 +2700,7 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
 void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, float *b, float *c, int num_threads)
 {
     int eM = M + (8 - M % 8) % 8;
+    printf("-%d-\n", N%8);
     switch(N % 8)
     {
     case 1:
