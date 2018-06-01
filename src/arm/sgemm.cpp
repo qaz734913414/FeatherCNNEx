@@ -812,7 +812,6 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     float scale = 1.0/(1<<FRACTION);
 
     int16x4x2_t va;
-    float32x4_t vb;
     float32x4_t va0, va1;
     float32x4_t vc4, vc5;
     float32x4_t vcE, vcF;
@@ -844,7 +843,6 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     for(int p = 0; p < L; ++p)
     {
-        vb  = vld1q_f32(bptr);
         b4  = *(bptr    );
         b5  = *(bptr + 1);
 
@@ -911,7 +909,6 @@ static void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int
     float *cptr = c;
     float b4, b5;
     float32x4_t vzero = vdupq_n_f32(0.0f);
-    float32x4_t vb;
     float32x4_t va0, va1;
     float32x4_t vc4, vc5;
     //next 4 rows
@@ -944,7 +941,6 @@ static void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int
 
     for(int p = 0; p < L; ++p)
     {
-        vb  = vld1q_f32(bptr);
         b4  = *(bptr    );
         b5  = *(bptr + 1);
         va0 = vld1q_f32(aptr);
@@ -1004,7 +1000,6 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     float scale = 1.0/(1<<FRACTION);
 
     int16x4x2_t va;
-    float32x4_t vb;
     float32x4_t va0, va1;
     float32x4_t vc4, vc5, vc6;
     float32x4_t vcE, vcF, vcG;
@@ -1044,7 +1039,6 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     for(int p = 0; p < L; ++p)
     {
-        vb  = vld1q_f32(bptr);
         b4  = *(bptr    );
         b5  = *(bptr + 1);
         b6  = *(bptr + 2);
@@ -1124,7 +1118,6 @@ static void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int
     float *bptr = b;
     float *cptr = c;
     float b4, b5, b6;
-    float32x4_t vb;
     float32x4_t va0, va1;
     float32x4_t vc4, vc5, vc6;
     //next 4 rows
@@ -1166,7 +1159,6 @@ static void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int
 
     for(int p = 0; p < L; ++p)
     {
-        vb  = vld1q_f32(bptr);
         b4  = *(bptr    );
         b5  = *(bptr + 1);
         b6  = *(bptr + 2);
