@@ -2688,7 +2688,7 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
     }
     else
     {
-#pragma parallel for num_threads(num_threads)
+        #pragma parallel for num_threads(num_threads)
         for(int i = 0; i < num_threads * factor; ++i)
         {
             int sN = (tN < N - i * tN) ? tN : N - i * tN;
@@ -2700,7 +2700,7 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
 void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, float *b, float *c, int num_threads)
 {
     int eM = M + (8 - M % 8) % 8;
-    printf("-%d-\n", N%8);
+    //printf("-%d-\n", N%8);
     switch(N % 8)
     {
     case 1:
