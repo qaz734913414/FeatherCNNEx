@@ -39,6 +39,7 @@ internalPackB8Fix:
 	cbz L, __END
 __LOOP:
 	ld1 {VSRC_4S_B0, VSRC_4S_B1}, [B], LDBX
+	prfm PLDL1KEEP, [B, #32]
 	fcvtzs VSRC_4S_PACKB0, VSRC_4S_B0, #FRACTION
 	fcvtzs VSRC_4S_PACKB1, VSRC_4S_B1, #FRACTION
 	sqxtn VSRC_4H_FIX, VSRC_4S_PACKB0

@@ -145,7 +145,7 @@ static void internalPackA1(int L, float* packA, float* a, int lda)
 
 void externalPackAFix(int M, int L, void* packA, short* a, int lda)
 {
-    printf("externalPackA fix\n");
+    printf("externalPackA fix not implement yet\n");
 }
 
 void externalPackA(int M, int L, float* packA, float* a, int lda)
