@@ -116,8 +116,8 @@ bool CaffeModelWeightsConvert::ReadNetParam()
 
 void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 {
-	//Writer
 	{
+		uint32_t totalConvCnt = 0, dwConvCnt = 0, sgemmConvCnt = 0, winogradConvCnt = 0;
 		float gminf, gmaxf, gabsminf;
 		short gminS, gmaxS, gabsmaxS;
 		int gFlag = 1;
@@ -232,8 +232,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 			for(int j = 0; j < caffe_layer.top_size(); ++j)
 			   	top_vec.push_back(caffe_layer.top(j));
 
-			PRINTF("---------------------------------------\n");
-			PRINTF("Layer %d name %s type %s\nBottom: ", i, layer_name.c_str(), layer_type.c_str());
+			PRINTF("---------------------------------------\nLayer %d name %s type %s\nBottom: ", i, layer_name.c_str(), layer_type.c_str());
+
 			/*Print bottom and tops*/
 			for(int t = 0; t < bottom_vec.size(); ++t)
 				PRINTF("%s ", bottom_vec[t].c_str());
@@ -241,6 +241,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 			for(int t = 0; t < top_vec.size(); ++t)
 				PRINTF("%s ", top_vec[t].c_str());
 			PRINTF("\n");
+
 			/* change top blob name to layer name if bottom blob name eq top blob name */
 			if(bottom_vec.size() > 0 && top_vec.size() > 0)
 			{
@@ -252,7 +253,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 					if(inplace_blob_map.find(bottom_name) == inplace_blob_map.end())
 						inplace_blob_map[bottom_name] = bottom_name;
 					bottom_vec[0] = inplace_blob_map[bottom_name];
-					PRINTF("* change top %s to %s\n", top_vec[0].c_str(), layer_name.c_str());
+					PRINTF("[* CT] %s -> %s\n", top_vec[0].c_str(), layer_name.c_str());
 					top_vec[0] = layer_name;
 					inplace_blob_map[bottom_name] = layer_name;
 				}
@@ -264,13 +265,13 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 						if(inplace_blob_map.find(bottom_name) != inplace_blob_map.end())
 						{
 							bottom_vec[t] = inplace_blob_map[bottom_name];
-							PRINTF("* change bottom %s to %s\n", bottom_name.c_str(), bottom_vec[t].c_str());
+							PRINTF("[* CB] %s -> %s\n", bottom_name.c_str(), bottom_vec[t].c_str());
 						}
 					}
 				}
 			}
 
-			PRINTF("After change:\nBottoms:");
+			PRINTF("New Bottom:");
 			/* create flat buffer for bottom & top names  */
 			std::vector<flatbuffers::Offset<flatbuffers::String>> bottom_fbstr_vec;
 			for(int i = 0; i < bottom_vec.size(); ++i)
@@ -278,8 +279,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				bottom_fbstr_vec.push_back(fbb.CreateString(bottom_vec[i]));
 				PRINTF(" %s", bottom_vec[i].c_str());
 			}
-			PRINTF("\nTop:");
 			auto bottom_fbvec = fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(bottom_fbstr_vec);
+			PRINTF("\nNew Top:");
 
 			std::vector<flatbuffers::Offset<flatbuffers::String>> top_fbstr_vec;
 			for(int i = 0; i < top_vec.size(); ++i)
@@ -287,10 +288,10 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				top_fbstr_vec.push_back(fbb.CreateString(top_vec[i]));
 				PRINTF(" %s", top_vec[i].c_str());
 			}
-			PRINTF("\n");
 			auto top_fbvec = fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(top_fbstr_vec);
+			PRINTF("\n");
 
-			// First 1x1 conv sgemm used fix16
+			// First step, only 1x1 conv sgemm used fix16
 			if (layer_type.compare("Convolution")==0)
 			{
 				auto caffe_conv_param = caffe_layer.convolution_param();
@@ -482,6 +483,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 			flatbuffers::Offset<feather::DropoutParameter> dropout_param;
 			PRINTF("Layer param:\n");
 			if((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)){
+				uint32_t k_w, k_h, stride_h, stride_w, pad_h, pad_w;
+				totalConvCnt++;
 				PRINTF("+ %s\n", layer_type.c_str());
 				auto caffe_conv_param = caffe_layer.convolution_param();
 				feather::ConvolutionParameterBuilder conv_param_builder(fbb);
@@ -489,89 +492,110 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				conv_param_builder.add_bias_term(caffe_conv_param.bias_term());
 				if(caffe_conv_param.kernel_size_size() == 1)
 				{
-					PRINTF("+ k [%d %d]\n", caffe_conv_param.kernel_size(0), caffe_conv_param.kernel_size(0));
+					k_w = k_h = caffe_conv_param.kernel_size(0);
 					conv_param_builder.add_kernel_h(caffe_conv_param.kernel_size(0));
 					conv_param_builder.add_kernel_w(caffe_conv_param.kernel_size(0));
 				}
 				else if(caffe_conv_param.kernel_size_size() == 2)
 				{
-					PRINTF("+ k [%d %d]\n", caffe_conv_param.kernel_size(0), caffe_conv_param.kernel_size(1));
 					conv_param_builder.add_kernel_h(caffe_conv_param.kernel_size(0));
 					conv_param_builder.add_kernel_w(caffe_conv_param.kernel_size(1));
+					k_h = caffe_conv_param.kernel_size(0);
+					k_w = caffe_conv_param.kernel_size(1);
 				}
 				else
 				{
 					if (caffe_conv_param.has_kernel_h() && caffe_conv_param.has_kernel_w())
 					{
-						PRINTF("+ k [%d %d]\n", caffe_conv_param.kernel_h(), caffe_conv_param.kernel_w());
 						conv_param_builder.add_kernel_h(caffe_conv_param.kernel_h());
 						conv_param_builder.add_kernel_w(caffe_conv_param.kernel_w());
+						k_h = caffe_conv_param.kernel_h();
+						k_w = caffe_conv_param.kernel_w();
 					}
 					else
 					{
-						PRINTF("\nERR: should not be show\n");
+						PRINTF("\nERR: code should not reach here as wrong kernel size\n");
 						exit(-1);
 					}
 				}
 
+				PRINTF("+ k [%d %d]\n", k_h, k_w);
+
 				if(caffe_conv_param.stride_size() == 1){
-					PRINTF("+ stride [%d %d]\n", caffe_conv_param.stride(0), caffe_conv_param.stride(0));
 					conv_param_builder.add_stride_h(caffe_conv_param.stride(0));
 					conv_param_builder.add_stride_w(caffe_conv_param.stride(0));
+					stride_h = stride_w = caffe_conv_param.stride(0);
 				}
 				else if(caffe_conv_param.stride_size() == 2){
-					PRINTF("+ stride [%d %d]\n", caffe_conv_param.stride(0), caffe_conv_param.stride(1));
 					conv_param_builder.add_stride_h(caffe_conv_param.stride(0));
 					conv_param_builder.add_stride_w(caffe_conv_param.stride(1));
+					stride_h = caffe_conv_param.stride(0);
+					stride_w = caffe_conv_param.stride(1);
 				}
 				else if(caffe_conv_param.stride_size() == 0)
 				{
-					PRINTF("+ stride [1 1]\n");
 					conv_param_builder.add_stride_h(1);
 					conv_param_builder.add_stride_w(1);
+					stride_h = stride_w = 1;
 				}
 				else
 				{
-					PRINTF("More stride dim than expected!\n");
+					PRINTF("\nERR: code should not reach here as wrong stride size\n");
 					exit(-1);
 				}
-				//PRINTF("+ pad %d has_pad_h %d has_pad_w %d\n", caffe_conv_param.pad_size(), caffe_conv_param.has_pad_h(),caffe_conv_param.has_pad_w());
+
+				PRINTF("+ stride [%d %d]\n", stride_h, stride_w);
+
 				if(caffe_conv_param.pad_size() == 1)
 				{
-					PRINTF("+ pad [%d %d] (1)\n", caffe_conv_param.pad(0), caffe_conv_param.pad(0));
 					conv_param_builder.add_pad_h(caffe_conv_param.pad(0));
 					conv_param_builder.add_pad_w(caffe_conv_param.pad(0));
+					pad_h = pad_w = caffe_conv_param.pad(0);
 				}
 				else if(caffe_conv_param.pad_size() == 2)
 				{
-					PRINTF("+ pad [%d %d] (2)\n", caffe_conv_param.pad(0), caffe_conv_param.pad(1));
 					conv_param_builder.add_pad_h(caffe_conv_param.pad(0));
 					conv_param_builder.add_pad_w(caffe_conv_param.pad(1));
+					pad_h = caffe_conv_param.pad(0);
+					pad_w = caffe_conv_param.pad(1);
 				}
 				else if(caffe_conv_param.pad_size() == 0 && caffe_conv_param.has_pad_h() && caffe_conv_param.has_pad_w())
 				{
-					PRINTF("+ pad [%d %d] (3)\n", caffe_conv_param.pad_h(), caffe_conv_param.pad_h());
 					conv_param_builder.add_pad_h(caffe_conv_param.pad_h());
 					conv_param_builder.add_pad_w(caffe_conv_param.pad_w());
+					pad_h = caffe_conv_param.pad_h();
+					pad_w = caffe_conv_param.pad_w();
 				}
 				else
 				{
-					PRINTF("+ pad [0 0] (3)\n");
-
 					conv_param_builder.add_pad_h(0);
 					conv_param_builder.add_pad_w(0);
+					pad_h = pad_w = 0;
 				}
+
+				PRINTF("+ pad [%d %d]\n", pad_h, pad_w);
+
 				conv_param_builder.add_fractions(fractions);
 				PRINTF("+ fractions %u\n", fractions);
+
 				if (layer_type.compare("ConvolutionDepthwise")==0)
 					conv_param_builder.add_group(caffe_conv_param.num_output());
 				else
 					conv_param_builder.add_group(caffe_conv_param.group());
 				PRINTF("+ num_output %u\n", caffe_conv_param.num_output());
+
 				if (layer_type.compare("ConvolutionDepthwise")==0)
+				{
+					dwConvCnt++;
 					PRINTF("+ group %d\n", caffe_conv_param.num_output());
+				}
 				else
+				{
+					if (3 != k_h || 3 != k_w)
+						sgemmConvCnt++;
 					PRINTF("+ group %d\n", caffe_conv_param.group());
+				}
+
 				conv_param = conv_param_builder.Finish();
 			}
 			else if(layer_type.compare("LRN") == 0)
@@ -760,6 +784,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 
 			layer_vec.push_back(layer_builder.Finish());
 		}
+
+		PRINTF("\nTotal Conv: %02d, Sgemm Conv: %02d, DW Conv: %02d, winograd Conv: %02d\n\n", totalConvCnt, sgemmConvCnt, dwConvCnt, totalConvCnt - sgemmConvCnt -dwConvCnt);
 		PRINTF("---------------------------------------\n\n");
 
 		auto layer_fbvec = fbb.CreateVector<flatbuffers::Offset<feather::LayerParameter>>(layer_vec);
@@ -773,7 +799,6 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 		size_t size = fbb.GetSize();
 		PRINTF("Model size: %ld\n", size);
 
-		//Writer
 		FILE *netfp = NULL;
 		netfp = fopen(output_name.c_str(), "wb");
 		fwrite(net_buffer_pointer, sizeof(uint8_t), size, netfp);
