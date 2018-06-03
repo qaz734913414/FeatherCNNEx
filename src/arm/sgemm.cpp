@@ -820,8 +820,8 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     {
         int16x4x2_t va = vld1_s16_x2(aptr);
 
-        fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr));
-        fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr+1));
+        fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr));
+        fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr+1));
 
         vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
         vc5_I = vmlal_n_s16(vc5_I, va.val[0], b5_I);
@@ -995,9 +995,9 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     {
         int16x4x2_t va = vld1_s16_x2(aptr);
 
-        fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr));
-        fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr+1));
-        fix16_t b6_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr+2));
+        fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr));
+        fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr+1));
+        fix16_t b6_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr+2));
 
         vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
         vc5_I = vmlal_n_s16(vc5_I, va.val[0], b5_I);
@@ -1369,7 +1369,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
         int16x4_t vb_I   = vmovn_s32(vb_I32);
 
-        fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 4));
+        fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION, *(bptr + 4));
 
         vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
         vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
@@ -1591,8 +1591,8 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
         int16x4_t vb_I   = vmovn_s32(vb_I32);
 
-        fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 4));
-        fix16_t b5_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 5));
+        fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION, *(bptr + 4));
+        fix16_t b5_I = FLOAT2FIX(fix16_t, FRACTION, *(bptr + 5));
 
         vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
         vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
@@ -1853,9 +1853,9 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
         int16x4_t vb_I   = vmovn_s32(vb_I32);
 
-        fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 4));
-        fix16_t b5_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 5));
-        fix16_t b6_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 6));
+        fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION, *(bptr + 4));
+        fix16_t b5_I = FLOAT2FIX(fix16_t, FRACTION, *(bptr + 5));
+        fix16_t b6_I = FLOAT2FIX(fix16_t, FRACTION, *(bptr + 6));
 
         vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
         vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
