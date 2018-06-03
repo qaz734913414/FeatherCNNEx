@@ -19,23 +19,13 @@
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
+#include "common.h"
 
 #if 0
 #define PRINTF printf
 #else
 #define PRINTF
 #endif
-
-#ifndef MAX
-#define MAX(a,b) ((a)>(b))?(a):(b)
-#endif
-#ifndef MIN
-#define MIN(a,b) ((a)<(b))?(a):(b)
-#endif
-
-typedef short fix_t;
-#define FLOAT2FIX(fixt, fracbits, x) fixt(((x)*(float)((fixt(1)<<(fracbits)))))
-#define FIX2FLOAT(fracbits,x) ((float)(x)/((1)<<fracbits))
 
 using namespace caffe;
 using google::protobuf::io::FileInputStream;
@@ -202,7 +192,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 
 		PRINTF("Layer Num: %d, Weight Num: %d\n", caffe_prototxt.layer_size(), caffe_weight.layer_size());
 
-		std::vector<fix_t> blob_data_vec_fix;
+		std::vector<fix16_t> blob_data_vec_fix;
 		std::vector<float> blob_data_vec;
 
 		std::map<std::string, int> caffe_model_layer_map;
@@ -323,7 +313,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 					/* only weight blob of Conv layer do fix16 change (bias ignore) */
 					if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
 					{
-						fix_t fix_data = FLOAT2FIX((fix_t), fractions, data);
+						fix16_t fix_data = FLOAT2FIX((fix16_t), fractions, data);
 						blob_data_vec_fix.push_back(fix_data);
 						blob_data_vec.push_back(data);
 
@@ -380,7 +370,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				flatbuffers::Offset<flatbuffers::Vector<float> > blob_data_fbvec;
 				if ((0 == j) && (0 != fractions) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
 				{
-					blob_data_fbvec_fix = fbb.CreateVector<fix_t>(blob_data_vec_fix);
+					blob_data_fbvec_fix = fbb.CreateVector<fix16_t>(blob_data_vec_fix);
 					PRINTF("	Blob Fix %d\n", fractions);
 				}
 				else

@@ -17,11 +17,6 @@
 #include <vector>
 #include <cstdlib>
 
-int min(int a, int b)
-{
-    return (a < b) ? a : b;
-}
-
 void* _mm_malloc(size_t sz, size_t align)
 {
     void *ptr;
@@ -30,9 +25,8 @@ void* _mm_malloc(size_t sz, size_t align)
 #else
     int alloc_result = posix_memalign(&ptr, align, sz);
     if (alloc_result != 0)
-    {
         return NULL;
-    }
+
     return ptr;
 #endif
 }

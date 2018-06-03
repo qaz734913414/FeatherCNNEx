@@ -65,10 +65,10 @@ void externalPackA8(int M, int L, T* packA, T* a, int lda)
 
     for(int i = 0; i < eM; i += mc)
     {
-        const int ib = min(eM - i, mc);
+        const int ib = MIN(eM - i, mc);
         for(int p = 0; p < L; p += kc)
         {
-            const int pb = min(L - p, kc);
+            const int pb = MIN(L - p, kc);
             for(int k = 0; k < ib; k += 8)
             {
                 internalPackA8<T>(pb, packAptr, a + i * lda + p + k * lda, lda);
@@ -172,10 +172,10 @@ void externalPackA(int M, int L, float* packA, float* a, int lda)
     }
     for(int i = 0; i < eM; i += mc)
     {
-        const int ib = min(eM - i, mc);
+        const int ib = MIN(eM - i, mc);
         for(int p = 0; p < L; p += kc)
         {
-            const int pb = min(L - p, kc);
+            const int pb = MIN(L - p, kc);
             for(int k = 0; k < ib -4; k += 4)
             {
                 internalPackA4(pb, packAptr, a + i * lda + p + k * lda, lda);
@@ -656,60 +656,39 @@ inline void sgemm_4x7(int L, float *a, int lda, float *b, int ldb, float *c, int
     vst1q_lane_f32(cptr + 6, vc6, 3);
 }
 
-#ifndef FRACTION
-#define FRACTION 14
-#endif
-#define FRACTIONBX2 2*FRACTION
-
 static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     short *aptr = a;
     float *bptr = b;
     float *cptr = c;
-    float b4;
-    float scale = 1.0/(1<<FRACTION);
-    int16x4x2_t va;
-    float32x4_t va0, va1;
-    float32x4_t vc4;
-    float32x4_t vcE;
 
-    vc4[0] = *cptr;
+    int32x4_t vc4_I;
+    int32x4_t vcE_I;
+
+    vc4_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
     cptr += ldc;
-    vc4[1] = *cptr;
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
     cptr += ldc;
-    vc4[2] = *cptr;
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
     cptr += ldc;
-    vc4[3] = *cptr;
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
     cptr += ldc;
 
-    vcE[0] = *cptr;
+    vcE_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
     cptr += ldc;
-    vcE[1] = *cptr;
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
     cptr += ldc;
-    vcE[2] = *cptr;
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
     cptr += ldc;
-    vcE[3] = *cptr;
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
 
     for(int p = 0; p < L; ++p)
     {
-        b4  = *(bptr);
-        va = vld1_s16_x2(aptr);
-        int32x4_t va_0 = vmovl_s16(va.val[0]);
-        int32x4_t va_1 = vmovl_s16(va.val[1]);
+        int16x4x2_t va = vld1_s16_x2(aptr);
+        fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *bptr);
 
-        va0 = vcvtq_f32_s32(va_0);
-        va1 = vcvtq_f32_s32(va_1);
-        va0 = vmulq_n_f32(va0, scale);
-        va1 = vmulq_n_f32(va1, scale);
-
-        //A row in A multiplies a single value in B by column
-#if __aarch64__
-        vc4 = vfmaq_n_f32(vc4, va0, b4);
-        vcE = vfmaq_n_f32(vcE, va1, b4);
-#else
-        vc4 = vmlaq_n_f32(vc4, va0, b4);
-        vcE = vmlaq_n_f32(vcE, va1, b4);
-#endif // __aarch64__
+        vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
+        vcE_I = vmlal_n_s16(vcE_I, va.val[1], b4_I);
 
         bptr += ldb;
         aptr += 8;
@@ -717,21 +696,21 @@ static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     cptr = c;
 
-    *cptr = vc4[0];
+    *cptr = FIX2FLOAT(FRACTIONBX2, vc4_I[0]);
     cptr+=ldc;
-    *cptr = vc4[1];
+    *cptr = FIX2FLOAT(FRACTIONBX2, vc4_I[1]);
     cptr+=ldc;
-    *cptr = vc4[2];
+    *cptr = FIX2FLOAT(FRACTIONBX2, vc4_I[2]);
     cptr+=ldc;
-    *cptr = vc4[3];
+    *cptr = FIX2FLOAT(FRACTIONBX2, vc4_I[3]);
     cptr+=ldc;
-    *cptr = vcE[0];
+    *cptr = FIX2FLOAT(FRACTIONBX2, vcE_I[0]);
     cptr+=ldc;
-    *cptr = vcE[1];
+    *cptr = FIX2FLOAT(FRACTIONBX2, vcE_I[1]);
     cptr+=ldc;
-    *cptr = vcE[2];
+    *cptr = FIX2FLOAT(FRACTIONBX2, vcE_I[2]);
     cptr+=ldc;
-    *cptr = vcE[3];
+    *cptr = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
 }
 
 static void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -808,68 +787,47 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     short *aptr = a;
     float *bptr = b;
     float *cptr = c;
-    float b4, b5;
-    float scale = 1.0/(1<<FRACTION);
 
-    int16x4x2_t va;
-    float32x4_t va0, va1;
-    float32x4_t vc4, vc5;
-    float32x4_t vcE, vcF;
+    int32x4_t vc4_I, vc5_I;
+    int32x4_t vcE_I, vcF_I;
 
-    vc4[0] = *(cptr+0);
-    vc5[0] = *(cptr+1);
+    vc4_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
     cptr += ldc;
-    vc4[1] = *(cptr+0);
-    vc5[1] = *(cptr+1);
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
     cptr += ldc;
-    vc4[2] = *(cptr+0);
-    vc5[2] = *(cptr+1);
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
     cptr += ldc;
-    vc4[3] = *(cptr+0);
-    vc5[3] = *(cptr+1);
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
     cptr += ldc;
 
-    vcE[0] = *(cptr+0);
-    vcF[0] = *(cptr+1);
+    vcE_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
     cptr += ldc;
-    vcE[1] = *(cptr+0);
-    vcF[1] = *(cptr+1);
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
     cptr += ldc;
-    vcE[2] = *(cptr+0);
-    vcF[2] = *(cptr+1);
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
     cptr += ldc;
-    vcE[3] = *(cptr+0);
-    vcF[3] = *(cptr+1);
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
 
     for(int p = 0; p < L; ++p)
     {
-        b4  = *(bptr    );
-        b5  = *(bptr + 1);
+        int16x4x2_t va = vld1_s16_x2(aptr);
 
-        va = vld1_s16_x2(aptr);
+        fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr));
+        fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr+1));
 
-        int32x4_t va_0 = vmovl_s16(va.val[0]);
-        int32x4_t va_1 = vmovl_s16(va.val[1]);
+        vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
+        vc5_I = vmlal_n_s16(vc5_I, va.val[0], b5_I);
 
-        va0 = vcvtq_f32_s32(va_0);
-        va1 = vcvtq_f32_s32(va_1);
-        va0 = vmulq_n_f32(va0, scale);
-        va1 = vmulq_n_f32(va1, scale);
-
-        //A row in A multiplies a single value in B by column
-#if __aarch64__
-        vc4 = vfmaq_n_f32(vc4, va0, b4);
-        vc5 = vfmaq_n_f32(vc5, va0, b5);
-
-        vcE = vfmaq_n_f32(vcE, va1, b4);
-        vcF = vfmaq_n_f32(vcF, va1, b5);
-#else
-        vc4 = vmlaq_n_f32(vc4, va0, b4);
-        vc5 = vmlaq_n_f32(vc5, va0, b5);
-
-        vcE = vmlaq_n_f32(vcE, va1, b4);
-        vcF = vmlaq_n_f32(vcF, va1, b5);
-#endif // __aarch64__
+        vcE_I = vmlal_n_s16(vcE_I, va.val[1], b4_I);
+        vcF_I = vmlal_n_s16(vcF_I, va.val[1], b5_I);
 
         bptr += ldb;
         aptr += 8;
@@ -877,29 +835,29 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     cptr = c;
 
-    *(cptr+0) = vc4[0];
-    *(cptr+1) = vc5[0];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[0]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[0]);
     cptr+=ldc;
-    *(cptr+0) = vc4[1];
-    *(cptr+1) = vc5[1];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[1]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[1]);
     cptr+=ldc;
-    *(cptr+0) = vc4[2];
-    *(cptr+1) = vc5[2];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[2]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[2]);
     cptr+=ldc;
-    *(cptr+0) = vc4[3];
-    *(cptr+1) = vc5[3];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[3]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[3]);
     cptr+=ldc;
-    *(cptr+0) = vcE[0];
-    *(cptr+1) = vcF[0];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[0]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[0]);
     cptr+=ldc;
-    *(cptr+0) = vcE[1];
-    *(cptr+1) = vcF[1];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[1]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[1]);
     cptr+=ldc;
-    *(cptr+0) = vcE[2];
-    *(cptr+1) = vcF[2];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[2]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[2]);
     cptr+=ldc;
-    *(cptr+0) = vcE[3];
-    *(cptr+1) = vcF[3];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[3]);
 }
 
 static void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -996,81 +954,58 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     short *aptr = a;
     float *bptr = b;
     float *cptr = c;
-    float b4, b5, b6;
-    float scale = 1.0/(1<<FRACTION);
 
-    int16x4x2_t va;
-    float32x4_t va0, va1;
-    float32x4_t vc4, vc5, vc6;
-    float32x4_t vcE, vcF, vcG;
+    int32x4_t vc4_I, vc5_I, vc6_I;
+    int32x4_t vcE_I, vcF_I, vcG_I;
 
-    vc4[0] = *(cptr+0);
-    vc5[0] = *(cptr+1);
-    vc6[0] = *(cptr+2);
+    vc4_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    vc6_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+2));
     cptr += ldc;
-    vc4[1] = *(cptr+0);
-    vc5[1] = *(cptr+1);
-    vc6[1] = *(cptr+2);
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    vc6_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+2));
     cptr += ldc;
-    vc4[2] = *(cptr+0);
-    vc5[2] = *(cptr+1);
-    vc6[2] = *(cptr+2);
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    vc6_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+2));
     cptr += ldc;
-    vc4[3] = *(cptr+0);
-    vc5[3] = *(cptr+1);
-    vc6[3] = *(cptr+2);
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    vc6_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+2));
     cptr += ldc;
 
-    vcE[0] = *(cptr+0);
-    vcF[0] = *(cptr+1);
-    vcG[0] = *(cptr+2);
+    vcE_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    vcG_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+2));
     cptr += ldc;
-    vcE[1] = *(cptr+0);
-    vcF[1] = *(cptr+1);
-    vcG[1] = *(cptr+2);
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    vcG_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+2));
     cptr += ldc;
-    vcE[2] = *(cptr+0);
-    vcF[2] = *(cptr+1);
-    vcG[2] = *(cptr+2);
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    vcG_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+2));
     cptr += ldc;
-    vcE[3] = *(cptr+0);
-    vcF[3] = *(cptr+1);
-    vcG[3] = *(cptr+2);
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    vcG_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+2));
 
     for(int p = 0; p < L; ++p)
     {
-        b4  = *(bptr    );
-        b5  = *(bptr + 1);
-        b6  = *(bptr + 2);
+        int16x4x2_t va = vld1_s16_x2(aptr);
 
-        va = vld1_s16_x2(aptr);
+        fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr));
+        fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr+1));
+        fix16_t b6_I  = FLOAT2FIX(fix16_t, FRACTIONBX2, *(bptr+2));
 
-        int32x4_t va_0 = vmovl_s16(va.val[0]);
-        int32x4_t va_1 = vmovl_s16(va.val[1]);
+        vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
+        vc5_I = vmlal_n_s16(vc5_I, va.val[0], b5_I);
+        vc6_I = vmlal_n_s16(vc6_I, va.val[0], b6_I);
 
-        va0 = vcvtq_f32_s32(va_0);
-        va1 = vcvtq_f32_s32(va_1);
-        va0 = vmulq_n_f32(va0, scale);
-        va1 = vmulq_n_f32(va1, scale);
-
-#if __aarch64__
-        //A row in A multiplies a single value in B by column
-        vc4 = vfmaq_n_f32(vc4, va0, b4);
-        vc5 = vfmaq_n_f32(vc5, va0, b5);
-        vc6 = vfmaq_n_f32(vc6, va0, b6);
-
-        vcE = vfmaq_n_f32(vcE, va1, b4);
-        vcF = vfmaq_n_f32(vcF, va1, b5);
-        vcG = vfmaq_n_f32(vcG, va1, b6);
-#else
-        vc4 = vmlaq_n_f32(vc4, va0, b4);
-        vc5 = vmlaq_n_f32(vc5, va0, b5);
-        vc6 = vmlaq_n_f32(vc6, va0, b6);
-
-        vcE = vmlaq_n_f32(vcE, va1, b4);
-        vcF = vmlaq_n_f32(vcF, va1, b5);
-        vcG = vmlaq_n_f32(vcG, va1, b6);
-#endif // __aarch64__
+        vcE_I = vmlal_n_s16(vcE_I, va.val[1], b4_I);
+        vcF_I = vmlal_n_s16(vcF_I, va.val[1], b5_I);
+        vcG_I = vmlal_n_s16(vcG_I, va.val[1], b6_I);
 
         bptr += ldb;
         aptr += 8;
@@ -1078,38 +1013,37 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     cptr = c;
 
-    *(cptr+0) = vc4[0];
-    *(cptr+1) = vc5[0];
-    *(cptr+2) = vc6[0];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[0]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[0]);
+    *(cptr+2) = FIX2FLOAT(FRACTIONBX2, vc6_I[0]);
     cptr+=ldc;
-    *(cptr+0) = vc4[1];
-    *(cptr+1) = vc5[1];
-    *(cptr+2) = vc6[1];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[1]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[1]);
+    *(cptr+2) = FIX2FLOAT(FRACTIONBX2, vc6_I[1]);
     cptr+=ldc;
-    *(cptr+0) = vc4[2];
-    *(cptr+1) = vc5[2];
-    *(cptr+2) = vc6[2];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[2]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[2]);
+    *(cptr+2) = FIX2FLOAT(FRACTIONBX2, vc6_I[2]);
     cptr+=ldc;
-    *(cptr+0) = vc4[3];
-    *(cptr+1) = vc5[3];
-    *(cptr+2) = vc6[3];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[3]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[3]);
+    *(cptr+2) = FIX2FLOAT(FRACTIONBX2, vc6_I[3]);
     cptr+=ldc;
-    *(cptr+0) = vcE[0];
-    *(cptr+1) = vcF[0];
-    *(cptr+2) = vcG[0];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[0]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[0]);
+    *(cptr+2) = FIX2FLOAT(FRACTIONBX2, vcG_I[0]);
     cptr+=ldc;
-    *(cptr+0) = vcE[1];
-    *(cptr+1) = vcF[1];
-    *(cptr+2) = vcG[1];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[1]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[1]);
+    *(cptr+2) = FIX2FLOAT(FRACTIONBX2, vcG_I[1]);
     cptr+=ldc;
-    *(cptr+0) = vcE[2];
-    *(cptr+1) = vcF[2];
-    *(cptr+2) = vcG[2];
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[2]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[2]);
+    *(cptr+2) = FIX2FLOAT(FRACTIONBX2, vcG_I[2]);
     cptr+=ldc;
-    *(cptr+0) = vcE[3];
-    *(cptr+1) = vcF[3];
-    *(cptr+2) = vcG[3];
-
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[3]);
+    *(cptr+2) = FIX2FLOAT(FRACTIONBX2, vcG_I[3]);
 }
 
 static void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -1227,86 +1161,82 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     short *aptr = a;
     float *bptr = b;
     float *cptr = c;
-    float scale = 1.0/(1<<FRACTION);
 
-    int16x4x2_t va;
-    float32x4_t vb;
-    float32x4_t va0, va1;
     float32x4_t vc0, vc1, vc2, vc3;
     float32x4_t vcA, vcB, vcC, vcD;
+    int32x4_t vc0_I, vc1_I, vc2_I, vc3_I;
+    int32x4_t vcA_I, vcB_I, vcC_I, vcD_I;
 
     vc0 = vld1q_f32(cptr);
+    vc0_I = vcvtq_n_s32_f32(vc0, FRACTIONBX2);
     cptr += ldc;
     vc1 = vld1q_f32(cptr);
+    vc1_I = vcvtq_n_s32_f32(vc1, FRACTIONBX2);
     cptr += ldc;
     vc2 = vld1q_f32(cptr);
+    vc2_I = vcvtq_n_s32_f32(vc2, FRACTIONBX2);
     cptr += ldc;
     vc3 = vld1q_f32(cptr);
+    vc3_I = vcvtq_n_s32_f32(vc3, FRACTIONBX2);
     cptr += ldc;
     vcA = vld1q_f32(cptr);
+    vcA_I = vcvtq_n_s32_f32(vcA, FRACTIONBX2);
     cptr += ldc;
     vcB = vld1q_f32(cptr);
+    vcB_I = vcvtq_n_s32_f32(vcB, FRACTIONBX2);
     cptr += ldc;
     vcC = vld1q_f32(cptr);
+    vcC_I = vcvtq_n_s32_f32(vcC, FRACTIONBX2);
     cptr += ldc;
     vcD = vld1q_f32(cptr);
+    vcD_I = vcvtq_n_s32_f32(vcD, FRACTIONBX2);
 
     for(int p = 0; p < L; ++p)
     {
-        vb  = vld1q_f32(bptr);
-        va = vld1_s16_x2(aptr);
+        int16x4x2_t va   = vld1_s16_x2(aptr);
+        float32x4_t vb   = vld1q_f32(bptr);
+        int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
+        int16x4_t vb_I   = vmovn_s32(vb_I32);
 
-        int32x4_t va_0 = vmovl_s16(va.val[0]);
-        int32x4_t va_1 = vmovl_s16(va.val[1]);
+        vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
+        vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
+        vc2_I = vmlal_lane_s16(vc2_I, vb_I, va.val[0], 2);
+        vc3_I = vmlal_lane_s16(vc3_I, vb_I, va.val[0], 2);
 
-        va0 = vcvtq_f32_s32(va_0);
-        va1 = vcvtq_f32_s32(va_1);
-        va0 = vmulq_n_f32(va0, scale);
-        va1 = vmulq_n_f32(va1, scale);
-
-#if __aarch64__
-        vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
-        vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
-        vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
-        vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
-
-        vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
-        vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
-        vcC = vfmaq_laneq_f32(vcC, vb, va1, 2);
-        vcD = vfmaq_laneq_f32(vcD, vb, va1, 3);
-#else
-        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
-        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
-        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
-        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
-
-        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
-        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
-        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
-        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
-#endif // __aarch64__
+        vcA_I = vmlal_lane_s16(vcA_I, vb_I, va.val[1], 0);
+        vcB_I = vmlal_lane_s16(vcB_I, vb_I, va.val[1], 1);
+        vcC_I = vmlal_lane_s16(vcC_I, vb_I, va.val[1], 2);
+        vcD_I = vmlal_lane_s16(vcD_I, vb_I, va.val[1], 2);
 
         bptr += ldb;
         aptr += 8;
     }
 
     cptr = c;
+
+    vc0 = vcvtq_n_f32_s32(vc0_I, FRACTIONBX2);
     vst1q_f32(cptr, vc0);
     cptr+=ldc;
+    vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
     vst1q_f32(cptr, vc1);
     cptr+=ldc;
+    vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
     vst1q_f32(cptr, vc2);
     cptr+=ldc;
+    vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
     vst1q_f32(cptr, vc3);
     cptr+=ldc;
+    vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
     vst1q_f32(cptr, vcA);
     cptr+=ldc;
+    vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
     vst1q_f32(cptr, vcB);
     cptr+=ldc;
+    vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
     vst1q_f32(cptr, vcC);
     cptr+=ldc;
+    vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
     vst1q_f32(cptr, vcD);
-
 }
 
 static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -1394,113 +1324,103 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     short *aptr = a;
     float *bptr = b;
     float *cptr = c;
-    float b4;
-    float scale = 1.0/(1<<FRACTION);
 
-    int16x4x2_t va;
-    float32x4_t vb;
-    float32x4_t va0, va1;
     float32x4_t vc0, vc1, vc2, vc3, vc4;
     float32x4_t vcA, vcB, vcC, vcD, vcE;
+    int32x4_t vc0_I, vc1_I, vc2_I, vc3_I, vc4_I;
+    int32x4_t vcA_I, vcB_I, vcC_I, vcD_I, vcE_I;
 
     vc0 = vld1q_f32(cptr);
-    vc4[0] = *(cptr + 4 + 0);
+    vc0_I = vcvtq_n_s32_f32(vc0, FRACTIONBX2);
+    vc4_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
     cptr += ldc;
     vc1 = vld1q_f32(cptr);
-    vc4[1] = *(cptr + 4 + 1);
+    vc1_I = vcvtq_n_s32_f32(vc1, FRACTIONBX2);
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
     cptr += ldc;
     vc2 = vld1q_f32(cptr);
-    vc4[2] = *(cptr + 4 + 2);
+    vc2_I = vcvtq_n_s32_f32(vc2, FRACTIONBX2);
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
     cptr += ldc;
     vc3 = vld1q_f32(cptr);
-    vc4[3] = *(cptr + 4 + 3);
+    vc3_I = vcvtq_n_s32_f32(vc3, FRACTIONBX2);
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
     cptr += ldc;
     vcA = vld1q_f32(cptr);
-    vcE[0] = *(cptr + 4 + 0);
+    vcA_I = vcvtq_n_s32_f32(vcA, FRACTIONBX2);
+    vcE_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
     cptr += ldc;
     vcB = vld1q_f32(cptr);
-    vcE[1] = *(cptr + 4 + 1);
+    vcB_I = vcvtq_n_s32_f32(vcB, FRACTIONBX2);
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
     cptr += ldc;
     vcC = vld1q_f32(cptr);
-    vcE[2] = *(cptr + 4 + 2);
+    vcC_I = vcvtq_n_s32_f32(vcC, FRACTIONBX2);
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
     cptr += ldc;
     vcD = vld1q_f32(cptr);
-    vcE[3] = *(cptr + 4 + 3);
+    vcD_I = vcvtq_n_s32_f32(vcD, FRACTIONBX2);
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
 
     for(int p = 0; p < L; ++p)
     {
-        vb  = vld1q_f32(bptr);
-        b4  = *(bptr + 4);
-        va = vld1_s16_x2(aptr);
+        int16x4x2_t va   = vld1_s16_x2(aptr);
+        float32x4_t vb   = vld1q_f32(bptr);
+        int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
+        int16x4_t vb_I   = vmovn_s32(vb_I32);
 
-        int32x4_t va_0 = vmovl_s16(va.val[0]);
-        int32x4_t va_1 = vmovl_s16(va.val[1]);
+        fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 4));
 
-        va0 = vcvtq_f32_s32(va_0);
-        va1 = vcvtq_f32_s32(va_1);
-        va0 = vmulq_n_f32(va0, scale);
-        va1 = vmulq_n_f32(va1, scale);
+        vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
+        vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
+        vc2_I = vmlal_lane_s16(vc2_I, vb_I, va.val[0], 2);
+        vc3_I = vmlal_lane_s16(vc3_I, vb_I, va.val[0], 2);
 
-#if __aarch64__
-        vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
-        vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
-        vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
-        vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+        vcA_I = vmlal_lane_s16(vcA_I, vb_I, va.val[1], 0);
+        vcB_I = vmlal_lane_s16(vcB_I, vb_I, va.val[1], 1);
+        vcC_I = vmlal_lane_s16(vcC_I, vb_I, va.val[1], 2);
+        vcD_I = vmlal_lane_s16(vcD_I, vb_I, va.val[1], 2);
 
-        vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
-        vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
-        vcC = vfmaq_laneq_f32(vcC, vb, va1, 2);
-        vcD = vfmaq_laneq_f32(vcD, vb, va1, 3);
-
-        //A row in A multiplies a single value in B by column
-        vc4 = vfmaq_n_f32(vc4, va0, b4);
-
-        vcE = vfmaq_n_f32(vcE, va1, b4);
-#else
-        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
-        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
-        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
-        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
-
-        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
-        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
-        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
-        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
-
-        //A row in A multiplies a single value in B by column
-        vc4 = vmlaq_n_f32(vc4, va0, b4);
-
-        vcE = vmlaq_n_f32(vcE, va1, b4);
-#endif // __aarch64__
+        vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
+        vcE_I = vmlal_n_s16(vcE_I, va.val[1], b4_I);
 
         bptr += ldb;
         aptr += 8;
     }
 
     cptr = c;
+
+    vc0 = vcvtq_n_f32_s32(vc0_I, FRACTIONBX2);
     vst1q_f32(cptr, vc0);
-    *(cptr + 4 + 0) = vc4[0];
+    *(cptr + 4 + 0) = FIX2FLOAT(FRACTIONBX2, vc4_I[0]);
     cptr+=ldc;
+    vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
     vst1q_f32(cptr, vc1);
-    *(cptr + 4 + 1) = vc4[1];
+    *(cptr + 4 + 1) = FIX2FLOAT(FRACTIONBX2, vc4_I[1]);
     cptr+=ldc;
+    vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
     vst1q_f32(cptr, vc2);
-    *(cptr + 4 + 2) = vc4[2];
+    *(cptr + 4 + 2) = FIX2FLOAT(FRACTIONBX2, vc4_I[2]);
     cptr+=ldc;
+    vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
     vst1q_f32(cptr, vc3);
-    *(cptr + 4 + 3) = vc4[3];
+    *(cptr + 4 + 3) = FIX2FLOAT(FRACTIONBX2, vc4_I[3]);
     cptr+=ldc;
+    vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
     vst1q_f32(cptr, vcA);
-    *(cptr + 4 + 0) = vcE[0];
+    *(cptr + 4 + 0) = FIX2FLOAT(FRACTIONBX2, vcE_I[0]);
     cptr+=ldc;
+    vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
     vst1q_f32(cptr, vcB);
-    *(cptr + 4 + 1) = vcE[1];
+    *(cptr + 4 + 1) = FIX2FLOAT(FRACTIONBX2, vcE_I[1]);
     cptr+=ldc;
+    vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
     vst1q_f32(cptr, vcC);
-    *(cptr + 4 + 2) = vcE[2];
+    *(cptr + 4 + 2) = FIX2FLOAT(FRACTIONBX2, vcE_I[2]);
     cptr+=ldc;
+    vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
     vst1q_f32(cptr, vcD);
-    *(cptr + 4 + 3) = vcE[3];
+    *(cptr + 4 + 3) = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
 }
 
 static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -1618,134 +1538,123 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     short *aptr = a;
     float *bptr = b;
     float *cptr = c;
-    float b4, b5;
-    float scale = 1.0/(1<<FRACTION);
 
-    int16x4x2_t va;
-    float32x4_t vb;
-    float32x4_t va0, va1;
     float32x4_t vc0, vc1, vc2, vc3, vc4, vc5;
     float32x4_t vcA, vcB, vcC, vcD, vcE, vcF;
+    int32x4_t vc0_I, vc1_I, vc2_I, vc3_I, vc4_I, vc5_I;
+    int32x4_t vcA_I, vcB_I, vcC_I, vcD_I, vcE_I, vcF_I;
 
     vc0 = vld1q_f32(cptr);
-    vc4[0] = *(cptr + 4 + 0);
-    vc5[0] = *(cptr + 5 + 0);
+    vc0_I = vcvtq_n_s32_f32(vc0, FRACTIONBX2);
+    vc4_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vc5_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
     cptr += ldc;
     vc1 = vld1q_f32(cptr);
-    vc4[1] = *(cptr + 4 + 1);
-    vc5[1] = *(cptr + 5 + 1);
+    vc1_I = vcvtq_n_s32_f32(vc1, FRACTIONBX2);
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
+    vc5_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 1));
     cptr += ldc;
     vc2 = vld1q_f32(cptr);
-    vc4[2] = *(cptr + 4 + 2);
-    vc5[2] = *(cptr + 5 + 2);
+    vc2_I = vcvtq_n_s32_f32(vc2, FRACTIONBX2);
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
+    vc5_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 2));
     cptr += ldc;
     vc3 = vld1q_f32(cptr);
-    vc4[3] = *(cptr + 4 + 3);
-    vc5[3] = *(cptr + 5 + 3);
+    vc3_I = vcvtq_n_s32_f32(vc3, FRACTIONBX2);
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
+    vc5_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 3));
     cptr += ldc;
     vcA = vld1q_f32(cptr);
-    vcE[0] = *(cptr + 4 + 0);
-    vcF[0] = *(cptr + 5 + 0);
+    vcA_I = vcvtq_n_s32_f32(vcA, FRACTIONBX2);
+    vcE_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vcF_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
     cptr += ldc;
     vcB = vld1q_f32(cptr);
-    vcE[1] = *(cptr + 4 + 1);
-    vcF[1] = *(cptr + 5 + 1);
+    vcB_I = vcvtq_n_s32_f32(vcB, FRACTIONBX2);
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
+    vcF_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 1));
     cptr += ldc;
     vcC = vld1q_f32(cptr);
-    vcE[2] = *(cptr + 4 + 2);
-    vcF[2] = *(cptr + 5 + 2);
+    vcC_I = vcvtq_n_s32_f32(vcC, FRACTIONBX2);
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
+    vcF_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 2));
     cptr += ldc;
     vcD = vld1q_f32(cptr);
-    vcE[3] = *(cptr + 4 + 3);
-    vcF[3] = *(cptr + 5 + 3);
+    vcD_I = vcvtq_n_s32_f32(vcD, FRACTIONBX2);
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
+    vcF_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 3));
 
     for(int p = 0; p < L; ++p)
     {
-        vb  = vld1q_f32(bptr);
-        b4  = *(bptr + 4);
-        b5  = *(bptr + 5);
-        va = vld1_s16_x2(aptr);
+        int16x4x2_t va   = vld1_s16_x2(aptr);
+        float32x4_t vb   = vld1q_f32(bptr);
+        int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
+        int16x4_t vb_I   = vmovn_s32(vb_I32);
 
-        int32x4_t va_0 = vmovl_s16(va.val[0]);
-        int32x4_t va_1 = vmovl_s16(va.val[1]);
+        fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 4));
+        fix16_t b5_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 5));
 
-        va0 = vcvtq_f32_s32(va_0);
-        va1 = vcvtq_f32_s32(va_1);
-        va0 = vmulq_n_f32(va0, scale);
-        va1 = vmulq_n_f32(va1, scale);
+        vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
+        vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
+        vc2_I = vmlal_lane_s16(vc2_I, vb_I, va.val[0], 2);
+        vc3_I = vmlal_lane_s16(vc3_I, vb_I, va.val[0], 2);
 
-#if __aarch64__
-        vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
-        vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
-        vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
-        vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+        vcA_I = vmlal_lane_s16(vcA_I, vb_I, va.val[1], 0);
+        vcB_I = vmlal_lane_s16(vcB_I, vb_I, va.val[1], 1);
+        vcC_I = vmlal_lane_s16(vcC_I, vb_I, va.val[1], 2);
+        vcD_I = vmlal_lane_s16(vcD_I, vb_I, va.val[1], 2);
 
-        vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
-        vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
-        vcC = vfmaq_laneq_f32(vcC, vb, va1, 2);
-        vcD = vfmaq_laneq_f32(vcD, vb, va1, 3);
+        vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
+        vc5_I = vmlal_n_s16(vc5_I, va.val[0], b5_I);
 
-        //A row in A multiplies a single value in B by column
-        vc4 = vfmaq_n_f32(vc4, va0, b4);
-        vc5 = vfmaq_n_f32(vc5, va0, b5);
-
-        vcE = vfmaq_n_f32(vcE, va1, b4);
-        vcF = vfmaq_n_f32(vcF, va1, b5);
-#else
-        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
-        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 0));
-        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 0));
-        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 0));
-
-        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
-        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
-        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
-        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
-
-        //A row in A multiplies a single value in B by column
-        vc4 = vmlaq_n_f32(vc4, va0, b4);
-        vc5 = vmlaq_n_f32(vc5, va0, b5);
-
-        vcE = vmlaq_n_f32(vcE, va1, b4);
-        vcF = vmlaq_n_f32(vcF, va1, b5);
-#endif // __aarch64__
+        vcE_I = vmlal_n_s16(vcE_I, va.val[1], b4_I);
+        vcF_I = vmlal_n_s16(vcF_I, va.val[1], b5_I);
 
         bptr += ldb;
         aptr += 8;
     }
 
     cptr = c;
+
+    vc0 = vcvtq_n_f32_s32(vc0_I, FRACTIONBX2);
     vst1q_f32(cptr, vc0);
-    *(cptr + 4 + 0) = vc4[0];
-    *(cptr + 5 + 0) = vc5[0];
+    *(cptr + 4 + 0) = FIX2FLOAT(FRACTIONBX2, vc4_I[0]);
+    *(cptr + 5 + 0) = FIX2FLOAT(FRACTIONBX2, vc5_I[0]);
     cptr+=ldc;
+    vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
     vst1q_f32(cptr, vc1);
-    *(cptr + 4 + 1) = vc4[1];
-    *(cptr + 5 + 1) = vc5[1];
+    *(cptr + 4 + 1) = FIX2FLOAT(FRACTIONBX2, vc4_I[1]);
+    *(cptr + 5 + 1) = FIX2FLOAT(FRACTIONBX2, vc5_I[1]);
     cptr+=ldc;
+    vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
     vst1q_f32(cptr, vc2);
-    *(cptr + 4 + 2) = vc4[2];
-    *(cptr + 5 + 2) = vc5[2];
+    *(cptr + 4 + 2) = FIX2FLOAT(FRACTIONBX2, vc4_I[2]);
+    *(cptr + 5 + 2) = FIX2FLOAT(FRACTIONBX2, vc5_I[2]);
     cptr+=ldc;
+    vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
     vst1q_f32(cptr, vc3);
-    *(cptr + 4 + 3) = vc4[3];
-    *(cptr + 5 + 3) = vc5[3];
+    *(cptr + 4 + 3) = FIX2FLOAT(FRACTIONBX2, vc4_I[3]);
+    *(cptr + 5 + 3) = FIX2FLOAT(FRACTIONBX2, vc5_I[3]);
     cptr+=ldc;
+    vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
     vst1q_f32(cptr, vcA);
-    *(cptr + 4 + 0) = vcE[0];
-    *(cptr + 5 + 0) = vcF[0];
+    *(cptr + 4 + 0) = FIX2FLOAT(FRACTIONBX2, vcE_I[0]);
+    *(cptr + 5 + 0) = FIX2FLOAT(FRACTIONBX2, vcF_I[0]);
     cptr+=ldc;
+    vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
     vst1q_f32(cptr, vcB);
-    *(cptr + 4 + 1) = vcE[1];
-    *(cptr + 5 + 1) = vcF[1];
+    *(cptr + 4 + 1) = FIX2FLOAT(FRACTIONBX2, vcE_I[1]);
+    *(cptr + 5 + 1) = FIX2FLOAT(FRACTIONBX2, vcF_I[1]);
     cptr+=ldc;
+    vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
     vst1q_f32(cptr, vcC);
-    *(cptr + 4 + 2) = vcE[2];
-    *(cptr + 5 + 2) = vcF[2];
+    *(cptr + 4 + 2) = FIX2FLOAT(FRACTIONBX2, vcE_I[2]);
+    *(cptr + 5 + 2) = FIX2FLOAT(FRACTIONBX2, vcF_I[2]);
     cptr+=ldc;
+    vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
     vst1q_f32(cptr, vcD);
-    *(cptr + 4 + 3) = vcE[3];
-    *(cptr + 5 + 3) = vcF[3];
+    *(cptr + 4 + 3) = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
+    *(cptr + 5 + 3) = FIX2FLOAT(FRACTIONBX2, vcF_I[3]);
 }
 
 static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -1883,155 +1792,142 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     short *aptr = a;
     float *bptr = b;
     float *cptr = c;
-    float b4, b5, b6;
-    float scale = 1.0/(1<<FRACTION);
 
-    int16x4x2_t va;
-    float32x4_t vb;
-    float32x4_t va0, va1;
     float32x4_t vc0, vc1, vc2, vc3, vc4, vc5, vc6;
     float32x4_t vcA, vcB, vcC, vcD, vcE, vcF, vcG;
+    int32x4_t vc0_I, vc1_I, vc2_I, vc3_I, vc4_I, vc5_I, vc6_I;
+    int32x4_t vcA_I, vcB_I, vcC_I, vcD_I, vcE_I, vcF_I, vcG_I;
 
     vc0 = vld1q_f32(cptr);
-    vc4[0] = *(cptr + 4 + 0);
-    vc5[0] = *(cptr + 5 + 0);
-    vc6[0] = *(cptr + 6 + 0);
+    vc0_I = vcvtq_n_s32_f32(vc0, FRACTIONBX2);
+    vc4_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vc5_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
+    vc6_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 0));
     cptr += ldc;
     vc1 = vld1q_f32(cptr);
-    vc4[1] = *(cptr + 4 + 1);
-    vc5[1] = *(cptr + 5 + 1);
-    vc6[1] = *(cptr + 6 + 1);
+    vc1_I = vcvtq_n_s32_f32(vc1, FRACTIONBX2);
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
+    vc5_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 1));
+    vc6_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 1));
     cptr += ldc;
     vc2 = vld1q_f32(cptr);
-    vc4[2] = *(cptr + 4 + 2);
-    vc5[2] = *(cptr + 5 + 2);
-    vc6[2] = *(cptr + 6 + 2);
+    vc2_I = vcvtq_n_s32_f32(vc2, FRACTIONBX2);
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
+    vc5_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 2));
+    vc6_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 2));
     cptr += ldc;
     vc3 = vld1q_f32(cptr);
-    vc4[3] = *(cptr + 4 + 3);
-    vc5[3] = *(cptr + 5 + 3);
-    vc6[3] = *(cptr + 6 + 3);
+    vc3_I = vcvtq_n_s32_f32(vc3, FRACTIONBX2);
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
+    vc5_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 3));
+    vc6_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 3));
     cptr += ldc;
     vcA = vld1q_f32(cptr);
-    vcE[0] = *(cptr + 4 + 0);
-    vcF[0] = *(cptr + 5 + 0);
-    vcG[0] = *(cptr + 6 + 0);
+    vcA_I = vcvtq_n_s32_f32(vcA, FRACTIONBX2);
+    vcE_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vcF_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
+    vcG_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 0));
     cptr += ldc;
     vcB = vld1q_f32(cptr);
-    vcE[1] = *(cptr + 4 + 1);
-    vcF[1] = *(cptr + 5 + 1);
-    vcG[1] = *(cptr + 6 + 1);
+    vcB_I = vcvtq_n_s32_f32(vcB, FRACTIONBX2);
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
+    vcF_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 1));
+    vcG_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 1));
     cptr += ldc;
     vcC = vld1q_f32(cptr);
-    vcE[2] = *(cptr + 4 + 2);
-    vcF[2] = *(cptr + 5 + 2);
-    vcG[2] = *(cptr + 6 + 2);
+    vcC_I = vcvtq_n_s32_f32(vcC, FRACTIONBX2);
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
+    vcF_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 2));
+    vcG_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 2));
     cptr += ldc;
     vcD = vld1q_f32(cptr);
-    vcE[3] = *(cptr + 4 + 3);
-    vcF[3] = *(cptr + 5 + 3);
-    vcG[3] = *(cptr + 6 + 3);
+    vcD_I = vcvtq_n_s32_f32(vcD, FRACTIONBX2);
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
+    vcF_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 3));
+    vcG_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 3));
 
     for(int p = 0; p < L; ++p)
     {
-        vb  = vld1q_f32(bptr);
-        b4  = *(bptr + 4);
-        b5  = *(bptr + 5);
-        b6  = *(bptr + 6);
-        va = vld1_s16_x2(aptr);
+        int16x4x2_t va   = vld1_s16_x2(aptr);
+        float32x4_t vb   = vld1q_f32(bptr);
+        int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
+        int16x4_t vb_I   = vmovn_s32(vb_I32);
 
-        int32x4_t va_0 = vmovl_s16(va.val[0]);
-        int32x4_t va_1 = vmovl_s16(va.val[1]);
+        fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 4));
+        fix16_t b5_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 5));
+        fix16_t b6_I = FLOAT2FIX(fix16_t, FRACTION,*(bptr + 6));
 
-        va0 = vcvtq_f32_s32(va_0);
-        va1 = vcvtq_f32_s32(va_1);
-        va0 = vmulq_n_f32(va0, scale);
-        va1 = vmulq_n_f32(va1, scale);
+        vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
+        vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
+        vc2_I = vmlal_lane_s16(vc2_I, vb_I, va.val[0], 2);
+        vc3_I = vmlal_lane_s16(vc3_I, vb_I, va.val[0], 2);
 
-#if __aarch64__
-        vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
-        vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
-        vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
-        vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+        vcA_I = vmlal_lane_s16(vcA_I, vb_I, va.val[1], 0);
+        vcB_I = vmlal_lane_s16(vcB_I, vb_I, va.val[1], 1);
+        vcC_I = vmlal_lane_s16(vcC_I, vb_I, va.val[1], 2);
+        vcD_I = vmlal_lane_s16(vcD_I, vb_I, va.val[1], 2);
 
-        vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
-        vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
-        vcC = vfmaq_laneq_f32(vcC, vb, va1, 2);
-        vcD = vfmaq_laneq_f32(vcD, vb, va1, 3);
+        vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
+        vc5_I = vmlal_n_s16(vc5_I, va.val[0], b5_I);
+        vc6_I = vmlal_n_s16(vc6_I, va.val[0], b6_I);
 
-        //A row in A multiplies a single value in B by column
-        vc4 = vfmaq_n_f32(vc4, va0, b4);
-        vc5 = vfmaq_n_f32(vc5, va0, b5);
-        vc6 = vfmaq_n_f32(vc6, va0, b6);
-
-        vcE = vfmaq_n_f32(vcE, va1, b4);
-        vcF = vfmaq_n_f32(vcF, va1, b5);
-        vcG = vfmaq_n_f32(vcG, va1, b6);
-#else
-        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
-        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
-        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
-        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
-
-        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
-        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
-        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
-        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
-
-        //A row in A multiplies a single value in B by column
-        vc4 = vmlaq_n_f32(vc4, va0, b4);
-        vc5 = vmlaq_n_f32(vc5, va0, b5);
-        vc6 = vmlaq_n_f32(vc6, va0, b6);
-
-        vcE = vmlaq_n_f32(vcE, va1, b4);
-        vcF = vmlaq_n_f32(vcF, va1, b5);
-        vcG = vmlaq_n_f32(vcG, va1, b6);
-#endif // __aarch64__
+        vcE_I = vmlal_n_s16(vcE_I, va.val[1], b4_I);
+        vcF_I = vmlal_n_s16(vcF_I, va.val[1], b5_I);
+        vcG_I = vmlal_n_s16(vcG_I, va.val[1], b6_I);
 
         bptr += ldb;
         aptr += 8;
     }
 
     cptr = c;
+
+    vc0 = vcvtq_n_f32_s32(vc0_I, FRACTIONBX2);
     vst1q_f32(cptr, vc0);
-    *(cptr + 4 + 0) = vc4[0];
-    *(cptr + 5 + 0) = vc5[0];
-    *(cptr + 6 + 0) = vc6[0];
+    *(cptr + 4 + 0) = FIX2FLOAT(FRACTIONBX2, vc4_I[0]);
+    *(cptr + 5 + 0) = FIX2FLOAT(FRACTIONBX2, vc5_I[0]);
+    *(cptr + 6 + 0) = FIX2FLOAT(FRACTIONBX2, vc6_I[0]);
     cptr+=ldc;
+    vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
     vst1q_f32(cptr, vc1);
-    *(cptr + 4 + 1) = vc4[1];
-    *(cptr + 5 + 1) = vc5[1];
-    *(cptr + 6 + 1) = vc6[1];
+    *(cptr + 4 + 1) = FIX2FLOAT(FRACTIONBX2, vc4_I[1]);
+    *(cptr + 5 + 1) = FIX2FLOAT(FRACTIONBX2, vc5_I[1]);
+    *(cptr + 6 + 1) = FIX2FLOAT(FRACTIONBX2, vc6_I[1]);
     cptr+=ldc;
+    vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
     vst1q_f32(cptr, vc2);
-    *(cptr + 4 + 2) = vc4[2];
-    *(cptr + 5 + 2) = vc5[2];
-    *(cptr + 6 + 2) = vc6[2];
+    *(cptr + 4 + 2) = FIX2FLOAT(FRACTIONBX2, vc4_I[2]);
+    *(cptr + 5 + 2) = FIX2FLOAT(FRACTIONBX2, vc5_I[2]);
+    *(cptr + 6 + 2) = FIX2FLOAT(FRACTIONBX2, vc6_I[2]);
     cptr+=ldc;
+    vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
     vst1q_f32(cptr, vc3);
-    *(cptr + 4 + 3) = vc4[3];
-    *(cptr + 5 + 3) = vc5[3];
-    *(cptr + 6 + 3) = vc6[3];
+    *(cptr + 4 + 3) = FIX2FLOAT(FRACTIONBX2, vc4_I[3]);
+    *(cptr + 5 + 3) = FIX2FLOAT(FRACTIONBX2, vc5_I[3]);
+    *(cptr + 6 + 3) = FIX2FLOAT(FRACTIONBX2, vc6_I[3]);
     cptr+=ldc;
+    vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
     vst1q_f32(cptr, vcA);
-    *(cptr + 4 + 0) = vcE[0];
-    *(cptr + 5 + 0) = vcF[0];
-    *(cptr + 6 + 0) = vcG[0];
+    *(cptr + 4 + 0) = FIX2FLOAT(FRACTIONBX2, vcE_I[0]);
+    *(cptr + 5 + 0) = FIX2FLOAT(FRACTIONBX2, vcF_I[0]);
+    *(cptr + 6 + 0) = FIX2FLOAT(FRACTIONBX2, vcG_I[0]);
     cptr+=ldc;
+    vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
     vst1q_f32(cptr, vcB);
-    *(cptr + 4 + 1) = vcE[1];
-    *(cptr + 5 + 1) = vcF[1];
-    *(cptr + 6 + 1) = vcG[1];
+    *(cptr + 4 + 1) = FIX2FLOAT(FRACTIONBX2, vcE_I[1]);
+    *(cptr + 5 + 1) = FIX2FLOAT(FRACTIONBX2, vcF_I[1]);
+    *(cptr + 6 + 1) = FIX2FLOAT(FRACTIONBX2, vcG_I[1]);
     cptr+=ldc;
+    vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
     vst1q_f32(cptr, vcC);
-    *(cptr + 4 + 2) = vcE[2];
-    *(cptr + 5 + 2) = vcF[2];
-    *(cptr + 6 + 2) = vcG[2];
+    *(cptr + 4 + 2) = FIX2FLOAT(FRACTIONBX2, vcE_I[2]);
+    *(cptr + 5 + 2) = FIX2FLOAT(FRACTIONBX2, vcF_I[2]);
+    *(cptr + 6 + 2) = FIX2FLOAT(FRACTIONBX2, vcG_I[2]);
     cptr+=ldc;
+    vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
     vst1q_f32(cptr, vcD);
-    *(cptr + 4 + 3) = vcE[3];
-    *(cptr + 5 + 3) = vcF[3];
-    *(cptr + 6 + 3) = vcG[3];
+    *(cptr + 4 + 3) = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
+    *(cptr + 5 + 3) = FIX2FLOAT(FRACTIONBX2, vcF_I[3]);
+    *(cptr + 6 + 3) = FIX2FLOAT(FRACTIONBX2, vcG_I[3]);
 }
 
 static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -2545,14 +2441,14 @@ void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb,
 
     for(int l = 0; l < N; l += nc)
     {
-        int lb = min(N - l, nc);
+        int lb = MIN(N - l, nc);
         float* packAptr = a;
         for(int i = 0; i < M; i += mc)
         {
-            int ib = min(M - i, mc);
+            int ib = MIN(M - i, mc);
             for(int p = 0; p < L; p += kc)
             {
-                int pb = min(L - p, kc);
+                int pb = MIN(L - p, kc);
                 SGEBP_externalPackA_tiny_scale(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, packB);
                 packAptr += ib * pb;
             }
@@ -2573,13 +2469,13 @@ void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb,
         for(int l = 0; l < N; l += nc)
         {
             float* packAptr = (float*)a;
-            int lb = min(N - l, nc);
+            int lb = MIN(N - l, nc);
             for(int i = 0; i < M; i += mc)
             {
-                int ib = min(M - i, mc);
+                int ib = MIN(M - i, mc);
                 for(int p = 0; p < L; p += kc)
                 {
-                    int pb = min(L - p, kc);
+                    int pb = MIN(L - p, kc);
                     SGEBP_externalPackA_tiny_scale_8x8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (float*)packB);
                     packAptr += ib * pb;
                 }
@@ -2591,13 +2487,13 @@ void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb,
         for(int l = 0; l < N; l += nc)
         {
             short* packAptr = (short*)a;
-            int lb = min(N - l, nc);
+            int lb = MIN(N - l, nc);
             for(int i = 0; i < M; i += mc)
             {
-                int ib = min(M - i, mc);
+                int ib = MIN(M - i, mc);
                 for(int p = 0; p < L; p += kc)
                 {
-                    int pb = min(L - p, kc);
+                    int pb = MIN(L - p, kc);
                     SGEBP_externalPackA_tiny_scale_8x8_fix(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (short*)packB);
                     packAptr += ib * pb;
                 }
@@ -2629,13 +2525,13 @@ void block_sgemm_internal_pack( int M, int N, int L, float *a, int lda, float *b
 
     for(int l = 0; l < N; l += nc)
     {
-        int lb = min(N - l, nc);
+        int lb = MIN(N - l, nc);
         for(int i = 0; i < M; i += mc)
         {
-            int ib = min(M - i, mc);
+            int ib = MIN(M - i, mc);
             for(int p = 0; p < L; p += kc)
             {
-                int pb = min(L - p, kc);
+                int pb = MIN(L - p, kc);
                 SGEBP_internalPack_tiny_scale(ib, lb, pb, a + i * lda + p, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, packA, packB);
             }
         }
@@ -2680,7 +2576,7 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
     }
     else
     {
-        #pragma parallel for num_threads(num_threads)
+#pragma parallel for num_threads(num_threads)
         for(int i = 0; i < num_threads * factor; ++i)
         {
             int sN = (tN < N - i * tN) ? tN : N - i * tN;

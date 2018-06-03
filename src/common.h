@@ -20,13 +20,21 @@
 #include <cstdlib>
 #include <pthread.h>
 
-class StringTool
-{
-public:
-    static void SplitString(const std::string &input, const std::string &delim, std::vector<std::string> &parts);
-};
+#ifndef MAX
+#define MAX(a,b) ((a)>(b))?(a):(b)
+#endif
+#ifndef MIN
+#define MIN(a,b) ((a)<(b))?(a):(b)
+#endif
 
+#ifndef FRACTION
+#define FRACTION 14
+#endif
+#define FRACTIONBX2 2*FRACTION
 
-int min(int a, int b);
+typedef short fix16_t;
+#define FLOAT2FIX(fixt, fracbits, x) fixt(((x)*(float)((fixt(1)<<(fracbits)))))
+#define FIX2FLOAT(fracbits,x) ((float)(x)/((1)<<fracbits))
+
 void* _mm_malloc(size_t sz, size_t align);
 void _mm_free(void* ptr);
