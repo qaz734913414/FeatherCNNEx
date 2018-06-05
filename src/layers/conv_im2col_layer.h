@@ -184,7 +184,7 @@ public:
         return true;
     }
 
-    int Init()
+    int Init(float *ginput, float *goutput)
     {
         int M = (int)output_channels;
         int L = (int)input_channels * (int)kernel_height * (int)kernel_width;
@@ -197,7 +197,7 @@ public:
         {
             MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&packed_kernel, sizeof(short) * eM * L));
         }
-        MEMPOOL_CHECK_RETURN(common_mempool->Request(sizeof(float) * (input_channels * kernel_height * kernel_width) * (output_width * output_height)));
+        MEMPOOL_CHECK_RETURN(common_mempool->Request(sizeof(float) * (input_channels * kernel_height * kernel_width) * (output_width * output_height), this->name()+" ["+this->type()+"]"));
 
         if (0 != this->fractions)
         {
@@ -213,7 +213,13 @@ public:
             else
                 externalPackA(M, L, (float *)packed_kernel, kernel_data, L);
         }
-        //Setup input and output pointers.
+
+        if ((NULL != ginput) && (NULL != ginput))
+        {
+            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
+            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+        }
+
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
         return 0;

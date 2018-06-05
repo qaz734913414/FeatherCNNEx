@@ -33,18 +33,26 @@ public:
         //From proto
     }
 
-    int Init()
+    int Init(float *ginput, float *goutput)
     {
         int inputw = input_width + padding_left + padding_right;
         int inputh = input_height + padding_top + padding_bottom;
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&padded_input, inputw * inputh * input_channels * sizeof(float)));
+
+        if ((NULL != ginput) && (NULL != ginput))
+        {
+            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
+            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+        }
+
+        input = _bottom_blobs[_bottom[0]]->data();
+        output = _top_blobs[_top[0]]->data();
+
         return 0;
     }
 
     int Forward()
     {
-        const float *input = _bottom_blobs[_bottom[0]]->data();
-        float *output = _top_blobs[_top[0]]->data();
         int inputw = input_width + padding_left + padding_right;
         int inputh = input_height + padding_top + padding_bottom;
         pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
@@ -70,6 +78,7 @@ public:
 
 private:
     float* padded_input;
-
+    float *input;
+    float *output;
 };
 };

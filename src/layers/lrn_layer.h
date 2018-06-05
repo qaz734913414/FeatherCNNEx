@@ -24,10 +24,8 @@ class LRNLayer : public Layer
 public:
     LRNLayer(const LayerParameter* layer_param, const RuntimeParameter<float>* rt_param);
     int Forward();
-    int Init();
+    int Init(float *ginput, float *goutput);
 private:
-    //int CompSquare();
-    int AcrossChannels();
     size_t local_size;
     float alpha;
     float alpha_over_size;
@@ -40,5 +38,10 @@ private:
 
     float* _scale_data;
     float* _padded_sqr_data;
+    size_t width;
+    size_t height;
+    size_t channels;
+    float *input;
+    float *output;
 };
 };

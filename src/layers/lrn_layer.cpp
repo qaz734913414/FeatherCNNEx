@@ -41,12 +41,12 @@ LRNLayer::LRNLayer(const LayerParameter* layer_param, const RuntimeParameter<flo
     printf("localsize %ld alpha %f beta %f k %f\n", local_size, alpha, beta, k);
 }
 
-int LRNLayer::Init()
+int LRNLayer::Init(float *ginput, float *goutput)
 {
     auto p_blob = _bottom_blobs[bottom(0)];
-    size_t width = p_blob->width();
-    size_t height = p_blob->height();
-    size_t channels = p_blob->channels();
+    width = p_blob->width();
+    height = p_blob->height();
+    channels = p_blob->channels();
     alpha_over_size = alpha / local_size;
 
     size_t padded_size = width * height * (channels + 2 * _pre_pad);
@@ -54,134 +54,53 @@ int LRNLayer::Init()
     MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&_scale_data, sizeof(float) * width * height * channels));
     memset(_padded_sqr_data, 0, sizeof(float) * padded_size);
 
+    if ((NULL != ginput) && (NULL != ginput))
+    {
+        ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
+        ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+    }
+
+    input = _bottom_blobs[_bottom[0]]->data();
+    output = _top_blobs[_top[0]]->data();
+
     return 0;
 }
 
-int WithinChannels()
+int LRNLayer::Forward()
 {
-    //Not implemented yet.
-    fprintf(stderr, "Within Channels not implemented\n");
-    return -1;
-}
-
-#if 0
-int LRNLayer::AcrossChannels()
-{
-    auto p_blob = _bottom_blobs[bottom(0)];
-    size_t width = p_blob->width();
-    size_t height = p_blob->height();
-    size_t channels = p_blob->channels();
-
-    auto bottom_data = p_blob->data();
-    auto top_data = _top_blobs[top(0)]->data();
-
-    printf("chw (%ld %ld %ld)\n", channels, height, width);
-
-    size_t img_size = width * height;
-    for(int i = 0; i < img_size * channels; ++i)
-    {
-        float v = *(p_blob->data() + i);
-        _square[i] = v * v;
-    }
-    //Across channels
-    for(int c = 0; c < channels; ++c)
-    {
-        memset(_square_sum, 0, width * height * sizeof(float));
-        float* sum_ptr = _square_sum;
-        float* out_ptr = top_data + c * img_size;
-        for(int m = c - local_size / 2; m < c + local_size / 2; ++m)
-        {
-            if(m >= channels || m < 0)
-                continue;
-            float* sqr_ptr = _square + m * img_size;
-            for(int i = 0; i < img_size; ++i)
-            {
-                sum_ptr[i] += alpha_over_size * sqr_ptr[i];
-            }
-        }
-        for(int i = 0; i < img_size; ++i)
-        {
-            float power = pow(alpha_over_size * sum_ptr[i] + k, -beta);
-            out_ptr[i] = bottom_data[i] * power;
-        }
-    }
-
-    for(int i = 0; i < channels * img_size; ++i)
-    {
-        //printf("%f\n", top_data[i]);
-    }
-    //exit(0);
-    return 0;
-}
-#else
-int LRNLayer::AcrossChannels()
-{
-    auto   p_blob = _bottom_blobs[bottom(0)];
-    size_t width = p_blob->width();
-    size_t height = p_blob->height();
-    size_t channels = p_blob->channels();
     size_t img_size = width * height;
     size_t buf_size = channels * width * height;
 
-    auto bottom_data = p_blob->data();
-    auto top_data = _top_blobs[top(0)]->data();
-
-    //printf("chw (%ld %ld %ld)\n", channels, height, width);
-    for(int i = 0; i < buf_size; ++i)
-    {
-        _scale_data[i] = k;
-    }
     float * sqr_ptr = _padded_sqr_data + _pre_pad * img_size;
+
     for(int i = 0; i < buf_size; ++i)
-    {
-        sqr_ptr[i] = bottom_data[i] * bottom_data[i];
-    }
-    //Create scale for the first channel
+        _scale_data[i] = k;
+
+    for(int i = 0; i < buf_size; ++i)
+        sqr_ptr[i] = input[i] * input[i];
+
     for(int c = _pre_pad; c < local_size; ++c)
     {
         const float* img = _padded_sqr_data + img_size * c;
         for(int i = 0; i < img_size; ++i)
-        {
             _scale_data[i] = alpha_over_size * img[i] + _scale_data[i];
-        }
     }
+
     for(int c = 1; c < channels; ++c)
     {
         float* scale_data_c = _scale_data + img_size * c;
-        //Copy from previous scale
         memcpy(scale_data_c, scale_data_c - img_size, sizeof(float) * img_size);
-        //Add head and subtract tail
         for(int i = 0; i < img_size; ++i)
-        {
             scale_data_c[i] = alpha_over_size * ((_padded_sqr_data + img_size * (c + local_size - 1))[i] - (_padded_sqr_data+ img_size * (c - 1))[i])+ scale_data_c[i];
-        }
     }
 
-// 	float32x4_t v_beta = vdupq_n_f32(-beta);
-// #pragma omp parallel for num_threads(num_threads)
-// 	for(int i = 0; i < channels * img_size; i+=4)
-// 	{
-// 		float32x4_t v_scale_data = vld1q_f32(_scale_data + i);
-// 		float32x4_t v_bottom_data = vld1q_f32(bottom_data + i);
-// 		v_scale_data = pow_ps(v_scale_data, v_beta);
-// 		v_bottom_data = vmulq_f32(v_scale_data, v_bottom_data);
-// 		vst1q_f32(top_data + i, v_bottom_data);
-// 	}
-
-    // if(channels * img_size % 4 != 0)
+    for(int i = 0; i < channels * img_size; i++)
     {
-        for(int i = 0; i < channels * img_size; i++)
-        {
-            float power = std::pow(_scale_data[i], -beta);
-            top_data[i] = bottom_data[i] * power;
-        }
+        float power = std::pow(_scale_data[i], -beta);
+        output[i] = input[i] * power;
     }
+
     return 0;
 }
-#endif
-int LRNLayer::Forward()
-{
-    //Across channels mode only.
-    return AcrossChannels();
-}
+
 };

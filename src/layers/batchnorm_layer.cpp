@@ -51,14 +51,13 @@ int BatchNormLayer::Fuse(Layer *next_layer)
         return 0;
 }
 
-int BatchNormLayer::Init()
+int BatchNormLayer::Init(float *ginput, float *goutput)
 {
-    //printf("Init BN layer ");
     const Blob<float>* p_blob = _bottom_blobs[_bottom[0]];
     input_channels = p_blob->channels();
     input_height   = p_blob->height();
     input_width    = p_blob->width();
-    //printf("input %d %d %d\n", input_channels, input_width, input_height);
+
     MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&alpha, input_channels* sizeof(float)));
     MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&beta, input_channels* sizeof(float)));
 
@@ -82,8 +81,16 @@ int BatchNormLayer::Init()
             scale_bias_data = NULL;
     }
     SetKernel();
+
+    if ((NULL != ginput) && (NULL != ginput))
+    {
+        ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
+        ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+    }
+
     input = _bottom_blobs[_bottom[0]]->data();
     output = _top_blobs[_top[0]]->data();
+
     return 0;
 }
 

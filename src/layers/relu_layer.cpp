@@ -17,17 +17,29 @@
 
 namespace feather
 {
+int ReluLayer::Init(float *ginput, float *goutput)
+{
+    if ((NULL != ginput) && (NULL != ginput))
+    {
+        ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
+        ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+    }
+
+    input = _bottom_blobs[_bottom[0]]->data();
+    output = _top_blobs[_top[0]]->data();
+    n = _bottom_blobs[_bottom[0]]->num();
+    c = _bottom_blobs[_bottom[0]]->channels();
+    h = _bottom_blobs[_bottom[0]]->height();
+    w = _bottom_blobs[_bottom[0]]->width();
+    data_size = n * c * h * w;
+    return 0;
+}
+
 int ReluLayer::Forward()
 {
-    const Blob<float> *p_bottom = _bottom_blobs[_bottom[0]];
-    const float* input = p_bottom->data();
-    const size_t data_size = p_bottom->num() * p_bottom->channels() * p_bottom->height() * p_bottom->width();
-
-    float* output = _top_blobs[_top[0]]->data();
     for (size_t i = 0; i < data_size; ++i)
-    {
         output[i] = input[i] > 0 ? input[i]: 0;
-    }
+
     return 0;
 }
 };

@@ -39,5 +39,7 @@ private:
     std::vector<Layer *> layers;
     RuntimeParameter<float> *rt_param;
     std::map<std::string, const Blob<float> *> blob_map;
+    float *input;
+    float *output;
 };
 };

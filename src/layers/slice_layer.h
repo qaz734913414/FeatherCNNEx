@@ -40,9 +40,11 @@ public:
 
     int GenerateTopBlobs();
     int Forward();
-    int Init();
+    int Init(float *ginput, float *goutput);
 
 private:
+    size_t num, channels, height, width;
+    float *input;
     int axis;
     std::vector<size_t> slice_point;
 };

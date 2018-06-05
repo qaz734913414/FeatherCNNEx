@@ -21,7 +21,7 @@
 #include <google/protobuf/text_format.h>
 #include "common.h"
 
-#if 0
+#if 1
 #define PRINTF printf
 #else
 #define PRINTF
@@ -289,6 +289,33 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				if (1 == caffe_conv_param.kernel_size(0))
 					fractions = frac;
 			}
+			else if (0)//(layer_type.compare("ConvolutionDepthwise")==0)
+			{
+			    uint32_t step_h = 1, step_w = 1;
+
+				auto caffe_conv_param = caffe_layer.convolution_param();
+				if(caffe_conv_param.stride_size() == 1){
+					step_h = step_w = caffe_conv_param.stride(0);
+				}
+				else if(caffe_conv_param.stride_size() == 2){
+					step_h = caffe_conv_param.stride(0);
+					step_w = caffe_conv_param.stride(1);
+				}
+				else if(caffe_conv_param.stride_size() == 0)
+				{
+					step_h = step_w = 1;
+				}
+				else
+				{
+					PRINTF("\nERR: code should not reach here as wrong stride size\n");
+					exit(-1);
+				}
+
+				if (((1 == step_h) && (1 == step_w))
+					//|| ((2 == step_h) && (2 == step_w))
+					)
+					fractions = frac;
+			}
 
 			/* Blobs */
 			auto caffe_model_layer = caffe_weight.layer(caffe_model_layer_map[layer_name]);
@@ -361,8 +388,10 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 						for(int k = 0; k != caffe_blob.data_size(); ++k)
 							if (abs(blob_data_vec_fix[k]) < (absminS*threshold)) zeroCnt++;
 						auto caffe_conv_param = caffe_layer.convolution_param();
-
-						printf("[%-20s] [%-40s] [%dX%d] Sparse Info: %06.3f%% [%05d %05d] %f\n", layer_type.c_str(), layer_name.c_str(),  caffe_conv_param.kernel_size(0), caffe_conv_param.kernel_size(0), (zeroCnt*100.0f)/caffe_blob.data_size(), absminS, absmaxS, threshold);
+						if (caffe_conv_param.has_kernel_h() || caffe_conv_param.has_kernel_w())
+							printf("[%-20s] [%-40s] [%dX%d] Sparse Info: %06.3f%% [%05d %05d] %f\n", layer_type.c_str(), layer_name.c_str(),  caffe_conv_param.kernel_h(), caffe_conv_param.kernel_w(), (zeroCnt*100.0f)/caffe_blob.data_size(), absminS, absmaxS, threshold);
+						else
+							printf("[%-20s] [%-40s] [%dX%d] Sparse Info: %06.3f%% [%05d %05d] %f\n", layer_type.c_str(), layer_name.c_str(),  caffe_conv_param.kernel_size(0), caffe_conv_param.kernel_size(0), (zeroCnt*100.0f)/caffe_blob.data_size(), absminS, absmaxS, threshold);
 					}
 				}
 
@@ -790,49 +819,13 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 
 		std::stringstream tmp; tmp<<frac;
 		std::string outfile = output_name+"_"+OutputLayerName+"_"+tmp.str()+".feathermodel";
-		printf("Model %s, size: %ld\n", outfile.c_str(), size);
 		FILE *netfp = NULL;
 		netfp = fopen(outfile.c_str(), "wb");
 		fwrite(net_buffer_pointer, sizeof(uint8_t), size, netfp);
 		fclose(netfp);
-		printf("---------------------------------------\n\n");
+		printf("\nconvert ok!!!!!!\n");
+		printf("Model file: %s, size: %ld\n\n", outfile.c_str(), size);
 	}
-
-#if 0
-	//Loader
-	{
-		PRINTF("++++++Start Loader++++++\n");
-		FILE *netfp = NULL;
-		netfp = fopen(output_name.c_str(), "rb");
-		fseek(netfp, 0, SEEK_END);
-		long file_size = ftell(netfp);
-		++file_size;
-		fseek(netfp, 0, SEEK_SET);
-		uint8_t *net_buffer_pointer = (uint8_t *) malloc(sizeof(uint8_t) * file_size);
-		size_t read_size = fread(net_buffer_pointer, sizeof(uint8_t), file_size, netfp);
-		fclose(netfp);
-
-		auto net_loader = feather::GetNetParameter(net_buffer_pointer);
-		auto layer_num = net_loader->layer()->Length();
-		PRINTF("++++++%d layers loaded++++++\n", layer_num);
-		for(int i = 0; i < layer_num; ++i){
-			auto layer = net_loader->layer()->Get(i);
-			std::string layer_name(layer->name()->str()); 
-			std::string layer_type(layer->type()->str());
-			PRINTF("Layer %s id %d type %s\n", layer_name.c_str(), i, layer_type.c_str());
-			for(int b = 0; b < flatbuffers::VectorLength(layer->bottom()); ++b)
-			{
-				PRINTF("Bottom %s\n", layer->bottom()->Get(b)->c_str());
-			}
-			for(int b = 0; b < flatbuffers::VectorLength(layer->top()); ++b)
-			{
-				PRINTF("Top %s\n", layer->top()->Get(b)->c_str());
-			}
-		}
-		PRINTF("+++++++++++++++++++++++++++\n");
-		free(net_buffer_pointer);
-	}
-#endif
 }
 
 int main(int argc, char *argv[])
@@ -841,7 +834,7 @@ int main(int argc, char *argv[])
 	float threshold = 0.02f;
 	if (argc < 3 || argc > 6)
 	{
-		printf("Usage: ./caffe_model_convert $1(caffe_prototxt) $2(caffe_model_name) [$3(output_model_name_prefix)] [fractions] [threshold]\n");
+		printf("Usage: ./caffe_model_convert $1(caffe_prototxt) $2(caffe_model_name) [$3(output_model_name_prefix)] [$4(fractions)] [$5(threshold)]\n");
 		return -1;
 	}
 	std::string caffe_prototxt_name = argv[1];

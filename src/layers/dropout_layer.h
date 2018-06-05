@@ -31,14 +31,6 @@ public:
 
     int Forward()
     {
-        const Blob<float> *p_bottom = _bottom_blobs[_bottom[0]];
-        const float* input = p_bottom->data();
-        float* output = _top_blobs[_top[0]]->data();
-
-        int n = p_bottom->num();
-        int c = p_bottom->channels();
-        int w = p_bottom->width();
-        int h = p_bottom->height();
         int size = w * h;
         //printf("[DROPOUT] bottom:%s top:%s c:%d h:%d w:%d [%f %f %f %f]\n", _bottom[0].c_str(), _top[0].c_str(), c,h,w, input[0], input[1], input[2], input[3]);
 
@@ -56,7 +48,28 @@ public:
 
         return 0;
     }
+
+    int Init(float *ginput, float *goutput)
+    {
+        if ((NULL != ginput) && (NULL != ginput))
+        {
+            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
+            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+        }
+
+        input = _bottom_blobs[_bottom[0]]->data();
+        output = _top_blobs[_top[0]]->data();
+        n = _bottom_blobs[_bottom[0]]->num();
+        c = _bottom_blobs[_bottom[0]]->channels();
+        w = _bottom_blobs[_bottom[0]]->width();
+        h = _bottom_blobs[_bottom[0]]->height();
+
+        return 0;
+    }
 protected:
     float scale;
+    float* input;
+    float* output;
+    int n, c, w, h;
 };
 };

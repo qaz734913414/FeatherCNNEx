@@ -26,22 +26,22 @@ class Blob
 {
 public:
     Blob()
-        : _num(0), _channels(0), _height(0), _width(0), _fractions(0), _data(NULL) {}
+        : _num(0), _channels(0), _height(0), _width(0), _fractions(0), _data(NULL), globalData(0) {}
 
     explicit Blob(const size_t num, const size_t channels, const size_t height, const size_t width)
-        : _data(NULL), _num(num), _channels(channels), _height(height), _width(width), _fractions(0), _name() {}
+        : _data(NULL), _num(num), _channels(channels), _height(height), _width(width), _fractions(0), globalData(0),  _name() {}
 
 
     explicit Blob(Dtype* data, const size_t num, const size_t channels, const size_t height, const size_t width)
-        : _data(data), _num(num), _channels(channels), _height(height), _width(width), _fractions(0), _name() {}
+        : _data(data), _num(num), _channels(channels), _height(height), _width(width), _fractions(0), globalData(0), _name() {}
 
     explicit Blob(Dtype* data, size_t num, size_t channels, size_t height, size_t width, std::string name)
-        : _data(data), _num(num), _channels(channels), _height(height), _width(width), _fractions(0), _name(name) {}
+        : _data(data), _num(num), _channels(channels), _height(height), _width(width), _fractions(0), globalData(0), _name(name) {}
 
     ~Blob()
     {
-        if (this->_data)
-            free(this->_data);
+        if ((0 != globalData) && (this->_data))
+            _mm_free(this->_data);
     }
 
     void Alloc();
@@ -51,6 +51,7 @@ public:
         size_t size = _num * _channels * _height * _width;
         memcpy(_data, data, sizeof(Dtype) * size);
     }
+
     void CopyShape(const Blob<Dtype>* p_blob)
     {
         this->_num = p_blob->num();
@@ -59,6 +60,7 @@ public:
         this->_height = p_blob->height();
         this->_fractions = p_blob->fractions();
     }
+
     void Copy(const Blob<Dtype>* p_blob)
     {
         CopyShape(p_blob);
@@ -68,6 +70,12 @@ public:
     }
 
     void FromProto(const void *proto_in);//proto MUST be of type BlobProto*
+
+    void setData(Dtype *pData)
+    {
+        globalData = 1;
+        _data = pData;
+    }
 
     Dtype* data() const
     {
@@ -121,7 +129,7 @@ private:
     size_t _height;
     size_t _width;
     size_t _fractions;
-
+    unsigned char globalData;
     std::string _name;
 };
 };

@@ -27,5 +27,10 @@ public:
     {
     }
     int Forward();
+    int Init(float *ginput, float *goutput);
+private:
+    float* input;
+    float *output;
+    size_t data_size;
 };
 };

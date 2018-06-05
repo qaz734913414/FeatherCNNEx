@@ -19,12 +19,6 @@ namespace feather
 {
 int SliceLayer::Forward()
 {
-    const Blob<float>* bottom_blob = _bottom_blobs[_bottom[0]];
-    size_t num = bottom_blob->num();
-    size_t channels = bottom_blob->channels();
-    size_t height = bottom_blob->height();
-    size_t width = bottom_blob->width();
-
     switch(axis)
     {
     case 0:
@@ -33,12 +27,10 @@ int SliceLayer::Forward()
         {
             int start = (k==0)?0:slice_point[k-1];
             int end   = (k==slice_point.size())?num:slice_point[k];
-
-            const float *input = _bottom_blobs[_bottom[0]]->data();
             float *output      = _top_blobs[_top[k]]->data();
-
             int index=0;
-            for(int i=start; i<end; i++)	for(int j=0; j<channels; j++)
+            for(int i=start; i<end; i++)
+                for(int j=0; j<channels; j++)
                     for(int m=0; m<height; m++)
                     {
                         for(int n=0; n<width; n++)
@@ -52,12 +44,10 @@ int SliceLayer::Forward()
         {
             int start = (k==0)?0:slice_point[k-1];
             int end   = (k==slice_point.size())?channels:slice_point[k];
-
-            const float *input = _bottom_blobs[_bottom[0]]->data();
             float *output      = _top_blobs[_top[k]]->data();
-
             int index=0;
-            for(int i=0; i<num; i++)	for(int j=start; j<end; j++)
+            for(int i=0; i<num; i++)
+                for(int j=start; j<end; j++)
                     for(int m=0; m<height; m++)
                     {
                         for(int n=0; n<width; n++)
@@ -71,11 +61,10 @@ int SliceLayer::Forward()
         {
             int start = (k==0)?0:slice_point[k-1];
             int end   = (k==slice_point.size())?height:slice_point[k];
-            const float *input = _bottom_blobs[_bottom[0]]->data();
             float *output      = _top_blobs[_top[k]]->data();
-
             int index=0;
-            for(int i=0; i<num; i++)	for(int j=0; j<channels; j++)
+            for(int i=0; i<num; i++)
+                for(int j=0; j<channels; j++)
                     for(int m=start; m<end; m++)
                     {
                         for(int n=0; n<width; n++)
@@ -89,12 +78,10 @@ int SliceLayer::Forward()
         {
             int start = (k==0)?0:slice_point[k-1];
             int end   = (k==slice_point.size())?width:slice_point[k];
-
-            const float *input = _bottom_blobs[_bottom[0]]->data();
             float *output      = _top_blobs[_top[k]]->data();
-
             int index=0;
-            for(int i=0; i<num; i++)	for(int j=0; j<channels; j++)
+            for(int i=0; i<num; i++)
+                for(int j=0; j<channels; j++)
                     for(int m=0; m<height; m++)
                     {
                         for(int n=start; n<end; n++)
@@ -124,47 +111,45 @@ int SliceLayer::GenerateTopBlobs()
     {
     case 0:
         for(int i = 0; i < _top.size() - 1; ++i)
-        {
             _top_blobs[_top[i]] = new Blob<float>(slice_point[i] - ((i == 0) ? 0 : slice_point[i - 1]), channels, height, width);
-        }
         _top_blobs[_top[_top.size() - 1]] = new Blob<float>(slice_point[_top.size() - 2], channels, height, width);
         break;
     case 1:
         for(int i = 0; i < _top.size() - 1; ++i)
-        {
             _top_blobs[_top[i]] = new Blob<float>(num, slice_point[i] - ((i == 0) ? 0 : slice_point[i - 1]), height, width);
-        }
         _top_blobs[_top[_top.size() - 1]] = new Blob<float>(num, slice_point[_top.size() - 2], height, width);
         break;
     case 2:
         for(int i = 0; i < _top.size() - 1; ++i)
-        {
             _top_blobs[_top[i]] = new Blob<float>(num, channels, slice_point[i] - ((i == 0) ? 0 : slice_point[i - 1]), width);
-        }
         _top_blobs[_top[_top.size() - 1]] = new Blob<float>(num, channels, height - slice_point[_top.size() - 2], width);
         break;
     case 3:
         for(int i = 0; i < _top.size() - 1; ++i)
-        {
             _top_blobs[_top[i]] = new Blob<float>(num, channels, height, slice_point[i] - ((i == 0) ? 0 : slice_point[i - 1]));
-        }
         _top_blobs[_top[_top.size() - 1]] = new Blob<float>(num, channels, height, width - slice_point[_top.size() - 2]);
         break;
     }
 
     for(int i = 0; i < _top.size(); ++i)
-    {
         _top_blobs[_top[i]]->Alloc();
-    }
     return 0;
 }
 
-int SliceLayer::Init()
+int SliceLayer::Init(float *ginput, float *goutput)
 {
     printf("axis %d slice_point num %lu\n", axis, slice_point.size());
     for(int i=0; i<_top.size(); i++)	printf("%s ", _top[i].c_str());
     printf("\n");
     printf("\n");
+
+    const Blob<float>* bottom_blob = _bottom_blobs[_bottom[0]];
+    num = bottom_blob->num();
+    channels = bottom_blob->channels();
+    height = bottom_blob->height();
+    width = bottom_blob->width();
+    input = _bottom_blobs[_bottom[0]]->data();
+
     return 0;
 }
 };

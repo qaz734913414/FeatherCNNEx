@@ -33,19 +33,14 @@ public:
     Layer(const void* layer_param, const RuntimeParameter<float>* rt_param);//Layer param must be LayerParameter type
 
     int SetupBottomBlob(const Blob<float>* p_blob, std::string name);
-
     int ReplaceBottomBlob(std::string old_bottom, std::string new_bottom, const Blob<float>* p_blob);
-
     int TryFuse(Layer *next_layer);
 
     virtual int Fuse(Layer* next_layer);
-
     virtual int GenerateTopBlobs();
-
-    //Other initializaiton operations
-    virtual int Init();
-
+    virtual int Init(float *ginput, float *goutput);
     virtual int Forward();
+
     std::string name();
     std::string type();
     std::string bottom(size_t i);
@@ -59,6 +54,7 @@ public:
     const size_t weight_blob_num() const;
     const Blob<float>* weight_blob(size_t i) const;
     bool fusible() const;
+    void printPrivateMempool();
 protected:
     std::string _name;
     std::string _type;
@@ -77,7 +73,6 @@ protected:
     size_t num_threads;
 
     CommonMemPool<float> 	*common_mempool;
-
     PrivateMemPool<void> 	private_mempool;
 };
 };

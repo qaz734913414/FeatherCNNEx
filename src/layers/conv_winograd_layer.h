@@ -85,7 +85,7 @@ public:
         else
             return 0;
     }
-    int Init()
+    int Init(float *ginput, float *goutput)
     {
         size_t inputw = input_width + padding_left + padding_right;
         size_t inputh = input_height + padding_top + padding_bottom;
@@ -108,7 +108,7 @@ public:
             winograd_mem_size += outputw * outputh * output_channels;
         }
         float* ST = NULL;
-        MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float)));
+        MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float), this->name()+" ["+this->type()+"]"));
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&UT, 16 * input_channels * output_channels * sizeof(float)));
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&ST, 16 * input_channels * output_channels * sizeof(float)));
         if (0 == this->fractions)
@@ -125,10 +125,15 @@ public:
             winograd_out_type = ReLU;
         else
             winograd_out_type = None;
-        //Setup input and output pointers.
+
+        if ((NULL != ginput) && (NULL != ginput))
+        {
+            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
+            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+        }
+
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
-
         return 0;
     }
 private:

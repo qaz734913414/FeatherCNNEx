@@ -52,7 +52,7 @@ public:
         }
     }
 
-    int Init()
+    int Init(float *ginput, float *goutput)
     {
         return 0;
     }

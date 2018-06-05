@@ -63,7 +63,7 @@ public:
         return 0;
     }
 
-    int Init()
+    int Init(float *ginput, float *goutput)
     {
         input_alpha = _bottom_blobs[_bottom[0]]->data();
         input_beta = _bottom_blobs[_bottom[1]]->data();

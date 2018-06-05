@@ -16,27 +16,35 @@
 #include "arm/generic_kernels.h"
 
 #include <math.h>
-
 namespace feather
 {
+int SoftmaxLayer::Init(float *ginput, float *goutput)
+{
+    if ((NULL != ginput) && (NULL != ginput))
+    {
+        ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
+        ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+    }
+
+    input = _bottom_blobs[_bottom[0]]->data();
+    output = _top_blobs[_top[0]]->data();
+    const Blob<float> *p_bottom = _bottom_blobs[_bottom[0]];
+    data_size = p_bottom->num() * p_bottom->channels() * p_bottom->height() * p_bottom->width();
+
+    return 0;
+}
 
 int SoftmaxLayer::Forward()
 {
-    const Blob<float> *p_bottom = _bottom_blobs[_bottom[0]];
-    const float* input = p_bottom->data();
-    const size_t data_size = p_bottom->num() * p_bottom->channels() * p_bottom->height() * p_bottom->width();
-    float* output = _top_blobs[_top[0]]->data();
-
     float sum = 0.0;
     for(size_t i = 0; i < data_size; ++i)
     {
         output[i] = static_cast<float>(exp(input[i]));
         sum += output[i];
     }
+
     for(size_t i = 0; i < data_size; ++i)
-    {
         output[i] = output[i] / sum;
-    }
     return 0;
 }
 };

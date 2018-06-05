@@ -26,7 +26,7 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     const LayerParameter* layer_param = (const LayerParameter*)layer_param_in;
     _name = layer_param->name()->str();
     _type = layer_param->type()->str();
-
+    this->private_mempool.setName(_name);
     for(int i = 0; i < VectorLength(layer_param->bottom()); ++i)
         _bottom.push_back(layer_param->bottom()->Get(i)->str());
 
@@ -111,12 +111,12 @@ int Layer::GenerateTopBlobs()
         return -1;
     Blob<float>* p_blob = new Blob<float>();
     p_blob->CopyShape(_bottom_blobs[_bottom[0]]);
-    p_blob->Alloc();
+    //p_blob->Alloc();
     _top_blobs[_top[0]] = p_blob;
     return 0;
 }
 
-int Layer::Init()
+int Layer::Init(float *ginput, float *goutput)
 {
     return 0;
 }
@@ -176,5 +176,9 @@ const Blob<float>* Layer::weight_blob(size_t i) const
 bool Layer::fusible() const
 {
     return _fusible;
+}
+void Layer::printPrivateMempool()
+{
+    private_mempool.PrintStats();
 }
 };

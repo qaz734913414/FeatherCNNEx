@@ -46,9 +46,6 @@ public:
 
     int Forward()
     {
-        const float *input = _bottom_blobs[_bottom[0]]->data();
-        float *output = _top_blobs[_top[0]]->data();
-
         if (output_size%8==0 && input_size%8==0)
             fully_connected_transpose_inference_neon8((int)input_size, (int)output_size, input, kernel_data, output, num_threads);
         else
@@ -59,7 +56,7 @@ public:
         return 0;
     }
 
-    int Init()
+    int Init(float *ginput, float *goutput)
     {
         float* buffer = NULL;
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&buffer, sizeof(float) * input_size * 8));
@@ -73,12 +70,20 @@ public:
             //Naive implementation doesn't require preprocess
         }
         MEMPOOL_CHECK_RETURN(private_mempool.Free((void**)&buffer));
+        if ((NULL != ginput) && (NULL != ginput))
+        {
+            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
+            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+        }
+
+        input = _bottom_blobs[_bottom[0]]->data();
+        output = _top_blobs[_top[0]]->data();
+
         return 0;
     }
 
     int GenerateTopBlobs()
     {
-        //InnerProduct layer has and only has one bottom blob.
         const Blob<float> *bottom_blob = _bottom_blobs[_bottom[0]];
         input_width = bottom_blob->width();
         input_height = bottom_blob->height();
@@ -104,7 +109,8 @@ protected:
     size_t output_size;
 
     bool bias_term;
-
+    float *input;
+    float *output;
     float *kernel_data;
     float *bias_data;
 };

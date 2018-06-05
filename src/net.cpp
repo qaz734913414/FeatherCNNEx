@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <cstring>
 
+#define NULL_POINTER_CHECK(pointer) if (NULL == pointer) {printf("%s %d null pointer\n", __FILE__, __LINE__);exit(-1);}
+
 namespace feather
 {
 Net::Net(size_t num_threads)
@@ -29,11 +31,16 @@ Net::Net(size_t num_threads)
     register_layer_creators();
     CommonMemPool<float> *mempool = new CommonMemPool<float>();
     rt_param = new RuntimeParameter<float>(mempool, num_threads);
+    input = NULL;
+    output = NULL;
 }
 
 
 Net::~Net()
 {
+    _mm_free(input);
+    _mm_free(output);
+
     delete rt_param->common_mempool();
     delete rt_param;
 }
@@ -68,10 +75,8 @@ int Net::GetBlobDataSize(size_t *data_size, std::string name)
 int Net::Forward(float *input)
 {
     InputLayer *input_layer = (InputLayer *)layers[0];
-    for (int i = 0; i < input_layer->input_size(); ++i)
-    {
-        input_layer->CopyInput(input_layer->input_name(i), input);
-    }
+    input_layer->CopyInput(input_layer->input_name(0), input);
+
     for (int i = 1; i < layers.size(); ++i)
     {
 #ifdef LAYER_TIMING
@@ -84,6 +89,7 @@ int Net::Forward(float *input)
         for (size_t j = 0; j < layers[i]->top_blob_size(); j++)
             layers[i]->top_blob(j)->PrintBlobInfo();
 #endif
+
 #ifdef LAYER_TIMING
         clock_gettime(CLOCK_MONOTONIC, &tpend);
         double timedif = 1000000.0 * (tpend.tv_sec - tpstart.tv_sec) + (tpend.tv_nsec - tpstart.tv_nsec) / 1000.0;
@@ -161,37 +167,62 @@ bool Net::InitFromBuffer(const void *net_buffer)
     }
     printf("Layer setup ok\n");
 
+    uint32_t total_top_blob_size = 0;
+    uint32_t cur_top_blob_size = 0;
+    uint32_t max_top_blob_size = 0;
+
+    /* layer 0 is data input layer not need to generate top blob */
+    std::string blob_name = layers[0]->top(0);
+    blob_map[blob_name] = layers[0]->top_blob(blob_name);
+
+    cur_top_blob_size = layers[0]->top_blob(0)->channels() * layers[0]->top_blob(0)->width() * layers[0]->top_blob(0)->height() * sizeof(float);
+    max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
+    total_top_blob_size += cur_top_blob_size;
+    printf("[%03d] Top Blob size: c: %04d w: %04d h: %04d  size: %08ld [%6.3f MB] MAX: %ld Bottom num: %ld\n",
+           0, layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->width(), layers[0]->top_blob(0)->height(),
+           cur_top_blob_size, (total_top_blob_size*1.0f)/(1024*1024), max_top_blob_size,
+           layers[0]->bottom_size());
+
     //Generate top blobs, with dependency check.
-    for (int i = 0; i < layers.size(); ++i)
+    for (int i = 1; i < layers.size(); ++i)
     {
-        size_t top_num = layers[i]->top_size();
-        size_t top_blob_num = layers[i]->top_blob_size();
-        //printf("top_num: %d top_blob_num: %d\n", top_num, top_blob_num);
-        if (top_blob_num == 0)
+        for (int b = 0; b < layers[i]->bottom_size(); ++b)
         {
-            for (int b = 0; b < layers[i]->bottom_size(); ++b)
+            /* find blob form top blob_map used as cur bottom blob */
+            std::string blob_name = layers[i]->bottom(b);
+            if (blob_map.find(blob_name) != blob_map.end())
+                layers[i]->SetupBottomBlob(blob_map[blob_name], blob_name);
+            else
             {
-                std::string blob_name = layers[i]->bottom(b);
-                // printf("blob name %s\n", blob_name.c_str());
-                if (blob_map.find(blob_name) != blob_map.end())
-                    layers[i]->SetupBottomBlob(blob_map[blob_name], blob_name);
-                else
-                {
-                    printf("Blob %s in layer %s not setup yet, may be casued by wrong layer order. Aborted.\n", blob_name.c_str(), net_param->layer()->Get(i)->name()->c_str());
-                    exit(-1);
-                }
+                printf("Blob %s in layer %s not setup yet, may be casued by wrong layer order. Aborted.\n", blob_name.c_str(), net_param->layer()->Get(i)->name()->c_str());
+                exit(-1);
             }
-            layers[i]->GenerateTopBlobs();
         }
 
-        for (int t = 0; t < top_num; ++t)
+        layers[i]->GenerateTopBlobs();
+
+        cur_top_blob_size = layers[i]->top_blob(0)->channels() * layers[i]->top_blob(0)->width() * layers[i]->top_blob(0)->height() * sizeof(float);
+        max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
+
+        total_top_blob_size += cur_top_blob_size;
+        printf("[%03d] Top Blob size: c: %04d w: %04d h: %04d  size: %08ld [%6.3f MB] MAX: %ld Bottom num: %ld\n",
+               i, layers[i]->top_blob(0)->channels(), layers[i]->top_blob(0)->width(), layers[i]->top_blob(0)->height(),
+               cur_top_blob_size, (total_top_blob_size*1.0f)/(1024*1024), max_top_blob_size,
+               layers[i]->bottom_size());
+
+        for (int t = 0; t < layers[i]->top_size(); ++t)
         {
             std::string blob_name = layers[i]->top(t);
             blob_map[blob_name] = layers[i]->top_blob(blob_name);
-            //blob_map[blob_name]->PrintBlobInfo();
         }
     }
     printf("Top blobs create ok\n");
+
+    input = (float*)_mm_malloc(max_top_blob_size, 128);
+    NULL_POINTER_CHECK(input);
+    output =(float*)_mm_malloc(max_top_blob_size, 128);
+    NULL_POINTER_CHECK(output);
+    printf("Net malloc global top/bottom buffer ok, %5.3f KB (%5.3f MB)\n", (max_top_blob_size<<1)/1024.0f, (max_top_blob_size<<1)/(1024.0f *1024.0f));
 
     //Try to fuse some layers together
     for (int i = 1; i < layers.size() - 1; ++i)
@@ -240,7 +271,15 @@ bool Net::InitFromBuffer(const void *net_buffer)
             blob_map[blob_name] = layers[i]->top_blob(blob_name);
             //blob_map[blob_name]->PrintBlobInfo();
         }
-        layers[i]->Init();
+
+        /* ping pang buffer use as input output, warning muti input not implement!!!!! */
+        if (0 == (i%2))
+            layers[i]->Init(input, output);
+        else
+            layers[i]->Init(output, input);
+
+        layers[i]->printPrivateMempool();
+
     }
     printf("Layers init ok\n");
 
