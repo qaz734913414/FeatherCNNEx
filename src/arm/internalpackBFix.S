@@ -1,3 +1,21 @@
+#ifndef FRACTION
+#define FRACTION 14
+#endif
+
+#define FRACTIONBX2 2*FRACTION
+
+    .equ      VERSION_MAJOR,    1
+    .equ      VERSION_MINOR,    0
+    .equ      VERSION_REVISION, 0
+
+    .equ      PHASE,            1
+    .equ      COPYRIGHT_YEAR,   2018
+
+COPYRIGHT_HOLDER:
+    .asciz    "tianylijun@163.com"
+    .equ      NE_OK,        0
+    .equ      NE_ERR,      -1
+
 #ifdef __aarch64__
 /* RSV X19~X28 */
 /**************in param**************/
@@ -16,12 +34,6 @@
 
 #define VSRC_4H_FIX    V4.4H
 #define VSRC_8H_FIX    V4.8H
-
-#ifndef FRACTION
-#define FRACTION 14
-#endif
-
-#define FRACTIONBX2 2*FRACTION
 
 /* void internalPackB8Fix(int L, short* packB, float* B, int ldb) */
 	.text
@@ -50,4 +62,65 @@ __LOOP:
 	cbnz L, __LOOP
 __END:
 	ret
+
+#else /* arch32 */
+
+/* RSV [R4-R9,FP] */
+/**************in param**************/
+#define L 		 r0
+#define PACKB		 r1
+#define B 		 r2
+#define LDB              r3
+
+/* RSV Q0~Q7 */
+#define VSRC_4S_B0     q8//V0.4S
+#define VSRC_4S_B0_D0  d16
+#define VSRC_4S_B0_D1  d17
+
+#define VSRC_4S_B1     q9//V1.4S
+#define VSRC_4S_B1_D0  d18
+#define VSRC_4S_B1_D1  d19
+
+#define VSRC_4S_PACKB0     q10//V2.4S
+#define VSRC_4S_PACKB0_D0  d20
+#define VSRC_4S_PACKB0_D1  d21
+
+#define VSRC_4S_PACKB1     q11//V3.4S
+#define VSRC_4S_PACKB1_D0  d22
+#define VSRC_4S_PACKB1_D1  d23
+
+#define VSRC_8H_PACKB01 q12//V4.8H
+#define VSRC_4H_PACKB0  d24//V4.4H
+#define VSRC_4H_PACKB1  d25//V4.8H
+
+/* void internalPackB8Fix(int L, short* packB, float* B, int ldb) */
+	.text
+	.align 5
+#ifdef __APPLE__
+	.global _internalPackB8Fix
+_internalPackB8Fix:
+#else
+	.global internalPackB8Fix
+internalPackB8Fix:
+#endif
+	pld [B, #32]
+	lsl LDB, LDB, #2
+	cmp L, #0
+	beq __END
+__LOOP:
+	vld1.32 {VSRC_4S_B0, VSRC_4S_B1}, [B], LDB
+	pld [B, #32]
+
+	vcvt.s32.f32 VSRC_4S_PACKB0, VSRC_4S_B0, #FRACTION
+	vcvt.s32.f32 VSRC_4S_PACKB1, VSRC_4S_B1, #FRACTION
+
+	vqmovn.s32 VSRC_4H_PACKB0, VSRC_4S_PACKB0
+	subs L, L, #1
+	vqmovn.s32 VSRC_4H_PACKB1, VSRC_4S_PACKB1
+	vst1.32 {VSRC_8H_PACKB01}, [PACKB]!
+
+	cmp L, #0
+	bne __LOOP
+__END:
+	bx lr
 #endif

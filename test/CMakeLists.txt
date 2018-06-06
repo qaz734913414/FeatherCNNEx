@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.5)
 
 set(OpenCV_DIR "/home/leejohnnie/tools/OpenCV-android-sdk/sdk/native/jni")
 
