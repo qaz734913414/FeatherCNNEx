@@ -86,7 +86,7 @@ public:
         }
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init(float *ginput, float *goutput, float *ginputMuti)
     {
         if ((NULL != ginput) && (NULL != ginput))
         {
@@ -173,7 +173,7 @@ public:
             output_width = static_cast<int>(ceil(static_cast<float>(input_width + 2 * pad_width - kernel_width) / stride_width)) + 1;
         }
         _top_blobs[_top[0]] = new Blob<float>(1, output_channels, output_height, output_width);
-        _top_blobs[_top[0]]->Alloc();
+        //_top_blobs[_top[0]]->Alloc(); //no need malloc, use net global input/output memory
 
         return 0;
     }

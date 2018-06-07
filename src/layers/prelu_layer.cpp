@@ -3,7 +3,7 @@
 
 namespace feather
 {
-int PReluLayer::Init(float *ginput, float *goutput)
+int PReluLayer::Init(float *ginput, float *goutput, float *ginputMuti)
 {
     if ((NULL != ginput) && (NULL != ginput))
     {

@@ -20,11 +20,6 @@ namespace feather
 
 int ConcatLayer::GenerateTopBlobs()
 {
-    //As this is an inference library, we don't support
-    //concat through batch_size, which means the axis param in caffe
-    //should always be 1
-    //TODO: CHECK PARAM in convertor.
-
     auto first_blob = _bottom_blobs[_bottom[0]];
     size_t num = 1;
     size_t channels = first_blob->channels();
@@ -41,12 +36,12 @@ int ConcatLayer::GenerateTopBlobs()
     }
     printf("Output shape %d %d %d\n", channels, height, width);
     _top_blobs[_top[0]] = new Blob<float>(num, channels, height, width);
-    _top_blobs[_top[0]]->Alloc();
-    //exit(0);
+    _top_blobs[_top[0]]->Alloc(); //TODO reduce memory
+
     return 0;
 }
 
-int ConcatLayer::Init(float *ginput, float *goutput)
+int ConcatLayer::Init(float *ginput, float *goutput, float *ginputMuti)
 {
     float* top_data = _top_blobs[_top[0]]->data();
     for(int i = 0; i < _bottom.size(); ++i)

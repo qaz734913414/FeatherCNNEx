@@ -85,7 +85,7 @@ public:
         else
             return 0;
     }
-    int Init(float *ginput, float *goutput)
+    int Init(float *ginput, float *goutput, float *ginputMuti)
     {
         size_t inputw = input_width + padding_left + padding_right;
         size_t inputh = input_height + padding_top + padding_bottom;

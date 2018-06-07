@@ -40,7 +40,7 @@ public:
 
     int GenerateTopBlobs();
     int Forward();
-    int Init(float *ginput, float *goutput);
+    int Init(float *ginput, float *goutput, float *ginputMuti);
 
 private:
     size_t num, channels, height, width;

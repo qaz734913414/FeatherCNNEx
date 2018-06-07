@@ -17,7 +17,7 @@
 
 namespace feather
 {
-int ReluLayer::Init(float *ginput, float *goutput)
+int ReluLayer::Init(float *ginput, float *goutput, float *ginputMuti)
 {
     if ((NULL != ginput) && (NULL != ginput))
     {

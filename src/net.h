@@ -41,5 +41,6 @@ private:
     std::map<std::string, const Blob<float> *> blob_map;
     float *input;
     float *output;
+    float *inputMuti;
 };
 };

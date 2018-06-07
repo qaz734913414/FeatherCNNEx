@@ -58,13 +58,14 @@ public:
         assert(_bottom_blobs[_bottom[0]]->data_size() == _bottom_blobs[_bottom[1]]->data_size());
         Blob<float>* p_blob = new Blob<float>();
         p_blob->CopyShape(_bottom_blobs[_bottom[0]]);
-        p_blob->Alloc();
+        //p_blob->Alloc();  //no need malloc, use net global input/output memory
         _top_blobs[_top[0]] = p_blob;
         return 0;
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init(float *ginput, float *goutput, float *ginputMuti)
     {
+        //TODO reduce memory
         input_alpha = _bottom_blobs[_bottom[0]]->data();
         input_beta = _bottom_blobs[_bottom[1]]->data();
         output = _top_blobs[_top[0]]->data();

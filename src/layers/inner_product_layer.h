@@ -56,7 +56,7 @@ public:
         return 0;
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init(float *ginput, float *goutput, float *ginputMuti)
     {
         float* buffer = NULL;
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&buffer, sizeof(float) * input_size * 8));
@@ -91,7 +91,7 @@ public:
         input_size = bottom_blob->data_size();
 
         _top_blobs[_top[0]] = new Blob<float>(1, output_channels, 1, 1);
-        _top_blobs[_top[0]]->Alloc();
+        //_top_blobs[_top[0]]->Alloc(); //no need malloc, use net global input/output memory
 
         output_size = _top_blobs[_top[0]]->data_size();
         return 0;

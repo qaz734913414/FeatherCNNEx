@@ -51,7 +51,7 @@ int BatchNormLayer::Fuse(Layer *next_layer)
         return 0;
 }
 
-int BatchNormLayer::Init(float *ginput, float *goutput)
+int BatchNormLayer::Init(float *ginput, float *goutput, float *ginputMuti)
 {
     const Blob<float>* p_blob = _bottom_blobs[_bottom[0]];
     input_channels = p_blob->channels();

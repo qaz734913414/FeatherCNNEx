@@ -41,7 +41,7 @@ LRNLayer::LRNLayer(const LayerParameter* layer_param, const RuntimeParameter<flo
     printf("localsize %ld alpha %f beta %f k %f\n", local_size, alpha, beta, k);
 }
 
-int LRNLayer::Init(float *ginput, float *goutput)
+int LRNLayer::Init(float *ginput, float *goutput, float *ginputMuti)
 {
     auto p_blob = _bottom_blobs[bottom(0)];
     width = p_blob->width();

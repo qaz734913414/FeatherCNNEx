@@ -40,6 +40,7 @@ Net::~Net()
 {
     _mm_free(input);
     _mm_free(output);
+    _mm_free(inputMuti);
 
     delete rt_param->common_mempool();
     delete rt_param;
@@ -178,9 +179,9 @@ bool Net::InitFromBuffer(const void *net_buffer)
     cur_top_blob_size = layers[0]->top_blob(0)->channels() * layers[0]->top_blob(0)->width() * layers[0]->top_blob(0)->height() * sizeof(float);
     max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
     total_top_blob_size += cur_top_blob_size;
-    printf("[%03d] Top Blob size: c: %04d w: %04d h: %04d  size: %08ld [%6.3f MB] MAX: %ld Bottom num: %ld\n",
+    printf("[%03d]-[00] Top Blob size: c: %04d w: %04d h: %04d  size: %08ld [%6.3f MB] Bottom num: %ld\n",
            0, layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->width(), layers[0]->top_blob(0)->height(),
-           cur_top_blob_size, (total_top_blob_size*1.0f)/(1024*1024), max_top_blob_size,
+           cur_top_blob_size, (total_top_blob_size*1.0f)/(1024*1024),
            layers[0]->bottom_size());
 
     //Generate top blobs, with dependency check.
@@ -201,14 +202,19 @@ bool Net::InitFromBuffer(const void *net_buffer)
 
         layers[i]->GenerateTopBlobs();
 
-        cur_top_blob_size = layers[i]->top_blob(0)->channels() * layers[i]->top_blob(0)->width() * layers[i]->top_blob(0)->height() * sizeof(float);
-        max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
+        cur_top_blob_size = 0;
+        for (int k = 0; k < layers[i]->top_blob_size(); k++)
+        {
+            cur_top_blob_size   += layers[i]->top_blob(k)->channels() * layers[i]->top_blob(k)->width() * layers[i]->top_blob(k)->height() * sizeof(float);
+            total_top_blob_size += layers[i]->top_blob(k)->channels() * layers[i]->top_blob(k)->width() * layers[i]->top_blob(k)->height() * sizeof(float);
 
-        total_top_blob_size += cur_top_blob_size;
-        printf("[%03d] Top Blob size: c: %04d w: %04d h: %04d  size: %08ld [%6.3f MB] MAX: %ld Bottom num: %ld\n",
-               i, layers[i]->top_blob(0)->channels(), layers[i]->top_blob(0)->width(), layers[i]->top_blob(0)->height(),
-               cur_top_blob_size, (total_top_blob_size*1.0f)/(1024*1024), max_top_blob_size,
-               layers[i]->bottom_size());
+            printf("[%03d]-[%02d] Top Blob size: c: %04d w: %04d h: %04d  size: %08ld [%6.3f MB] Bottom num: %ld\n",
+                   i, k, layers[i]->top_blob(k)->channels(), layers[i]->top_blob(k)->width(), layers[i]->top_blob(k)->height(),
+                   cur_top_blob_size, (total_top_blob_size*1.0f)/(1024*1024),
+                   layers[i]->bottom_size());
+        }
+
+        max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
 
         for (int t = 0; t < layers[i]->top_size(); ++t)
         {
@@ -216,13 +222,28 @@ bool Net::InitFromBuffer(const void *net_buffer)
             blob_map[blob_name] = layers[i]->top_blob(blob_name);
         }
     }
+    printf("Top max blobs size: %5.3f KB (%5.3f MB)\n", max_top_blob_size/1024.0f, max_top_blob_size/(1024.0f *1024.0f));
+
     printf("Top blobs create ok\n");
+    uint32_t total_weight_size = 0;
+    for (int i = 1; i < layers.size(); ++i)
+    {
+        uint32_t weight_size = 0;
+        for(int j = 0; j < layers[i]->_weight_blobs_fix.size(); j++)
+            weight_size += ((Blob<short>*)(layers[i]->_weight_blobs_fix[j]))->data_size()*2;
+        for(int j = 0; j < layers[i]->_weight_blobs.size(); j++)
+            weight_size += ((Blob<float>*)(layers[i]->_weight_blobs[j]))->data_size()*4;
+        total_weight_size += weight_size;
+        printf("Layer[%03d] weight %08ld, total weight %6.3f MB\n", i, weight_size, total_weight_size/(1024.0f*1024.0f));
+    }
 
     input = (float*)_mm_malloc(max_top_blob_size, 128);
     NULL_POINTER_CHECK(input);
     output =(float*)_mm_malloc(max_top_blob_size, 128);
     NULL_POINTER_CHECK(output);
-    printf("Net malloc global top/bottom buffer ok, %5.3f KB (%5.3f MB)\n", (max_top_blob_size<<1)/1024.0f, (max_top_blob_size<<1)/(1024.0f *1024.0f));
+    inputMuti =(float*)_mm_malloc(max_top_blob_size, 128);
+    NULL_POINTER_CHECK(inputMuti);
+    printf("Net malloc global top/bottom buffer ok, %5.3f KB (%5.3f MB)\n", (max_top_blob_size*3)/1024.0f, (max_top_blob_size*3)/(1024.0f *1024.0f));
 
     //Try to fuse some layers together
     for (int i = 1; i < layers.size() - 1; ++i)
@@ -274,9 +295,9 @@ bool Net::InitFromBuffer(const void *net_buffer)
 
         /* ping pang buffer use as input output, warning muti input not implement!!!!! */
         if (0 == (i%2))
-            layers[i]->Init(input, output);
+            layers[i]->Init(input, output, inputMuti);
         else
-            layers[i]->Init(output, input);
+            layers[i]->Init(output, input, inputMuti);
 
         layers[i]->printPrivateMempool();
 

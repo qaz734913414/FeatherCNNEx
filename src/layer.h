@@ -38,7 +38,7 @@ public:
 
     virtual int Fuse(Layer* next_layer);
     virtual int GenerateTopBlobs();
-    virtual int Init(float *ginput, float *goutput);
+    virtual int Init(float *ginput, float *goutput, float *ginputMuti);
     virtual int Forward();
 
     std::string name();
@@ -55,6 +55,10 @@ public:
     const Blob<float>* weight_blob(size_t i) const;
     bool fusible() const;
     void printPrivateMempool();
+
+    std::vector<Blob<float>*> _weight_blobs;
+    std::vector<Blob<short>*> _weight_blobs_fix;
+
 protected:
     std::string _name;
     std::string _type;
@@ -64,9 +68,6 @@ protected:
 
     std::map<std::string, const Blob<float>*> _bottom_blobs; //We don't want to do computation inplace.
     std::map<std::string, Blob<float>*> _top_blobs;
-
-    std::vector<Blob<float>*> _weight_blobs;
-    std::vector<Blob<short>*> _weight_blobs_fix;
 
     bool _fusible;
 

@@ -18,7 +18,7 @@
 #include <math.h>
 namespace feather
 {
-int SoftmaxLayer::Init(float *ginput, float *goutput)
+int SoftmaxLayer::Init(float *ginput, float *goutput, float *ginputMuti)
 {
     if ((NULL != ginput) && (NULL != ginput))
     {

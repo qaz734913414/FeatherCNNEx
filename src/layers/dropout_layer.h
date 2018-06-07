@@ -49,7 +49,7 @@ public:
         return 0;
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init(float *ginput, float *goutput, float *ginputMuti)
     {
         if ((NULL != ginput) && (NULL != ginput))
         {

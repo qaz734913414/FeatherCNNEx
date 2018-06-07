@@ -35,6 +35,9 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
 
     size_t blob_num = VectorLength(layer_param->blobs());
 
+    _weight_blobs.clear();
+    _weight_blobs_fix.clear();
+
     /* Construct weight blobs */
     for(int i = 0; i < blob_num; ++i)
     {
@@ -111,12 +114,12 @@ int Layer::GenerateTopBlobs()
         return -1;
     Blob<float>* p_blob = new Blob<float>();
     p_blob->CopyShape(_bottom_blobs[_bottom[0]]);
-    //p_blob->Alloc();
+    //p_blob->Alloc(); //no need malloc, use net global input/output memory
     _top_blobs[_top[0]] = p_blob;
     return 0;
 }
 
-int Layer::Init(float *ginput, float *goutput)
+int Layer::Init(float *ginput, float *goutput, float *ginputMuti)
 {
     return 0;
 }
