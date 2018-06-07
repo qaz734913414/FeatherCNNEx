@@ -684,12 +684,17 @@ static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     for(int p = 0; p < L; ++p)
     {
+#if __aarch64__
         int16x4x2_t va = vld1_s16_x2(aptr);
+#else
+        int16x4x2_t va;
+        va.val[0] = vld1_s16(aptr);
+        va.val[1] = vld1_s16(aptr+4);
+#endif
         fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *bptr);
 
         vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
         vcE_I = vmlal_n_s16(vcE_I, va.val[1], b4_I);
-
         bptr += ldb;
         aptr += 8;
     }
@@ -818,7 +823,13 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     for(int p = 0; p < L; ++p)
     {
+#if __aarch64__
         int16x4x2_t va = vld1_s16_x2(aptr);
+#else
+        int16x4x2_t va;
+        va.val[0] = vld1_s16(aptr);
+        va.val[1] = vld1_s16(aptr+4);
+#endif
 
         fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr));
         fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr+1));
@@ -993,7 +1004,13 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     for(int p = 0; p < L; ++p)
     {
+#if __aarch64__
         int16x4x2_t va = vld1_s16_x2(aptr);
+#else
+        int16x4x2_t va;
+        va.val[0] = vld1_s16(aptr);
+        va.val[1] = vld1_s16(aptr+4);
+#endif
 
         fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr));
         fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr+1));
@@ -1193,7 +1210,13 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     for(int p = 0; p < L; ++p)
     {
-        int16x4x2_t va   = vld1_s16_x2(aptr);
+#if __aarch64__
+        int16x4x2_t va = vld1_s16_x2(aptr);
+#else
+        int16x4x2_t va;
+        va.val[0] = vld1_s16(aptr);
+        va.val[1] = vld1_s16(aptr+4);
+#endif
         float32x4_t vb   = vld1q_f32(bptr);
         int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
         int16x4_t vb_I   = vmovn_s32(vb_I32);
@@ -1364,7 +1387,13 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     for(int p = 0; p < L; ++p)
     {
-        int16x4x2_t va   = vld1_s16_x2(aptr);
+#if __aarch64__
+        int16x4x2_t va = vld1_s16_x2(aptr);
+#else
+        int16x4x2_t va;
+        va.val[0] = vld1_s16(aptr);
+        va.val[1] = vld1_s16(aptr+4);
+#endif
         float32x4_t vb   = vld1q_f32(bptr);
         int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
         int16x4_t vb_I   = vmovn_s32(vb_I32);
@@ -1586,7 +1615,13 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     for(int p = 0; p < L; ++p)
     {
-        int16x4x2_t va   = vld1_s16_x2(aptr);
+#if __aarch64__
+        int16x4x2_t va = vld1_s16_x2(aptr);
+#else
+        int16x4x2_t va;
+        va.val[0] = vld1_s16(aptr);
+        va.val[1] = vld1_s16(aptr+4);
+#endif
         float32x4_t vb   = vld1q_f32(bptr);
         int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
         int16x4_t vb_I   = vmovn_s32(vb_I32);
@@ -1848,7 +1883,13 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
 
     for(int p = 0; p < L; ++p)
     {
-        int16x4x2_t va   = vld1_s16_x2(aptr);
+#if __aarch64__
+        int16x4x2_t va = vld1_s16_x2(aptr);
+#else
+        int16x4x2_t va;
+        va.val[0] = vld1_s16(aptr);
+        va.val[1] = vld1_s16(aptr+4);
+#endif
         float32x4_t vb   = vld1q_f32(bptr);
         int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
         int16x4_t vb_I   = vmovn_s32(vb_I32);
@@ -2244,7 +2285,11 @@ void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int lda, flo
     }
 }
 
+#if __aarch64__
 extern "C" void sgemm_8x8_pack_fix( int L, short *a, int lda, short *b, int ldb, float *c, int ldc );
+#else
+extern "C" void sgemm_8x8_pack_fix( int L, short *a, short *b, float *c, int ldc );
+#endif
 
 inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int ldc )
 {
@@ -2370,7 +2415,11 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *
         {
             if(i == 0)
                 internalPackB8Fix(L, packB + j * eL, b + j, ldb);
+#ifdef __aarch64__
             sgemm_8x8_pack_fix(L, a + i * L, lda, packB + j * eL, 8, c + i * ldc + j, ldc);
+#else
+            sgemm_8x8_pack_fix(L, a + i * L, packB + j * eL, c + i * ldc + j, ldc);
+#endif
         }
         if(remN)
             sgemm_tiny_scale_fix(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc);

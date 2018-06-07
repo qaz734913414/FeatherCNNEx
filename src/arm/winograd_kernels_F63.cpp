@@ -643,10 +643,11 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
     {
         float32x4x4_t v32x4x4;
         float32x4x4_t u32x4x4;
+
+#ifdef __aarch64__
         v32x4x4 = vld1q_f32_x4(vp);
         u32x4x4 = vld1q_f32_x4(up);
 
-#ifdef __aarch64__
         vc32x4x4_0.val[0] = vfmaq_f32(vc32x4x4_0.val[0], u32x4x4.val[0], v32x4x4.val[0]);
         vc32x4x4_0.val[1] = vfmaq_f32(vc32x4x4_0.val[1], u32x4x4.val[0], v32x4x4.val[1]);
         vc32x4x4_0.val[2] = vfmaq_f32(vc32x4x4_0.val[2], u32x4x4.val[0], v32x4x4.val[2]);
@@ -667,6 +668,16 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
         vc32x4x4_3.val[2] = vfmaq_f32(vc32x4x4_3.val[2], u32x4x4.val[3], v32x4x4.val[2]);
         vc32x4x4_3.val[3] = vfmaq_f32(vc32x4x4_3.val[3], u32x4x4.val[3], v32x4x4.val[3]);
 #else
+        v32x4x4.val[0] = vld1q_f32(vp);
+        v32x4x4.val[1] = vld1q_f32(vp+4);
+        v32x4x4.val[2] = vld1q_f32(vp+8);
+        v32x4x4.val[3] = vld1q_f32(vp+12);
+
+        u32x4x4.val[0] = vld1q_f32(up);
+        u32x4x4.val[1] = vld1q_f32(up+4);
+        u32x4x4.val[2] = vld1q_f32(up+8);
+        u32x4x4.val[3] = vld1q_f32(up+12);
+
         vc32x4x4_0.val[0] = vmlaq_f32(vc32x4x4_0.val[0], u32x4x4.val[0], v32x4x4.val[0]);
         vc32x4x4_0.val[1] = vmlaq_f32(vc32x4x4_0.val[1], u32x4x4.val[0], v32x4x4.val[1]);
         vc32x4x4_0.val[2] = vmlaq_f32(vc32x4x4_0.val[2], u32x4x4.val[0], v32x4x4.val[2]);
@@ -688,10 +699,32 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
         vc32x4x4_3.val[3] = vmlaq_f32(vc32x4x4_3.val[3], u32x4x4.val[3], v32x4x4.val[3]);
 #endif
     }
+#ifdef __aarch64__
     vst1q_f32_x4(WTp, vc32x4x4_0);
     vst1q_f32_x4(WTp + 1*wstride, vc32x4x4_1);
     vst1q_f32_x4(WTp + 2*wstride, vc32x4x4_2);
     vst1q_f32_x4(WTp + 3*wstride, vc32x4x4_3);
+#else
+    vst1q_f32(WTp, vc32x4x4_0.val[0]);
+    vst1q_f32(WTp + 4, vc32x4x4_0.val[1]);
+    vst1q_f32(WTp + 8, vc32x4x4_0.val[2]);
+    vst1q_f32(WTp + 12, vc32x4x4_0.val[3]);
+
+    vst1q_f32(WTp + 1*wstride, vc32x4x4_1.val[0]);
+    vst1q_f32(WTp + 1*wstride + 4, vc32x4x4_1.val[1]);
+    vst1q_f32(WTp + 1*wstride + 8, vc32x4x4_1.val[2]);
+    vst1q_f32(WTp + 1*wstride + 12, vc32x4x4_1.val[3]);
+
+    vst1q_f32(WTp + 2*wstride, vc32x4x4_2.val[0]);
+    vst1q_f32(WTp + 2*wstride + 4, vc32x4x4_2.val[1]);
+    vst1q_f32(WTp + 2*wstride + 8, vc32x4x4_2.val[2]);
+    vst1q_f32(WTp + 2*wstride + 12, vc32x4x4_2.val[3]);
+
+    vst1q_f32(WTp + 3*wstride, vc32x4x4_3.val[0]);
+    vst1q_f32(WTp + 3*wstride + 4, vc32x4x4_3.val[1]);
+    vst1q_f32(WTp + 3*wstride + 8, vc32x4x4_3.val[2]);
+    vst1q_f32(WTp + 3*wstride + 12, vc32x4x4_3.val[3]);
+#endif
 }
 
 static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, const float* &UTp, const float* &vp, const int &inChannels)
@@ -712,9 +745,10 @@ static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, c
     const float *up = UTp;
     for (int ic = 0; ic < inChannels; ++ic, vp += 12, up += 16)
     {
+#ifdef __aarch64__
         v32x4x3 = vld1q_f32_x3(vp);
         u32x4x4 = vld1q_f32_x4(up);
-#ifdef __aarch64__
+
         vc32x4x3_0.val[0] = vfmaq_f32(vc32x4x3_0.val[0], u32x4x4.val[0], v32x4x3.val[0]);
         vc32x4x3_0.val[1] = vfmaq_f32(vc32x4x3_0.val[1], u32x4x4.val[0], v32x4x3.val[1]);
         vc32x4x3_0.val[2] = vfmaq_f32(vc32x4x3_0.val[2], u32x4x4.val[0], v32x4x3.val[2]);
@@ -731,6 +765,15 @@ static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, c
         vc32x4x3_3.val[1] = vfmaq_f32(vc32x4x3_3.val[1], u32x4x4.val[3], v32x4x3.val[1]);
         vc32x4x3_3.val[2] = vfmaq_f32(vc32x4x3_3.val[2], u32x4x4.val[3], v32x4x3.val[2]);
 #else
+        v32x4x3.val[0] = vld1q_f32(vp);
+        v32x4x3.val[1] = vld1q_f32(vp+4);
+        v32x4x3.val[2] = vld1q_f32(vp+8);
+
+        u32x4x4.val[0] = vld1q_f32(up);
+        u32x4x4.val[1] = vld1q_f32(up+4);
+        u32x4x4.val[2] = vld1q_f32(up+8);
+        u32x4x4.val[3] = vld1q_f32(up+12);
+
         vc32x4x3_0.val[0] = vmlaq_f32(vc32x4x3_0.val[0], u32x4x4.val[0], v32x4x3.val[0]);
         vc32x4x3_0.val[1] = vmlaq_f32(vc32x4x3_0.val[1], u32x4x4.val[0], v32x4x3.val[1]);
         vc32x4x3_0.val[2] = vmlaq_f32(vc32x4x3_0.val[2], u32x4x4.val[0], v32x4x3.val[2]);
@@ -749,10 +792,28 @@ static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, c
 #endif
     }
 
+#ifdef __aarch64__
     vst1q_f32_x3(WTp, vc32x4x3_0);
     vst1q_f32_x3(WTp + wstride, vc32x4x3_1);
     vst1q_f32_x3(WTp + 2*wstride, vc32x4x3_2);
     vst1q_f32_x3(WTp + 3*wstride, vc32x4x3_3);
+#else
+    vst1q_f32(WTp, vc32x4x3_0.val[0]);
+    vst1q_f32(WTp + 4, vc32x4x3_0.val[1]);
+    vst1q_f32(WTp + 8, vc32x4x3_0.val[2]);
+
+    vst1q_f32(WTp + wstride, vc32x4x3_1.val[0]);
+    vst1q_f32(WTp + wstride + 4, vc32x4x3_1.val[1]);
+    vst1q_f32(WTp + wstride + 8, vc32x4x3_1.val[2]);
+
+    vst1q_f32(WTp + 2*wstride, vc32x4x3_2.val[0]);
+    vst1q_f32(WTp + 2*wstride + 4, vc32x4x3_2.val[1]);
+    vst1q_f32(WTp + 2*wstride + 8, vc32x4x3_2.val[2]);
+
+    vst1q_f32(WTp + 3*wstride, vc32x4x3_3.val[0]);
+    vst1q_f32(WTp + 3*wstride + 4, vc32x4x3_3.val[1]);
+    vst1q_f32(WTp + 3*wstride + 8, vc32x4x3_3.val[2]);
+#endif
 }
 
 static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, const float* &UTp, const float* &vp, const int &inChannels)
@@ -770,9 +831,10 @@ static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, c
     const float *up = UTp;
     for (int ic = 0; ic < inChannels; ++ic, vp += 8, up += 16)
     {
+#ifdef __aarch64__
         v32x4x2 = vld1q_f32_x2(vp);
         u32x4x4 = vld1q_f32_x4(up);
-#ifdef __aarch64__
+
         vc32x4x2_0.val[0] = vfmaq_f32(vc32x4x2_0.val[0], u32x4x4.val[0], v32x4x2.val[0]);
         vc32x4x2_0.val[1] = vfmaq_f32(vc32x4x2_0.val[1], u32x4x4.val[0], v32x4x2.val[1]);
         vc32x4x2_1.val[0] = vfmaq_f32(vc32x4x2_1.val[0], u32x4x4.val[1], v32x4x2.val[0]);
@@ -782,6 +844,14 @@ static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, c
         vc32x4x2_3.val[0] = vfmaq_f32(vc32x4x2_3.val[0], u32x4x4.val[3], v32x4x2.val[0]);
         vc32x4x2_3.val[1] = vfmaq_f32(vc32x4x2_3.val[0], u32x4x4.val[3], v32x4x2.val[1]);
 #else
+        v32x4x2.val[0] = vld1q_f32(vp);
+        v32x4x2.val[1] = vld1q_f32(vp+4);
+
+        u32x4x4.val[0] = vld1q_f32(up);
+        u32x4x4.val[1] = vld1q_f32(up+4);
+        u32x4x4.val[2] = vld1q_f32(up+8);
+        u32x4x4.val[3] = vld1q_f32(up+12);
+
         vc32x4x2_0.val[0] = vmlaq_f32(vc32x4x2_0.val[0], u32x4x4.val[0], v32x4x2.val[0]);
         vc32x4x2_0.val[1] = vmlaq_f32(vc32x4x2_0.val[1], u32x4x4.val[0], v32x4x2.val[1]);
         vc32x4x2_1.val[0] = vmlaq_f32(vc32x4x2_1.val[0], u32x4x4.val[1], v32x4x2.val[0]);
@@ -792,10 +862,25 @@ static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, c
         vc32x4x2_3.val[1] = vmlaq_f32(vc32x4x2_3.val[1], u32x4x4.val[3], v32x4x2.val[1]);
 #endif
     }
+
+#ifdef __aarch64__
     vst1q_f32_x2(WTp, vc32x4x2_0);
     vst1q_f32_x2(WTp + wstride, vc32x4x2_1);
     vst1q_f32_x2(WTp + 2*wstride, vc32x4x2_2);
     vst1q_f32_x2(WTp + 3*wstride, vc32x4x2_3);
+#else
+    vst1q_f32(WTp, vc32x4x2_0.val[0]);
+    vst1q_f32(WTp + 4, vc32x4x2_0.val[1]);
+
+    vst1q_f32(WTp + wstride, vc32x4x2_1.val[0]);
+    vst1q_f32(WTp + wstride + 4, vc32x4x2_1.val[1]);
+
+    vst1q_f32(WTp + 2*wstride, vc32x4x2_2.val[0]);
+    vst1q_f32(WTp + 2*wstride + 4, vc32x4x2_2.val[1]);
+
+    vst1q_f32(WTp + 3*wstride, vc32x4x2_3.val[0]);
+    vst1q_f32(WTp + 3*wstride + 4, vc32x4x2_3.val[1]);
+#endif
 }
 
 static inline void TensorGEMMInnerKernel4x1x4(float* &WTp, const int &wstride, const float* &UTp, const float* &vp, const int &inChannels)
@@ -816,13 +901,19 @@ static inline void TensorGEMMInnerKernel4x1x4(float* &WTp, const int &wstride, c
     for (int ic = 0; ic < inChannels; ++ic, vp += 4, up += 16)
     {
         v0 = vld1q_f32(vp);
-        u32x4x4 = vld1q_f32_x4(up);
 #ifdef __aarch64__
+        u32x4x4 = vld1q_f32_x4(up);
+
         vc00 = vfmaq_f32(vc00, u32x4x4.val[0], v0);
         vc10 = vfmaq_f32(vc10, u32x4x4.val[1], v0);
         vc20 = vfmaq_f32(vc20, u32x4x4.val[2], v0);
         vc30 = vfmaq_f32(vc30, u32x4x4.val[3], v0);
 #else
+        u32x4x4.val[0] = vld1q_f32(up);
+        u32x4x4.val[1] = vld1q_f32(up+4);
+        u32x4x4.val[2] = vld1q_f32(up+8);
+        u32x4x4.val[3] = vld1q_f32(up+12);
+
         vc00 = vmlaq_f32(vc00, u32x4x4.val[0], v0);
         vc10 = vmlaq_f32(vc10, u32x4x4.val[1], v0);
         vc20 = vmlaq_f32(vc20, u32x4x4.val[2], v0);

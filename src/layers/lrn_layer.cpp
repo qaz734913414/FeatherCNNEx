@@ -14,13 +14,8 @@
 
 #include "lrn_layer.h"
 #include "../mempool.h"
-#ifdef FEATHER_ARM
 #include "arm/generic_kernels.h"
 #include "arm/power.h"
-#else
-#include "general/generic_kernels.h"
-#include "general/power.h"
-#endif
 #include <cmath>
 
 namespace feather

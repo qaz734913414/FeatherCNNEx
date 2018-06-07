@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
     }
 
     img.convertTo(img, CV_32F, 1.0 / 128, -127.5/128);
-    printf("c: %d w: %d h : %d step: %ld\n", img.channels(), img.cols, img.rows, img.step[0]);
+    printf("c: %d w: %d h : %d step: %u\n", img.channels(), img.cols, img.rows, (unsigned int)img.step[0]);
 
     Net forward_net(num_threads);
     forward_net.InitFromPath(pModel);
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
     gettimeofday(&end, NULL);
     printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d\n\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads);
 
-    printf("out blob size: %lu\n", data_size);
+    printf("out blob size: %u\n", (unsigned int)data_size);
 
     float maxDiff = .0f;
     float maxDiffRefC =.0f, maxDiffAsm = .0f;
