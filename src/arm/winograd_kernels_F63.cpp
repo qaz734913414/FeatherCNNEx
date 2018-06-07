@@ -681,7 +681,7 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
         vc32x4x4_0.val[0] = vmlaq_f32(vc32x4x4_0.val[0], u32x4x4.val[0], v32x4x4.val[0]);
         vc32x4x4_0.val[1] = vmlaq_f32(vc32x4x4_0.val[1], u32x4x4.val[0], v32x4x4.val[1]);
         vc32x4x4_0.val[2] = vmlaq_f32(vc32x4x4_0.val[2], u32x4x4.val[0], v32x4x4.val[2]);
-        vc32x4x4_0.val[4] = vmlaq_f32(vc32x4x4_0.val[3], u32x4x4.val[0], v32x4x4.val[3]);
+        vc32x4x4_0.val[3] = vmlaq_f32(vc32x4x4_0.val[3], u32x4x4.val[0], v32x4x4.val[3]);
 
         vc32x4x4_1.val[0] = vmlaq_f32(vc32x4x4_1.val[0], u32x4x4.val[1], v32x4x4.val[0]);
         vc32x4x4_1.val[1] = vmlaq_f32(vc32x4x4_1.val[1], u32x4x4.val[1], v32x4x4.val[1]);
