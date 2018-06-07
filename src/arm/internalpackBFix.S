@@ -74,20 +74,10 @@ __END:
 
 /* RSV Q0~Q7 */
 #define VSRC_4S_B0     q8//V0.4S
-#define VSRC_4S_B0_D0  d16
-#define VSRC_4S_B0_D1  d17
-
 #define VSRC_4S_B1     q9//V1.4S
-#define VSRC_4S_B1_D0  d18
-#define VSRC_4S_B1_D1  d19
 
 #define VSRC_4S_PACKB0     q10//V2.4S
-#define VSRC_4S_PACKB0_D0  d20
-#define VSRC_4S_PACKB0_D1  d21
-
 #define VSRC_4S_PACKB1     q11//V3.4S
-#define VSRC_4S_PACKB1_D0  d22
-#define VSRC_4S_PACKB1_D1  d23
 
 #define VSRC_8H_PACKB01 q12//V4.8H
 #define VSRC_4H_PACKB0  d24//V4.4H
