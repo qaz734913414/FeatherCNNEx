@@ -9,5 +9,7 @@ Thanks Tencent FeatherCNN team.
 
 
 Target Info：
+
 Meizu Note1 MobilePhone
+
 CPU: MT6752 (Octa-core @1.7GHz Cortex-A53, L1 I$: 32KB, L1 D$: 32KB, L2$: 1MB)
