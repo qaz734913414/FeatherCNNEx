@@ -107,7 +107,7 @@ int PReluLayer::Forward()
     else if ((0 != c) && (0 != h) && (0 != w))
     {
         int size = w * h;
-        #pragma omp parallel for num_threads(num_threads) schedule(guided)
+        //#pragma omp parallel for num_threads(num_threads) schedule(guided)
         for (int q=0; q<c; q++)
         {
             const float* inPtr = input + q*size;
