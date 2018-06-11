@@ -107,7 +107,9 @@ int PReluLayer::Forward()
     else if ((0 != c) && (0 != h) && (0 != w))
     {
         int size = w * h;
-        //#pragma omp parallel for num_threads(num_threads) schedule(guided)
+        float32x4_t vzerof32x4 = vdupq_n_f32(0.f);
+
+        #pragma omp parallel for num_threads(num_threads)
         for (int q=0; q<c; q++)
         {
             const float* inPtr = input + q*size;
@@ -115,9 +117,8 @@ int PReluLayer::Forward()
             float slope = shared ? slope_data[0]:slope_data[q];
             int i = 0;
 #ifdef __ARM_NEON
-            float32x4_t vzerof32x4 = vdupq_n_f32(0.f);
             float32x4_t vslopef32x4 = vdupq_n_f32(slope);
-            for (; i < size; i += 4)
+            for (; i < size - 4; i += 4)
             {
                 float32x4_t vsrcf32x4 = vld1q_f32(&inPtr[i]);
                 uint32x4_t vmasku32x4 = vcleq_f32(vsrcf32x4, vzerof32x4);
@@ -125,7 +126,6 @@ int PReluLayer::Forward()
                 vmulf32x4 = vbslq_f32(vmasku32x4, vmulf32x4, vsrcf32x4);
                 vst1q_f32(&outPtr[i], vmulf32x4);
             }
-            if (i > size) i -= 4;
 #endif
             for (; i<size; i++)
             {
