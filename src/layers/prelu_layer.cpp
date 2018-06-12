@@ -29,7 +29,7 @@ int PReluLayer::Forward()
         if (shared)
         {
             float slope = slope_data[0];
-#ifdef __ARM_NEON
+#if 0//def __ARM_NEON
             float32x4_t vzerof32x4 = vdupq_n_f32(0.f);
             float32x4_t vslopef32x4 = vdupq_n_f32(slope);
             for (; i < w; i += 4)
@@ -52,7 +52,7 @@ int PReluLayer::Forward()
         }
         else
         {
-#ifdef __ARM_NEON
+#if 0//def __ARM_NEON
             float32x4_t vzerof32x4 = vdupq_n_f32(0.f);
             for (; i < w; i += 4)
             {
@@ -82,7 +82,7 @@ int PReluLayer::Forward()
             float* outPtr = output + i*w;
             float slope = shared ? slope_data[0]:slope_data[i];
             int j = 0;
-#ifdef __ARM_NEON
+#if 0//def __ARM_NEON
             float32x4_t vzerof32x4 = vdupq_n_f32(0.f);
             float32x4_t vslopef32x4 = vdupq_n_f32(slope);
             for (; j < w; j += 4)
@@ -116,7 +116,7 @@ int PReluLayer::Forward()
             float* outPtr = output + q*size;
             float slope = shared ? slope_data[0]:slope_data[q];
             int i = 0;
-#ifdef __ARM_NEON
+#if 0//def __ARM_NEON
             float32x4_t vslopef32x4 = vdupq_n_f32(slope);
             for (; i < size - 4; i += 4)
             {

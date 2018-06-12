@@ -52,7 +52,7 @@ public:
 
     int Forward()
     {
-        //printf("-kw %d kh %d sh %d sw %d c: %d bias_term: %d-\n", kernel_width, kernel_height, stride_height, stride_width, output_channels, bias_term);
+        //printf("-kw %d kh %d sh %d sw %d c: %d bias_term: %d fractions:%d-\n", kernel_width, kernel_height, stride_height, stride_width, output_channels, bias_term, this->fractions);
         if(kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1)
         {
             if (output_channels % 8 == 0) //Todo
