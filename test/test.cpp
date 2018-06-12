@@ -21,10 +21,53 @@
 #include <iostream>
 #include <fstream>
 #include <opencv2/opencv.hpp>
+#include <arm_neon.h>
 
 using namespace std;
 using namespace cv;
 using namespace feather;
+
+static long getFileSize(FILE*stream)
+{
+	long length;
+	fseek(stream,0L,SEEK_END);
+	length = ftell(stream);
+	fseek(stream,0L,SEEK_SET);
+	return length;
+}
+
+static int writeFile(unsigned char *data, unsigned size, const char *pFileName)
+{
+	FILE *fp = fopen(pFileName, "wb");
+	if (NULL == fp)
+	{
+		printf("Write file failed, %s\n", pFileName);
+		return -1;
+	}
+	fwrite(data, 1, size, fp);
+	fclose(fp);
+
+	return 0;
+}
+
+static unsigned char* readFile(const char *pFileName)
+{
+	FILE *fp = fopen(pFileName, "rb");
+	if (NULL == fp)
+	{
+		printf("Read file failed, %s\n", pFileName);
+		return NULL;
+	}
+
+	long fSize = getFileSize(fp);
+	printf("File %s size %ld\n", pFileName, fSize);
+	unsigned char *pData = (unsigned char *)malloc(fSize);
+	fread(pData, 1, fSize, fp);
+	fclose(fp);
+
+	return pData;
+}
+
 static float C_REF[] =
 #if 1
 {
