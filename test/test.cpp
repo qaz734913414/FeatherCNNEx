@@ -175,8 +175,8 @@ int main(int argc, char *argv[])
 
     printf("out blob size: %u\n", (unsigned int)data_size);
 
-    float maxDiff = .0f;
-    float maxDiffRefC =.0f, maxDiffAsm = .0f;
+    float maxDiff      = .0f;
+    float maxDiffRefC  =.0f, maxDiffAsm = .0f;
     float maxDiffRatio = .0f;
     float maxDiffRefCRatio =.0f, maxDiffAsmRatio = .0f;
 
@@ -199,12 +199,12 @@ int main(int argc, char *argv[])
             {
                 maxDiffRefCRatio = *(C_REF + i);
                 maxDiffAsmRatio = *(pOut + i);
-                maxDiffRatio = fabs(*(C_REF + i) - *(pOut + i)) / fabs(*(C_REF + i));
+                maxDiffRatio = fabs(maxDiffRefCRatio - maxDiffAsmRatio) / fabs(maxDiffRefCRatio);
                 maxratiocol = colIdx;
             }
         }
     }
-    printf("\n\nmaxDiff:\nabs   %9.6f [%9.6f, %9.6f] at cols %02d\nratio %9.6f [%9.6f, %9.6f] at cols %02d\n", maxDiff, maxDiffAsm, maxDiffRefC, maxabscol, maxDiffRefCRatio, maxDiffAsmRatio, maxDiffRefCRatio, maxratiocol);
+    printf("\n\nmaxDiff:\nabs   %9.6f [%9.6f, %9.6f] at cols %02d\nratio %9.6f [%9.6f, %9.6f] at cols %02d\n", maxDiff, maxDiffAsm, maxDiffRefC, maxabscol, maxDiffRatio, maxDiffAsmRatio, maxDiffRefCRatio, maxratiocol);
 
     free(pOut);
     printf("\n");

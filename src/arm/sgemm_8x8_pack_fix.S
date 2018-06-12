@@ -1,8 +1,4 @@
-#ifndef FRACTION
-#define FRACTION 14
-#endif
-
-#define FRACTIONBX2 2*FRACTION
+#include "fix.h"
 
     .equ      VERSION_MAJOR,    1
     .equ      VERSION_MINOR,    0

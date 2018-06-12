@@ -19,6 +19,7 @@
 #include <vector>
 #include <cstdlib>
 #include <pthread.h>
+#include "fix.h"
 
 #ifndef MAX
 #define MAX(a,b) ((a)>(b))?(a):(b)
@@ -26,11 +27,6 @@
 #ifndef MIN
 #define MIN(a,b) ((a)<(b))?(a):(b)
 #endif
-
-#ifndef FRACTION
-#define FRACTION 14
-#endif
-#define FRACTIONBX2 2*FRACTION
 
 typedef short fix16_t;
 #define FLOAT2FIX(fixt, fracbits, x) fixt(((x)*(float)((fixt(1)<<(fracbits)))))
