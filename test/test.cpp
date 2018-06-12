@@ -13,7 +13,7 @@
 //specific language governing permissions and limitations under the License.
 
 #include <net.h>
-
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -124,6 +124,34 @@ static float C_REF[] =
     0.019771,0.280428,0.009196,0.355242,0.840791,0.265378,0.008064,1.402990,0.017855,0.678500,0.315003,0.075483,1.213369,0.000000,0.000704,0.000000
 };
 #endif
+static void distanceO(float *a, float *b, unsigned size)
+{
+	int i = 0;
+	float sum = 0;
+	for( i = 0; i < size; i++)
+	{
+		sum += (a[i]-b[i])*(a[i]-b[i]);
+	}
+	float sim = 1.0/(1.0+sqrt(sum));
+	printf("\nO distance: %f (%f)\n", sim, sum);
+}
+
+static void distanceCos(float *a, float *b, unsigned size)
+{
+	int i = 0;
+	float sum = .0f;
+	float asquare = .0f, bsquare = .0f;
+	for( i = 0; i < size; i++)
+	{
+		sum += a[i]*b[i];
+		asquare += a[i]*a[i];
+		bsquare += b[i]*b[i];
+	}
+	asquare = sqrt(asquare);
+	bsquare = sqrt(bsquare);
+	float cosf = 0.5 + 0.5*(sum/(asquare*bsquare));
+	printf("\nCos distance: %f (%f)\n", cosf, sum/(asquare*bsquare));
+}
 
 int main(int argc, char *argv[])
 {
@@ -205,6 +233,9 @@ int main(int argc, char *argv[])
         }
     }
     printf("\n\nmaxDiff:\nabs   %9.6f [%9.6f, %9.6f] at cols %02d\nratio %9.6f [%9.6f, %9.6f] at cols %02d\n", maxDiff, maxDiffAsm, maxDiffRefC, maxabscol, maxDiffRatio, maxDiffAsmRatio, maxDiffRefCRatio, maxratiocol);
+
+    distanceCos(C_REF, pOut, data_size);
+    //distanceO(C_REF, pOut, data_size);
 
     free(pOut);
     printf("\n");
