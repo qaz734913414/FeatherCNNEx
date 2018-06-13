@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <string>
 #include <cstring>
 #include <vector>
@@ -28,9 +29,11 @@
 #define MIN(a,b) ((a)<(b))?(a):(b)
 #endif
 
+typedef int8_t fix8_t;
 typedef short fix16_t;
 #define FLOAT2FIX(fixt, fracbits, x) fixt(((x)*(float)((fixt(1)<<(fracbits)))))
 #define FIX2FLOAT(fracbits,x) ((float)(x)/((1)<<fracbits))
+#define INT82FLOAT(x, scale) ((x*scale)/127.0)
 
 void* _mm_malloc(size_t sz, size_t align);
 void _mm_free(void* ptr);

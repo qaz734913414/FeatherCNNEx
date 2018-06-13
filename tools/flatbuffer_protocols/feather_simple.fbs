@@ -128,6 +128,7 @@ table ConvolutionParameter {
   axis:int = 1;
   force_nd_im2col:bool;
   fractions:uint;
+  int8scale:float;
 }
 
 table CropParameter {
@@ -293,6 +294,7 @@ table BlobShape {
 table BlobProto {
   data:[float];
   data_fix:[short];
+  data_fix8:[byte];
   num:int;
   channels:int;
   height:int;

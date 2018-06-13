@@ -98,6 +98,8 @@ public:
 
         if (0 == this->fractions)
             transformKernel_F6x6_3x3(UT, kernel_data, input_channels, output_channels);
+        else if (8 == this->fractions)
+            transformKernel_F6x6_3x3Fix8(UT, kernel_data_fix8, input_channels, output_channels);
         else
             transformKernel_F6x6_3x3Fix(UT, kernel_data_fix, input_channels, output_channels);
 

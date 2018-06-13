@@ -113,6 +113,8 @@ public:
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&ST, 16 * input_channels * output_channels * sizeof(float)));
         if (0 == this->fractions)
             transformKernel(UT, kernel_data, input_channels, output_channels, ST);
+        else if (8 == this->fractions)
+            transformKernelFix8(UT, kernel_data_fix8, input_channels, output_channels, ST);
         else
             transformKernelFix(UT, kernel_data_fix, input_channels, output_channels, ST);
         MEMPOOL_CHECK_RETURN(private_mempool.Free((void**)&ST));

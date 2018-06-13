@@ -36,6 +36,8 @@ void Blob<Dtype>::FromProto(const void *proto_in)//proto MUST be of type BlobPro
     size_t data_length;
     if (0 == this->_fractions)
         data_length = proto->data()->Length();
+    else if (8 == this->_fractions)
+        data_length = proto->data_fix8()->Length();
     else
         data_length = proto->data_fix()->Length();
 
@@ -46,6 +48,8 @@ void Blob<Dtype>::FromProto(const void *proto_in)//proto MUST be of type BlobPro
         {
             if (0 == this->_fractions)
                 this->_data[i] = proto->data()->Get(i);
+            else if (8 == this->_fractions)
+                this->_data[i] = proto->data_fix8()->Get(i);
             else
                 this->_data[i] = proto->data_fix()->Get(i);
         }

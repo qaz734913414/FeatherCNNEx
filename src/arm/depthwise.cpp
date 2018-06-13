@@ -31,10 +31,10 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
     int outw = (inw - kw + 1) / stridew;
     int outh = (inh - kh + 1) / strideh;
 
-    #undef FRACTION
-    #define FRACTION 13
-    #undef FRACTIONBX2
-    #define FRACTIONBX2 2*FRACTION
+#undef FRACTION
+#define FRACTION 13
+#undef FRACTIONBX2
+#define FRACTIONBX2 2*FRACTION
 
     #pragma omp parallel for num_threads(nThreads) schedule(static)
     for(int g = 0; g < group; ++g)
@@ -43,7 +43,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
         float32x4_t sum1f, sum2f, sum3f, sum4f;
         int32x4_t sum1, sum2, sum3, sum4;
 
-		short* kp   = kernel + 9 * g;
+        short* kp   = kernel + 9 * g;
         float* outg = output + g * outw * outh;
         float* ing  = input + g * inw * inh;
 
@@ -310,17 +310,17 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
 #ifdef __aarch64__
                 *og = vaddvq_f32(sum1f);
 #else
-				float32x2_t tmp = vpadd_f32(vget_low_f32(sum1f), vget_high_f32(sum1f));
-				tmp = vpadd_f32(tmp, tmp);
-				*og = tmp[0];
+                float32x2_t tmp = vpadd_f32(vget_low_f32(sum1f), vget_high_f32(sum1f));
+                tmp = vpadd_f32(tmp, tmp);
+                *og = tmp[0];
 #endif
                 sum2f[3] = 0.0f;
 #ifdef __aarch64__
                 *og3 = vaddvq_f32(sum2f);
 #else
-				tmp = vpadd_f32(vget_low_f32(sum2f), vget_high_f32(sum2f));
-				tmp = vpadd_f32(tmp, tmp);
-				*og3 = tmp[0];
+                tmp = vpadd_f32(vget_low_f32(sum2f), vget_high_f32(sum2f));
+                tmp = vpadd_f32(tmp, tmp);
+                *og3 = tmp[0];
 #endif
                 r0++;
                 r1++;
@@ -331,7 +331,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
             }
         }
 
-		//the remain rows
+        //the remain rows
         for(; i < outh; ++i)
         {
             int nout = outw >> 4;  //outw / 16, compute 16 cols per time
@@ -504,9 +504,9 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
 #ifdef __arch64__
                 *og = vaddvq_f32(sum1f);
 #else
-				float32x2_t tmp = vpadd_f32(vget_low_f32(sum1f), vget_high_f32(sum1f));
-				tmp = vpadd_f32(tmp, tmp);
-				*og = tmp[0];
+                float32x2_t tmp = vpadd_f32(vget_low_f32(sum1f), vget_high_f32(sum1f));
+                tmp = vpadd_f32(tmp, tmp);
+                *og = tmp[0];
 #endif
                 r0++;
                 r1++;
@@ -522,10 +522,10 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
     int outw = (inw - kw + 1) / stridew;
     int outh = (inh - kh + 1) / strideh;
 
-    #undef FRACTION
-    #define FRACTION 13
-    #undef FRACTIONBX2
-    #define FRACTIONBX2 2*FRACTION
+#undef FRACTION
+#define FRACTION 13
+#undef FRACTIONBX2
+#define FRACTIONBX2 2*FRACTION
 
     #pragma omp parallel for num_threads(nThreads) schedule(static)
     for(int g = 0; g < group; ++g)
@@ -534,11 +534,11 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
         float32x4_t sum1f, sum2f;
         int32x4_t sum1, sum2;
 
-		short* kp = kernel + 9 * g;
+        short* kp = kernel + 9 * g;
         float* outg = output + g * outw * outh;
         float* ing = input + g * inw * inh;
 
-		int16x4_t k0 = vld1_dup_s16(kp);
+        int16x4_t k0 = vld1_dup_s16(kp);
         int16x4_t k1 = vld1_dup_s16(kp + 1);
         int16x4_t k2 = vld1_dup_s16(kp + 2);
         int16x4_t k3 = vld1_dup_s16(kp + 3);
@@ -554,7 +554,7 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
             int nout = outw >> 3;  //outw / 8, compute 8 cols per time
             int remain = outw & 7;
 
-			float* _r0 = ing + inw * i * 2;
+            float* _r0 = ing + inw * i * 2;
             float* _r1 = _r0 + inw;
             float* _r2 = _r1 + inw;
 
@@ -576,12 +576,12 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 int32x4_t r0n2_I32_0 = vcvtq_n_s32_f32(r0n2.val[0], FRACTION);
                 int32x4_t r0n2_I32_1 = vcvtq_n_s32_f32(r0n2.val[1], FRACTION);
 
-				int16x4_t r0_I16_0   = vmovn_s32(r0_I32_0);
-				int16x4_t r0_I16_1   = vmovn_s32(r0_I32_1);
-				int16x4_t r0n1_I16_0 = vmovn_s32(r0n1_I32_0);
-				int16x4_t r0n1_I16_1 = vmovn_s32(r0n1_I32_1);
-				int16x4_t r0n2_I16_0 = vmovn_s32(r0n2_I32_0);
-				int16x4_t r0n2_I16_1 = vmovn_s32(r0n2_I32_1);
+                int16x4_t r0_I16_0   = vmovn_s32(r0_I32_0);
+                int16x4_t r0_I16_1   = vmovn_s32(r0_I32_1);
+                int16x4_t r0n1_I16_0 = vmovn_s32(r0n1_I32_0);
+                int16x4_t r0n1_I16_1 = vmovn_s32(r0n1_I32_1);
+                int16x4_t r0n2_I16_0 = vmovn_s32(r0n2_I32_0);
+                int16x4_t r0n2_I16_1 = vmovn_s32(r0n2_I32_1);
                 int16x4_t r02_I16    = vext_s16(r0_I16_0, r0n1_I16_0, 1);
 
                 float32x4x2_t r1   = vld2q_f32(_r1);
@@ -598,12 +598,12 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 int32x4_t r1n2_I32_0 = vcvtq_n_s32_f32(r1n2.val[0], FRACTION);
                 int32x4_t r1n2_I32_1 = vcvtq_n_s32_f32(r1n2.val[1], FRACTION);
 
-				int16x4_t r1_I16_0   = vmovn_s32(r1_I32_0);
-				int16x4_t r1_I16_1   = vmovn_s32(r1_I32_1);
-				int16x4_t r1n1_I16_0 = vmovn_s32(r1n1_I32_0);
-				int16x4_t r1n1_I16_1 = vmovn_s32(r1n1_I32_1);
-				int16x4_t r1n2_I16_0 = vmovn_s32(r1n2_I32_0);
-				int16x4_t r1n2_I16_1 = vmovn_s32(r1n2_I32_1);
+                int16x4_t r1_I16_0   = vmovn_s32(r1_I32_0);
+                int16x4_t r1_I16_1   = vmovn_s32(r1_I32_1);
+                int16x4_t r1n1_I16_0 = vmovn_s32(r1n1_I32_0);
+                int16x4_t r1n1_I16_1 = vmovn_s32(r1n1_I32_1);
+                int16x4_t r1n2_I16_0 = vmovn_s32(r1n2_I32_0);
+                int16x4_t r1n2_I16_1 = vmovn_s32(r1n2_I32_1);
                 int16x4_t r12_I16    = vext_s16(r1_I16_0, r1n1_I16_0, 1);
 
                 float32x4x2_t r2 = vld2q_f32(_r2);
@@ -620,12 +620,12 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 int32x4_t r2n2_I32_0 = vcvtq_n_s32_f32(r2n2.val[0], FRACTION);
                 int32x4_t r2n2_I32_1 = vcvtq_n_s32_f32(r2n2.val[1], FRACTION);
 
-				int16x4_t r2_I16_0   = vmovn_s32(r2_I32_0);
-				int16x4_t r2_I16_1   = vmovn_s32(r2_I32_1);
-				int16x4_t r2n1_I16_0 = vmovn_s32(r2n1_I32_0);
-				int16x4_t r2n1_I16_1 = vmovn_s32(r2n1_I32_1);
-				int16x4_t r2n2_I16_0 = vmovn_s32(r2n2_I32_0);
-				int16x4_t r2n2_I16_1 = vmovn_s32(r2n2_I32_1);
+                int16x4_t r2_I16_0   = vmovn_s32(r2_I32_0);
+                int16x4_t r2_I16_1   = vmovn_s32(r2_I32_1);
+                int16x4_t r2n1_I16_0 = vmovn_s32(r2n1_I32_0);
+                int16x4_t r2n1_I16_1 = vmovn_s32(r2n1_I32_1);
+                int16x4_t r2n2_I16_0 = vmovn_s32(r2n2_I32_0);
+                int16x4_t r2n2_I16_1 = vmovn_s32(r2n2_I32_1);
                 int16x4_t r22_I16    = vext_s16(r2_I16_0, r2n2_I16_0, 1);
 
                 sum1 = vmull_s16(r0_I16_0, k0);
@@ -666,7 +666,7 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
 
                 sum1 = vaddq_s32(sum1, sum2);
                 sum1f = vcvtq_n_f32_s32(sum1, FRACTIONBX2);
-				vst1q_f32(og + 4, sum1f);
+                vst1q_f32(og + 4, sum1f);
 
                 _r0 +=16;
                 _r1 += 16;
@@ -688,10 +688,10 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 int32x4_t r0n1_I32_0 = vcvtq_n_s32_f32(r0n1.val[0], FRACTION);
                 int32x4_t r0n1_I32_1 = vcvtq_n_s32_f32(r0n1.val[1], FRACTION);
 
-				int16x4_t r0_I16_0   = vmovn_s32(r0_I32_0);
-				int16x4_t r0_I16_1   = vmovn_s32(r0_I32_1);
-				int16x4_t r0n1_I16_0 = vmovn_s32(r0n1_I32_0);
-				int16x4_t r0n1_I16_1 = vmovn_s32(r0n1_I32_1);
+                int16x4_t r0_I16_0   = vmovn_s32(r0_I32_0);
+                int16x4_t r0_I16_1   = vmovn_s32(r0_I32_1);
+                int16x4_t r0n1_I16_0 = vmovn_s32(r0n1_I32_0);
+                int16x4_t r0n1_I16_1 = vmovn_s32(r0n1_I32_1);
                 int16x4_t r02_I16    = vext_s16(r0_I16_0, r0n1_I16_0, 1);
 
                 float32x4x2_t r1 = vld2q_f32(_r1);
@@ -705,10 +705,10 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 int32x4_t r1n1_I32_0 = vcvtq_n_s32_f32(r1n1.val[0], FRACTION);
                 int32x4_t r1n1_I32_1 = vcvtq_n_s32_f32(r1n1.val[1], FRACTION);
 
-				int16x4_t r1_I16_0   = vmovn_s32(r1_I32_0);
-				int16x4_t r1_I16_1   = vmovn_s32(r1_I32_1);
-				int16x4_t r1n1_I16_0 = vmovn_s32(r1n1_I32_0);
-				int16x4_t r1n1_I16_1 = vmovn_s32(r1n1_I32_1);
+                int16x4_t r1_I16_0   = vmovn_s32(r1_I32_0);
+                int16x4_t r1_I16_1   = vmovn_s32(r1_I32_1);
+                int16x4_t r1n1_I16_0 = vmovn_s32(r1n1_I32_0);
+                int16x4_t r1n1_I16_1 = vmovn_s32(r1n1_I32_1);
                 int16x4_t r12_I16    = vext_s16(r1_I16_0, r1n1_I16_0, 1);
 
                 float32x4x2_t r2 = vld2q_f32(_r2);
@@ -722,10 +722,10 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 int32x4_t r2n1_I32_0 = vcvtq_n_s32_f32(r2n1.val[0], FRACTION);
                 int32x4_t r2n1_I32_1 = vcvtq_n_s32_f32(r2n1.val[1], FRACTION);
 
-				int16x4_t r2_I16_0   = vmovn_s32(r2_I32_0);
-				int16x4_t r2_I16_1   = vmovn_s32(r2_I32_1);
-				int16x4_t r2n1_I16_0 = vmovn_s32(r2n1_I32_0);
-				int16x4_t r2n1_I16_1 = vmovn_s32(r2n1_I32_1);
+                int16x4_t r2_I16_0   = vmovn_s32(r2_I32_0);
+                int16x4_t r2_I16_1   = vmovn_s32(r2_I32_1);
+                int16x4_t r2n1_I16_0 = vmovn_s32(r2n1_I32_0);
+                int16x4_t r2n1_I16_1 = vmovn_s32(r2n1_I32_1);
                 int16x4_t r22_I16    = vext_s16(r2_I16_0, r2n1_I16_0, 1);
 
                 sum1 = vmull_s16(r0_I16_0, k0);
@@ -740,7 +740,7 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
 
                 sum1 = vaddq_s32(sum1, sum2);
                 sum1f = vcvtq_n_f32_s32(sum1, FRACTIONBX2);
-				vst1q_f32(og, sum1f);
+                vst1q_f32(og, sum1f);
 
                 _r0 += 8;
                 _r1 += 8;
@@ -763,15 +763,15 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 int32x4_t r10_I32 = vcvtq_n_s32_f32(r10, FRACTION);
                 int32x4_t r20_I32 = vcvtq_n_s32_f32(r20, FRACTION);
 
-				int16x4_t r00_I16 = vmovn_s32(r00_I32);
-				int16x4_t r10_I16 = vmovn_s32(r10_I32);
-				int16x4_t r20_I16 = vmovn_s32(r20_I32);
+                int16x4_t r00_I16 = vmovn_s32(r00_I32);
+                int16x4_t r10_I16 = vmovn_s32(r10_I32);
+                int16x4_t r20_I16 = vmovn_s32(r20_I32);
 
                 sum1 = vmull_s16(r00_I16, k0123);
                 sum1 = vmlal_s16(sum1, r10_I16, k3456);
                 sum1 = vmlal_s16(sum1, r20_I16, k6789);
 
-				sum1[3] = 0;
+                sum1[3] = 0;
                 int32x2_t ss  = vpadd_s32(vget_low_s32(sum1),vget_high_s32(sum1));
                 int32x2_t ss2 = vpadd_s32(ss, ss);
                 *og = FIX2FLOAT(FRACTIONBX2, ss2[0]);
@@ -789,10 +789,10 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
     int outw = (inw - kw + 1) / stridew;
     int outh = (inh - kh + 1) / strideh;
 
-    #undef FRACTION
-    #define FRACTION 14
-    #undef FRACTIONBX2
-    #define FRACTIONBX2 2*FRACTION
+#undef FRACTION
+#define FRACTION 14
+#undef FRACTIONBX2
+#define FRACTIONBX2 2*FRACTION
 
     #pragma omp parallel for num_threads(nThreads) schedule(static)
     for(int g = 0; g < group; ++g)
@@ -801,7 +801,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
         float32x4_t sum1f, sum2f, sum3f, sum4f;
         int32x4_t sum1, sum2, sum3, sum4;
 
-		short* kp   = kernel + 9 * g;
+        short* kp   = kernel + 9 * g;
         float* outg = output + g * outw * outh;
         float* ing  = input + g * inw * inh;
 
@@ -1068,17 +1068,17 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
 #ifdef __aarch64__
                 *og = vaddvq_f32(sum1f);
 #else
-				float32x2_t tmp = vpadd_f32(vget_low_f32(sum1f), vget_high_f32(sum1f));
-				tmp = vpadd_f32(tmp, tmp);
-				*og = tmp[0];
+                float32x2_t tmp = vpadd_f32(vget_low_f32(sum1f), vget_high_f32(sum1f));
+                tmp = vpadd_f32(tmp, tmp);
+                *og = tmp[0];
 #endif
                 sum2f[3] = 0.0f;
 #ifdef __aarch64__
                 *og3 = vaddvq_f32(sum2f);
 #else
-				tmp = vpadd_f32(vget_low_f32(sum2f), vget_high_f32(sum2f));
-				tmp = vpadd_f32(tmp, tmp);
-				*og3 = tmp[0];
+                tmp = vpadd_f32(vget_low_f32(sum2f), vget_high_f32(sum2f));
+                tmp = vpadd_f32(tmp, tmp);
+                *og3 = tmp[0];
 #endif
                 r0++;
                 r1++;
@@ -1089,7 +1089,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
             }
         }
 
-		//the remain rows
+        //the remain rows
         for(; i < outh; ++i)
         {
             int nout = outw >> 4;  //outw / 16, compute 16 cols per time
@@ -1262,9 +1262,9 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
 #ifdef __arch64__
                 *og = vaddvq_f32(sum1f);
 #else
-				float32x2_t tmp = vpadd_f32(vget_low_f32(sum1f), vget_high_f32(sum1f));
-				tmp = vpadd_f32(tmp, tmp);
-				*og = tmp[0];
+                float32x2_t tmp = vpadd_f32(vget_low_f32(sum1f), vget_high_f32(sum1f));
+                tmp = vpadd_f32(tmp, tmp);
+                *og = tmp[0];
 #endif
                 r0++;
                 r1++;
@@ -1280,10 +1280,10 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
     int outw = (inw - kw + 1) / stridew;
     int outh = (inh - kh + 1) / strideh;
 
-    #undef FRACTION
-    #define FRACTION 14
-    #undef FRACTIONBX2
-    #define FRACTIONBX2 2*FRACTION
+#undef FRACTION
+#define FRACTION 14
+#undef FRACTIONBX2
+#define FRACTIONBX2 2*FRACTION
 
     #pragma omp parallel for num_threads(nThreads) schedule(static)
     for(int g = 0; g < group; ++g)
@@ -1292,11 +1292,11 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
         float32x4_t sum1f, sum2f;
         int32x4_t sum1, sum2;
 
-		short* kp = kernel + 9 * g;
+        short* kp = kernel + 9 * g;
         float* outg = output + g * outw * outh;
         float* ing = input + g * inw * inh;
 
-		int16x4_t k0 = vld1_dup_s16(kp);
+        int16x4_t k0 = vld1_dup_s16(kp);
         int16x4_t k1 = vld1_dup_s16(kp + 1);
         int16x4_t k2 = vld1_dup_s16(kp + 2);
         int16x4_t k3 = vld1_dup_s16(kp + 3);
@@ -1312,7 +1312,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
             int nout = outw >> 3;  //outw / 8, compute 8 cols per time
             int remain = outw & 7;
 
-			float* _r0 = ing + inw * i * 2;
+            float* _r0 = ing + inw * i * 2;
             float* _r1 = _r0 + inw;
             float* _r2 = _r1 + inw;
 
@@ -1334,12 +1334,12 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int32x4_t r0n2_I32_0 = vcvtq_n_s32_f32(r0n2.val[0], FRACTION);
                 int32x4_t r0n2_I32_1 = vcvtq_n_s32_f32(r0n2.val[1], FRACTION);
 
-				int16x4_t r0_I16_0   = vmovn_s32(r0_I32_0);
-				int16x4_t r0_I16_1   = vmovn_s32(r0_I32_1);
-				int16x4_t r0n1_I16_0 = vmovn_s32(r0n1_I32_0);
-				int16x4_t r0n1_I16_1 = vmovn_s32(r0n1_I32_1);
-				int16x4_t r0n2_I16_0 = vmovn_s32(r0n2_I32_0);
-				int16x4_t r0n2_I16_1 = vmovn_s32(r0n2_I32_1);
+                int16x4_t r0_I16_0   = vmovn_s32(r0_I32_0);
+                int16x4_t r0_I16_1   = vmovn_s32(r0_I32_1);
+                int16x4_t r0n1_I16_0 = vmovn_s32(r0n1_I32_0);
+                int16x4_t r0n1_I16_1 = vmovn_s32(r0n1_I32_1);
+                int16x4_t r0n2_I16_0 = vmovn_s32(r0n2_I32_0);
+                int16x4_t r0n2_I16_1 = vmovn_s32(r0n2_I32_1);
                 int16x4_t r02_I16    = vext_s16(r0_I16_0, r0n1_I16_0, 1);
 
                 float32x4x2_t r1   = vld2q_f32(_r1);
@@ -1356,12 +1356,12 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int32x4_t r1n2_I32_0 = vcvtq_n_s32_f32(r1n2.val[0], FRACTION);
                 int32x4_t r1n2_I32_1 = vcvtq_n_s32_f32(r1n2.val[1], FRACTION);
 
-				int16x4_t r1_I16_0   = vmovn_s32(r1_I32_0);
-				int16x4_t r1_I16_1   = vmovn_s32(r1_I32_1);
-				int16x4_t r1n1_I16_0 = vmovn_s32(r1n1_I32_0);
-				int16x4_t r1n1_I16_1 = vmovn_s32(r1n1_I32_1);
-				int16x4_t r1n2_I16_0 = vmovn_s32(r1n2_I32_0);
-				int16x4_t r1n2_I16_1 = vmovn_s32(r1n2_I32_1);
+                int16x4_t r1_I16_0   = vmovn_s32(r1_I32_0);
+                int16x4_t r1_I16_1   = vmovn_s32(r1_I32_1);
+                int16x4_t r1n1_I16_0 = vmovn_s32(r1n1_I32_0);
+                int16x4_t r1n1_I16_1 = vmovn_s32(r1n1_I32_1);
+                int16x4_t r1n2_I16_0 = vmovn_s32(r1n2_I32_0);
+                int16x4_t r1n2_I16_1 = vmovn_s32(r1n2_I32_1);
                 int16x4_t r12_I16    = vext_s16(r1_I16_0, r1n1_I16_0, 1);
 
                 float32x4x2_t r2 = vld2q_f32(_r2);
@@ -1378,12 +1378,12 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int32x4_t r2n2_I32_0 = vcvtq_n_s32_f32(r2n2.val[0], FRACTION);
                 int32x4_t r2n2_I32_1 = vcvtq_n_s32_f32(r2n2.val[1], FRACTION);
 
-				int16x4_t r2_I16_0   = vmovn_s32(r2_I32_0);
-				int16x4_t r2_I16_1   = vmovn_s32(r2_I32_1);
-				int16x4_t r2n1_I16_0 = vmovn_s32(r2n1_I32_0);
-				int16x4_t r2n1_I16_1 = vmovn_s32(r2n1_I32_1);
-				int16x4_t r2n2_I16_0 = vmovn_s32(r2n2_I32_0);
-				int16x4_t r2n2_I16_1 = vmovn_s32(r2n2_I32_1);
+                int16x4_t r2_I16_0   = vmovn_s32(r2_I32_0);
+                int16x4_t r2_I16_1   = vmovn_s32(r2_I32_1);
+                int16x4_t r2n1_I16_0 = vmovn_s32(r2n1_I32_0);
+                int16x4_t r2n1_I16_1 = vmovn_s32(r2n1_I32_1);
+                int16x4_t r2n2_I16_0 = vmovn_s32(r2n2_I32_0);
+                int16x4_t r2n2_I16_1 = vmovn_s32(r2n2_I32_1);
                 int16x4_t r22_I16    = vext_s16(r2_I16_0, r2n2_I16_0, 1);
 
                 sum1 = vmull_s16(r0_I16_0, k0);
@@ -1424,7 +1424,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
 
                 sum1 = vaddq_s32(sum1, sum2);
                 sum1f = vcvtq_n_f32_s32(sum1, FRACTIONBX2);
-				vst1q_f32(og + 4, sum1f);
+                vst1q_f32(og + 4, sum1f);
 
                 _r0 +=16;
                 _r1 += 16;
@@ -1446,10 +1446,10 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int32x4_t r0n1_I32_0 = vcvtq_n_s32_f32(r0n1.val[0], FRACTION);
                 int32x4_t r0n1_I32_1 = vcvtq_n_s32_f32(r0n1.val[1], FRACTION);
 
-				int16x4_t r0_I16_0   = vmovn_s32(r0_I32_0);
-				int16x4_t r0_I16_1   = vmovn_s32(r0_I32_1);
-				int16x4_t r0n1_I16_0 = vmovn_s32(r0n1_I32_0);
-				int16x4_t r0n1_I16_1 = vmovn_s32(r0n1_I32_1);
+                int16x4_t r0_I16_0   = vmovn_s32(r0_I32_0);
+                int16x4_t r0_I16_1   = vmovn_s32(r0_I32_1);
+                int16x4_t r0n1_I16_0 = vmovn_s32(r0n1_I32_0);
+                int16x4_t r0n1_I16_1 = vmovn_s32(r0n1_I32_1);
                 int16x4_t r02_I16    = vext_s16(r0_I16_0, r0n1_I16_0, 1);
 
                 float32x4x2_t r1 = vld2q_f32(_r1);
@@ -1463,10 +1463,10 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int32x4_t r1n1_I32_0 = vcvtq_n_s32_f32(r1n1.val[0], FRACTION);
                 int32x4_t r1n1_I32_1 = vcvtq_n_s32_f32(r1n1.val[1], FRACTION);
 
-				int16x4_t r1_I16_0   = vmovn_s32(r1_I32_0);
-				int16x4_t r1_I16_1   = vmovn_s32(r1_I32_1);
-				int16x4_t r1n1_I16_0 = vmovn_s32(r1n1_I32_0);
-				int16x4_t r1n1_I16_1 = vmovn_s32(r1n1_I32_1);
+                int16x4_t r1_I16_0   = vmovn_s32(r1_I32_0);
+                int16x4_t r1_I16_1   = vmovn_s32(r1_I32_1);
+                int16x4_t r1n1_I16_0 = vmovn_s32(r1n1_I32_0);
+                int16x4_t r1n1_I16_1 = vmovn_s32(r1n1_I32_1);
                 int16x4_t r12_I16    = vext_s16(r1_I16_0, r1n1_I16_0, 1);
 
                 float32x4x2_t r2 = vld2q_f32(_r2);
@@ -1480,10 +1480,10 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int32x4_t r2n1_I32_0 = vcvtq_n_s32_f32(r2n1.val[0], FRACTION);
                 int32x4_t r2n1_I32_1 = vcvtq_n_s32_f32(r2n1.val[1], FRACTION);
 
-				int16x4_t r2_I16_0   = vmovn_s32(r2_I32_0);
-				int16x4_t r2_I16_1   = vmovn_s32(r2_I32_1);
-				int16x4_t r2n1_I16_0 = vmovn_s32(r2n1_I32_0);
-				int16x4_t r2n1_I16_1 = vmovn_s32(r2n1_I32_1);
+                int16x4_t r2_I16_0   = vmovn_s32(r2_I32_0);
+                int16x4_t r2_I16_1   = vmovn_s32(r2_I32_1);
+                int16x4_t r2n1_I16_0 = vmovn_s32(r2n1_I32_0);
+                int16x4_t r2n1_I16_1 = vmovn_s32(r2n1_I32_1);
                 int16x4_t r22_I16    = vext_s16(r2_I16_0, r2n1_I16_0, 1);
 
                 sum1 = vmull_s16(r0_I16_0, k0);
@@ -1498,7 +1498,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
 
                 sum1 = vaddq_s32(sum1, sum2);
                 sum1f = vcvtq_n_f32_s32(sum1, FRACTIONBX2);
-				vst1q_f32(og, sum1f);
+                vst1q_f32(og, sum1f);
 
                 _r0 += 8;
                 _r1 += 8;
@@ -1521,15 +1521,15 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int32x4_t r10_I32 = vcvtq_n_s32_f32(r10, FRACTION);
                 int32x4_t r20_I32 = vcvtq_n_s32_f32(r20, FRACTION);
 
-				int16x4_t r00_I16 = vmovn_s32(r00_I32);
-				int16x4_t r10_I16 = vmovn_s32(r10_I32);
-				int16x4_t r20_I16 = vmovn_s32(r20_I32);
+                int16x4_t r00_I16 = vmovn_s32(r00_I32);
+                int16x4_t r10_I16 = vmovn_s32(r10_I32);
+                int16x4_t r20_I16 = vmovn_s32(r20_I32);
 
                 sum1 = vmull_s16(r00_I16, k0123);
                 sum1 = vmlal_s16(sum1, r10_I16, k3456);
                 sum1 = vmlal_s16(sum1, r20_I16, k6789);
 
-				sum1[3] = 0;
+                sum1[3] = 0;
                 int32x2_t ss  = vpadd_s32(vget_low_s32(sum1),vget_high_s32(sum1));
                 int32x2_t ss2 = vpadd_s32(ss, ss);
                 *og = FIX2FLOAT(FRACTIONBX2, ss2[0]);
@@ -1540,6 +1540,16 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
             }
         }
     }
+}
+
+static void dwConvs1_fix8(float* output, float* input, int inw, int inh, int stridew, int strideh, char* kernel, int kw, int kh, int group, int nThreads, float int8scale)
+{
+
+}
+
+static void dwConvs2_fix8(float* output, float* input, int inw, int inh, int stridew, int strideh, char* kernel, int kw, int kh, int group, int nThreads, float int8scale)
+{
+
 }
 
 void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int strideh, float* kernel, int kw, int kh, int group, int nThreads)
@@ -2519,6 +2529,19 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
     }
 }
 
+void dwConvFix8(float* output, float* input, int inw, int inh, int stridew, int strideh, char* kernel, int kw, int kh, int group, int nThreads, int fractions, float int8scale)
+{
+    //printf("dw conv fix8 inw: %02d inh: %02d, stridew: %02d strideh: %02d, kw: %02d kh: %02d, group: %03d fix: %d\n", inw, inh, stridew, strideh, kw, kh, group, fractions);
+    if(stridew==1&&strideh==1)
+    {
+        dwConvs1_fix8(output, input, inw, inh, stridew, strideh, kernel, kw, kh, group, nThreads, int8scale);
+    }
+    else if(stridew==2&&strideh==2)
+    {
+        dwConvs2_fix8(output, input, inw, inh, stridew, strideh, kernel, kw, kh, group, nThreads, int8scale);
+    }
+}
+
 void dwConvFix(float* output, float* input, int inw, int inh, int stridew, int strideh, short* kernel, int kw, int kh, int group, int nThreads, int fractions)
 {
     //printf("dw conv fix inw: %02d inh: %02d, stridew: %02d strideh: %02d, kw: %02d kh: %02d, group: %03d fix: %d\n", inw, inh, stridew, strideh, kw, kh, group, fractions);
@@ -2535,36 +2558,6 @@ void dwConvFix(float* output, float* input, int inw, int inh, int stridew, int s
             dwConvs2_fix16_14(output, input, inw, inh, stridew, strideh, kernel, kw, kh, group, nThreads);
         else
             dwConvs2_fix16_13(output, input, inw, inh, stridew, strideh, kernel, kw, kh, group, nThreads);
-    }
-    else
-    {
-        int outw = (inw - kw) / stridew + 1;//for strided case in odd dimensions, should take the floor value as output dim.
-        int outh = (inh - kh) / strideh + 1;
-
-        #pragma omp parallel for num_threads(nThreads) schedule(static)
-        for(int g = 0; g < group; ++g)
-        {
-            short* kp = kernel + kw * kh* g;
-            float* outg = output + g * outw * outh;
-            float* ing = input + g * inw * inh;
-            for(int i = 0; i < outh; ++i)
-            {
-                for(int j = 0; j < outw; ++j)
-                {
-                    float* inp = ing + inw * (i*stridew) + (j*strideh);
-                    float convSum = 0.f;
-                    for(int m = 0; m < kh; m++)
-                    {
-                        for(int n = 0; n < kw; n++)
-                        {
-                            convSum += inp[m * inw + n]* FIX2FLOAT(FRACTION, kp[m * kw + n]);
-                        }
-                    }
-                    outg[j] = convSum;
-                }
-                outg += outw;
-            }
-        }
     }
 }
 

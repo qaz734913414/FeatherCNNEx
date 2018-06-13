@@ -37,22 +37,29 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
 
     _weight_blobs.clear();
     _weight_blobs_fix.clear();
+    _weight_blobs_fix8.clear();
 
     /* Construct weight blobs */
     for(int i = 0; i < blob_num; ++i)
     {
         const BlobProto* proto = (const BlobProto*) layer_param->blobs()->Get(i);
-        if (0 != proto->fractions())
-        {
-            Blob<short>* p_blob = new Blob<short>();
-            p_blob->FromProto(proto);
-            _weight_blobs_fix.push_back(p_blob);
-        }
-        else
+        if (0 == proto->fractions())
         {
             Blob<float>* p_blob = new Blob<float>();
             p_blob->FromProto(proto);
             _weight_blobs.push_back(p_blob);
+        }
+        else if (8 == proto->fractions())
+        {
+            Blob<char>* p_blob = new Blob<char>();
+            p_blob->FromProto(proto);
+            _weight_blobs_fix8.push_back(p_blob);
+        }
+        else
+        {
+            Blob<short>* p_blob = new Blob<short>();
+            p_blob->FromProto(proto);
+            _weight_blobs_fix.push_back(p_blob);
         }
     }
 }

@@ -45,6 +45,7 @@ public:
         padding_right = conv_param->pad_w();
         padding_bottom = conv_param->pad_h();
         fractions = conv_param->fractions();
+        int8scale = conv_param->int8scale();
 
         if (0 == fractions)
         {
@@ -52,11 +53,15 @@ public:
             output_channels = this->_weight_blobs[0]->num();
             i++;
         }
+        else if (8 == fractions)
+        {
+            kernel_data_fix8 = this->_weight_blobs_fix8[0]->data();
+            output_channels = this->_weight_blobs_fix8[0]->num();
+        }
         else
         {
             kernel_data_fix = this->_weight_blobs_fix[0]->data();
             output_channels = this->_weight_blobs_fix[0]->num();
-            //printf("Conv %-40s, fractions: %d, %p\n", this->name().c_str(), fractions, kernel_data_fix);
         }
 
         if (bias_term)
@@ -106,10 +111,12 @@ protected:
 
     size_t group;
     size_t fractions;
+    float int8scale;
     bool bias_term;
 
     float *kernel_data;
     short *kernel_data_fix;
+    char  *kernel_data_fix8;
     float *bias_data;
 };
 };

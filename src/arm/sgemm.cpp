@@ -78,6 +78,7 @@ void externalPackA8(int M, int L, T* packA, T* a, int lda)
     }
 }
 
+template void externalPackA8<char>(int, int, char* packA, char* a, int);
 template void externalPackA8<short>(int, int, short* packA, short* a, int);
 template void externalPackA8<float>(int, int, float* packA, float* a, int);
 
@@ -141,6 +142,11 @@ static void internalPackA1(int L, float* packA, float* a, int lda)
         *packAptr++ = +0.0f;
         *packAptr++ = +0.0f;
     }
+}
+
+void externalPackAFix8(int M, int L, void* packA, char* a, int lda)
+{
+    printf("externalPackA fix8 not implement yet\n");
 }
 
 void externalPackAFix(int M, int L, void* packA, short* a, int lda)
@@ -2632,6 +2638,11 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
             block_sgemm_pack(eM, sN, L, a, L, b + i * tN, N, c + i * tN, N);
         }
     }
+}
+
+void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, char *a, float *b, float *c, int num_threads, float int8scale)
+{
+    printf("not implement yet\n");
 }
 
 void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, float *b, float *c, int num_threads)

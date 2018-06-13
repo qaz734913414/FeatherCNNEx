@@ -61,6 +61,10 @@ public:
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels * (int)kernel_width * (int)kernel_height,
                                                             (float *)packed_kernel, input, output, (int)num_threads);
+                else if (8 == this->fractions)
+                    block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
+                            (int)input_channels * (int)kernel_width * (int)kernel_height,
+                            (char *)packed_kernel, input, output, (int)num_threads, int8scale);
                 else
                     block_sgemm_external_pack_threading_8x8Fix((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
@@ -193,25 +197,36 @@ public:
         {
             MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&packed_kernel, sizeof(float) * eM * L));
         }
+        else if (8 == fractions)
+        {
+            MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&packed_kernel, sizeof(char) * eM * L));
+        }
         else
         {
             MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&packed_kernel, sizeof(short) * eM * L));
         }
         MEMPOOL_CHECK_RETURN(common_mempool->Request(sizeof(float) * (input_channels * kernel_height * kernel_width) * (output_width * output_height), this->name()+" ["+this->type()+"]"));
 
-        if (0 != this->fractions)
-        {
-            if (M % 8 == 0)
-                externalPackA8<short>(M, L, (short *)packed_kernel, kernel_data_fix, L);
-            else
-                externalPackAFix(M, L, packed_kernel, kernel_data_fix, L);
-        }
-        else
+        if (0 == this->fractions)
         {
             if (M % 8 == 0)
                 externalPackA8<float>(M, L, (float *)packed_kernel, kernel_data, L);
             else
                 externalPackA(M, L, (float *)packed_kernel, kernel_data, L);
+        }
+        else if (8 == this->fractions)
+        {
+            if (M % 8 == 0)
+                externalPackA8<char>(M, L, (char *)packed_kernel, kernel_data_fix8, L);
+            else
+                externalPackAFix8(M, L, packed_kernel, kernel_data_fix8, L);
+        }
+        else
+        {
+            if (M % 8 == 0)
+                externalPackA8<short>(M, L, (short *)packed_kernel, kernel_data_fix, L);
+            else
+                externalPackAFix(M, L, packed_kernel, kernel_data_fix, L);
         }
 
         if ((NULL != ginput) && (NULL != ginput))

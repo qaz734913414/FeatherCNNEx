@@ -204,6 +204,11 @@ void winogradKernelTransformStride(float* transKernel[4], float* kernel)
     vst1q_f32(transKernel[3], s2);
 }
 
+void transformKernelFix8(float* UT, char* kernel, int inChannels, int outChannels, float* ST)
+{
+    printf("transformKernel fix8\n");
+}
+
 void transformKernelFix(float* UT, short* kernel, int inChannels, int outChannels, float* ST)
 {
     printf("transformKernel fix\n");

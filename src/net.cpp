@@ -233,6 +233,8 @@ bool Net::InitFromBuffer(const void *net_buffer)
     for (int i = 1; i < layers.size(); ++i)
     {
         uint32_t weight_size = 0;
+        for(int j = 0; j < layers[i]->_weight_blobs_fix8.size(); j++)
+            weight_size += ((Blob<char>*)(layers[i]->_weight_blobs_fix8[j]))->data_size();
         for(int j = 0; j < layers[i]->_weight_blobs_fix.size(); j++)
             weight_size += ((Blob<short>*)(layers[i]->_weight_blobs_fix[j]))->data_size()*2;
         for(int j = 0; j < layers[i]->_weight_blobs.size(); j++)

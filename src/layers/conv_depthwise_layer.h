@@ -56,11 +56,13 @@ public:
         int inputw = input_width + padding_left + padding_right;
         int inputh = input_height + padding_top + padding_bottom;
         pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
-
-        if (0 != this->fractions)
-            dwConvFix(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data_fix, kernel_width, kernel_height, group, num_threads, this->fractions);
-        else
+        if (0 == this->fractions)
             dwConv(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data, kernel_width, kernel_height, group, num_threads);
+        else if (8 == this->fractions)
+            dwConvFix8(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data_fix8, kernel_width, kernel_height, group, num_threads, this->fractions, this->int8scale);
+        else
+            dwConvFix(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data_fix, kernel_width, kernel_height, group, num_threads, this->fractions);
+
         if(bias_term)
         {
             size_t out_stride = output_width * output_height;
