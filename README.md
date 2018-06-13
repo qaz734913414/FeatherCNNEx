@@ -5,8 +5,8 @@ This project fork from Tencent FeatherCNN(https://github.com/Tencent/FeatherCNN)
 Thanks Tencent FeatherCNN team.
 
 ## BenchMark
-<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/benchmark.jpeg">
-
+<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/MeiZu_Benchmark.jpeg">
+<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/BaoFengTVBenchmark.jpeg">
 
 Target Info：
 
