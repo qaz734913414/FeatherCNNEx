@@ -20,7 +20,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
 if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
     link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../build-android/arm64-v8a/install/feather/lib)
 else("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
-    link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../build-android/arm32-v7a/install/feather/lib)
+    link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../build-android/armeabi-v7a/install/feather/lib)
 endif ()
 
 if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
