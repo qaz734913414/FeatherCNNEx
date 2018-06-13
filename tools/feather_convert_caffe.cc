@@ -289,7 +289,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				if (1 == caffe_conv_param.kernel_size(0))
 					fractions = frac;
 			}
-			else if (0)//(layer_type.compare("ConvolutionDepthwise")==0)
+			else if (layer_type.compare("ConvolutionDepthwise")==0)
 			{
 			    uint32_t step_h = 1, step_w = 1;
 
@@ -312,7 +312,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				}
 
 				if (((1 == step_h) && (1 == step_w))
-					//|| ((2 == step_h) && (2 == step_w))
+					|| ((2 == step_h) && (2 == step_w))
 					)
 					fractions = frac;
 			}
