@@ -23,6 +23,7 @@ int PReluLayer::Init(float *ginput, float *goutput, float *ginputMuti)
 
 int PReluLayer::Forward()
 {
+//#define DUMP_DATA
     if ((0 == c) && (0 == h) && (0 != w))
     {
         int i = 0;
@@ -73,6 +74,13 @@ int PReluLayer::Forward()
                     output[i] = input[i];
             }
         }
+#ifdef DUMP_DATA
+        {
+            char fileName[256];
+            sprintf(fileName, "./prelu/prelu_%s.txt", this->name().c_str());
+            writeFileFloat(fileName, output, w);
+        }
+#endif
     }
     else if ((0 == c) && (0 != h) && (0 != w))
     {
@@ -103,6 +111,13 @@ int PReluLayer::Forward()
                     outPtr[j] = inPtr[j];
             }
         }
+#ifdef DUMP_DATA
+        {
+            char fileName[256];
+            sprintf(fileName, "./prelu/prelu_%s.txt", this->name().c_str());
+            writeFileFloat(fileName, output, w*h);
+        }
+#endif
     }
     else if ((0 != c) && (0 != h) && (0 != w))
     {
@@ -135,6 +150,13 @@ int PReluLayer::Forward()
                     outPtr[i] = inPtr[i];
             }
         }
+#ifdef DUMP_DATA
+        {
+            char fileName[256];
+            sprintf(fileName, "./prelu/prelu_%s.txt", this->name().c_str());
+            writeFileFloat(fileName, output, c*w*h);
+        }
+#endif
     }
     return 0;
 }

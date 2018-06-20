@@ -37,3 +37,7 @@ typedef short fix16_t;
 
 void* _mm_malloc(size_t sz, size_t align);
 void _mm_free(void* ptr);
+void writeFile(unsigned char *data, unsigned size, const char *pFileName);
+void writeFileFloat(const char *pFname, float *pData, unsigned size);
+unsigned char* readFile(const char *pFileName);
+float distanceCos(float *a, float *b, unsigned size);

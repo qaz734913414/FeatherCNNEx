@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <sstream>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +16,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <float.h>
+#include <math.h>
 
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -101,6 +103,135 @@ bool CaffeModelWeightsConvert::ReadNetParam()
 		close(fd);
 	}
     return true;
+}
+
+static float KL_div(float *PDis, float *QDis, unsigned size)
+{
+	unsigned i = 0;
+	float sum = .0f;
+	for(i = 0; i < size; i++)
+	{
+		if ((0 == PDis[i]) || (0 == QDis[i])) printf("zero: %02d %f %f\n", i, PDis[i], QDis[i]);
+		sum += PDis[i]*log(PDis[i]/QDis[i]);
+	}
+
+	return sum;
+}
+
+static void entropy(float *P, unsigned size)
+{
+	unsigned i = 0, j = 0;
+	float P_HIS[2048] = {.0f};
+	float minSum = FLT_MAX;
+	float pminf, pabsmax, pmaxf, pabsmin;
+	float divergence[128], minDivergence = FLT_MAX;
+
+	for(i = 0; i < size; i++)
+	{
+		if(0 == i)
+			pmaxf = pminf = P[i];
+		else
+		{
+			pminf = MIN(pminf, P[i]);
+			pmaxf = MAX(pmaxf, P[i]);
+			pabsmin = MIN(fabs(pminf), fabs(pmaxf));
+			pabsmax = MAX(fabs(pminf), fabs(pmaxf));
+		}
+	}
+
+	float pstep = (pmaxf - pminf)/2048;
+	for(i = 0; i < size; i++)
+	{
+		if (pmaxf == P[i])
+			P_HIS[2047]++;
+		else
+			P_HIS[(unsigned)((P[i]-pminf)/pstep)]++;
+	}
+
+	int winSize = 2048/128;
+	unsigned m = 0;
+	for(i = 0; i < 128; i++)
+	{
+		float P_HISWin[16];
+		float Q_HISWin[16];
+		float outlies_count = .0f, winSumP = .0f, winSumQ = .0f;
+		unsigned cntP = 0;
+		memcpy(P_HISWin, &P_HIS[i*winSize], winSize*sizeof(float));
+		//for(j = i*winSize; j < 2048; j++) outlies_count += P_HIS[j];
+		//P_HISWin[winSize-1] += outlies_count;
+		for(j = 0; j < winSize; j++) winSumP += P_HISWin[j];
+		if (.0 == winSumP) continue;
+		for(j = 0; j < winSize; j++) if (0 != P_HISWin[j]) ++cntP;
+		for(j = 0; j < winSize; j++)
+		{
+			if (0 == P_HISWin[j])
+				Q_HISWin[j] = 0;
+			else
+				Q_HISWin[j] = winSumP/cntP;
+			winSumQ += Q_HISWin[j];
+		}
+
+		for(j = 0; j < winSize; j++) { P_HISWin[j] = (P_HISWin[j]+1)/(winSumP+cntP); Q_HISWin[j] = (Q_HISWin[j]+1)/(winSumQ+cntP); } 
+		divergence[i] = KL_div(P_HISWin, Q_HISWin, winSize);
+		if (divergence[i] < minDivergence) { minDivergence = divergence[i]; m = i; }
+	}
+	printf("minDivergence: %f m: %d %f\n", minDivergence, m, (m+0.5)*pstep);
+}
+
+static float KL_divergence(float *P, unsigned size)
+{
+	unsigned i = 0;
+	float step = 0.001f, j;
+	float minSum = FLT_MAX;
+	float thre = .0f;
+	float pminf, pabsmax, pmaxf, pabsmin;
+
+	for(i=0;i<size;i++)
+	{
+		if(0 == i)
+			pmaxf = pminf = P[i];
+		else
+		{
+			pminf = MIN(pminf, P[i]);
+			pmaxf = MAX(pmaxf, P[i]);
+			pabsmin = MIN(fabs(pminf), fabs(pmaxf));
+			pabsmax = MAX(fabs(pminf), fabs(pmaxf));
+		}
+	}
+	float pstep = (pmaxf - pminf)/255;
+	float PDis[256] = {.0f};
+	float QDis[256] = {.0f};
+	for(i=0;i<size;i++)
+		PDis[(unsigned)((P[i]-pminf)/pstep)]++;
+
+	for(i=0;i<256;i++)
+		PDis[i] = (PDis[i]+1)/(size+256);
+
+	for(j = pabsmin; j < pabsmax; j += step)
+	{
+		float sum = .0f;
+		float minf, maxf;
+
+		for(i=0;i<size;i++)
+			QDis[(((int8_t)(P[i]*127.0/j)))+127]++;
+		for(i=0;i<256;i++)
+			QDis[i] = (QDis[i]+1)/(size+256);
+
+		for(i=0;i<256;i++)
+			sum += PDis[i]*log(PDis[i]/QDis[i]);
+
+		if (step == j)
+		{
+			thre = j;
+			minSum = sum;
+		}
+		else if (sum < minSum)
+		{
+			thre = j;
+			minSum = sum;
+		}
+	}
+	return thre;
 }
 
 void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
@@ -316,14 +447,19 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				if (((1 == step_h) && (1 == step_w))
 					|| ((2 == step_h) && (2 == step_w))
 					)
-					fractions = frac;
+				{
+					if (8 != frac)
+						fractions = frac;
+					else
+						fractions = 14; //depthwise not support int8 yet
+				}
 			}
 
 			/* Blobs */
 			auto caffe_model_layer = caffe_weight.layer(caffe_model_layer_map[layer_name]);
 			PRINTF("Blob num (%s): %d, fractions: %d\n", layer_type.c_str(), caffe_model_layer.blobs_size(), fractions);
 			std::vector<flatbuffers::Offset<feather::BlobProto> > blob_vec;
-			float absmaxf = .0f;
+			float scaleThre = .0f;
 			for (int j = 0; j != caffe_model_layer.blobs_size(); ++j)
 			{
 				uint32_t zeroCnt = 0;
@@ -339,6 +475,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				for(int k = 0; k != caffe_blob.data_size(); ++k)
 				{
 					float data = caffe_blob.data(k);
+					if(layer_type.compare("PReLU")==0)
+						PRINTF("PRelu [%02d/%02d] %f\n", k, caffe_blob.data_size(), data);
 					/* only weight blob of Conv layer do fix16 change (bias ignore) */
 					if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
 					{
@@ -349,7 +487,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 						if (0 == k) { minf = maxf = data; minS = maxS = fix_data; }
 						minf = MIN(minf, data);maxf = MAX(maxf, data);
 						absminf = MIN(fabs(minf), fabs(maxf));
-						absmaxf = MAX(fabs(minf), fabs(maxf));
+						scaleThre = MAX(fabs(minf), fabs(maxf));
 
 						minS = MIN(minS, fix_data);maxS = MAX(maxS, fix_data);
 						absmaxS = MAX(abs(minS), abs(maxS));
@@ -359,18 +497,17 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 						blob_data_vec.push_back(data);
 				}
 
-				if (8 == fractions)
+				if ((8 == fractions) && (0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
 				{
+					//entropy(&blob_data_vec[0], blob_data_vec.size());
+					//scaleThre = KL_divergence(&blob_data_vec[0], blob_data_vec.size());
 					for(int k = 0; k != caffe_blob.data_size(); ++k)
 					{
-						/* only weight blob of Conv layer do fix16 change (bias ignore) */
-						if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
-						{
-							fix8_t fix_data = (fix8_t)(caffe_blob.data(k)*127/absmaxf);
-							blob_data_vec_fix8.push_back(fix_data);
-							//if (k < 10) printf("[%f, %f]\n", caffe_blob.data(k), fix_data*absmaxf/127);
-						}
+						fix8_t fix_data = (fix8_t)(caffe_blob.data(k)*127.0/scaleThre);
+						blob_data_vec_fix8.push_back(fix_data);
+						//if (k < 4) printf("[%04d, %9.6f] ", fix_data, caffe_blob.data(k));
 					}
+					//printf("[%9.6f] size %d\n", scaleThre, blob_data_vec_fix8.size());
 				}
 
 				if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
@@ -398,7 +535,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 						gabsminf = MIN(absminf, gabsminf);
 					}
 
-					printf("	[%f, %f] [%f, %f] [%f]\n", minf, maxf, gminf, gmaxf, gabsminf);
+					if (8 == fractions)
+						printf("	[%f, %f] [%f, %f] [%f, %f]\n", minf, maxf, gminf, gmaxf, scaleThre, scaleThre/127);
 
 					if ((0 != fractions) && (8 != fractions))
 					{
@@ -423,6 +561,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 					else
 						blob_data_fbvec_fix = fbb.CreateVector<fix16_t>(blob_data_vec_fix);
 					PRINTF("	Blob Fix %d\n", fractions);
+					//printf("%04d %04d %04d %04d, %d\n", blob_data_vec_fix8[0], blob_data_vec_fix8[1], blob_data_vec_fix8[2], blob_data_vec_fix8[3], fractions);
 				}
 				else
 					blob_data_fbvec = fbb.CreateVector<float>(blob_data_vec);
@@ -513,6 +652,16 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				blob_vec.push_back(blob_builder.Finish());
 				blob_data_vec_fix.clear();
 				blob_data_vec_fix8.clear();
+//#define DUMP_WEIGHTS
+#ifdef DUMP_WEIGHTS
+				if((8 == fractions) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
+				{
+				    char buff[10]= {0};
+					sprintf(buff, "%04d", i);
+					std::string num(buff);
+					writeFileFloat(("./WeightFiles/"+num+"_"+layer_name+".txt").c_str(), &blob_data_vec[0], blob_data_vec.size());
+				}
+#endif
 				blob_data_vec.clear();
 			}
 			auto blobs_fbvec = fbb.CreateVector<flatbuffers::Offset<feather::BlobProto> >(blob_vec);
@@ -625,8 +774,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 
 				conv_param_builder.add_fractions(fractions);
 				PRINTF("+ fractions %u\n", fractions);
-				conv_param_builder.add_int8scale(absmaxf);
-				PRINTF("+ absmaxf %f\n", absmaxf);
+				conv_param_builder.add_int8scale(scaleThre/127.0);
+				PRINTF("+ absmaxf %f\n", scaleThre/127.0);
 
 				if (layer_type.compare("ConvolutionDepthwise")==0)
 					conv_param_builder.add_group(caffe_conv_param.num_output());

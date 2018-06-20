@@ -1542,14 +1542,14 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
     }
 }
 
-static void dwConvs1_fix8(float* output, float* input, int inw, int inh, int stridew, int strideh, char* kernel, int kw, int kh, int group, int nThreads, float int8scale)
+static void dwConvs1_fix8(float* output, float* input, int inw, int inh, int stridew, int strideh, int8_t* kernel, int kw, int kh, int group, int nThreads, float int8scale)
 {
-
+    printf("%s not implement yet\n", __func__);
 }
 
-static void dwConvs2_fix8(float* output, float* input, int inw, int inh, int stridew, int strideh, char* kernel, int kw, int kh, int group, int nThreads, float int8scale)
+static void dwConvs2_fix8(float* output, float* input, int inw, int inh, int stridew, int strideh, int8_t* kernel, int kw, int kh, int group, int nThreads, float int8scale)
 {
-
+    printf("%s not implement yet\n", __func__);
 }
 
 void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int strideh, float* kernel, int kw, int kh, int group, int nThreads)
@@ -2529,7 +2529,7 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
     }
 }
 
-void dwConvFix8(float* output, float* input, int inw, int inh, int stridew, int strideh, char* kernel, int kw, int kh, int group, int nThreads, int fractions, float int8scale)
+void dwConvFix8(float* output, float* input, int inw, int inh, int stridew, int strideh, int8_t* kernel, int kw, int kh, int group, int nThreads, int fractions, float int8scale)
 {
     //printf("dw conv fix8 inw: %02d inh: %02d, stridew: %02d strideh: %02d, kw: %02d kh: %02d, group: %03d fix: %d\n", inw, inh, stridew, strideh, kw, kh, group, fractions);
     if(stridew==1&&strideh==1)

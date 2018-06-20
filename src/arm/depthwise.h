@@ -18,5 +18,5 @@
 
 void dwConv(float* output, float* input, int inw, int inh, int stridew, int strideh, float* kernel, int kw, int kh, int group, int nThreads);
 void dwConvFix(float* output, float* input, int inw, int inh, int stridew, int strideh, short* kernel, int kw, int kh, int group, int nThreads, int fractions);
-void dwConvFix8(float* output, float* input, int inw, int inh, int stridew, int strideh, char* kernel, int kw, int kh, int group, int nThreads, int fractions, float int8scale);
+void dwConvFix8(float* output, float* input, int inw, int inh, int stridew, int strideh, int8_t* kernel, int kw, int kh, int group, int nThreads, int fractions, float int8scale);
 

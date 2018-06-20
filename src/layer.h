@@ -58,7 +58,7 @@ public:
 
     std::vector<Blob<float>*> _weight_blobs;
     std::vector<Blob<short>*> _weight_blobs_fix;
-    std::vector<Blob<char>*> _weight_blobs_fix8;
+    std::vector<Blob<int8_t>*> _weight_blobs_fix8;
 
 protected:
     std::string _name;

@@ -64,7 +64,7 @@ public:
                 else if (8 == this->fractions)
                     block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                            (char *)packed_kernel, input, output, (int)num_threads, int8scale);
+                            (int8_t *)packed_kernel, input, output, (int)num_threads, int8scale);
                 else
                     block_sgemm_external_pack_threading_8x8Fix((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
@@ -217,7 +217,7 @@ public:
         else if (8 == this->fractions)
         {
             if (M % 8 == 0)
-                externalPackA8<char>(M, L, (char *)packed_kernel, kernel_data_fix8, L);
+                externalPackA8<int8_t>(M, L, (int8_t *)packed_kernel, kernel_data_fix8, L);
             else
                 externalPackAFix8(M, L, packed_kernel, kernel_data_fix8, L);
         }

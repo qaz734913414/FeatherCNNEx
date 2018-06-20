@@ -26,47 +26,6 @@ using namespace std;
 using namespace cv;
 using namespace feather;
 
-static long getFileSize(FILE*stream)
-{
-    long length;
-    fseek(stream,0L,SEEK_END);
-    length = ftell(stream);
-    fseek(stream,0L,SEEK_SET);
-    return length;
-}
-
-static int writeFile(unsigned char *data, unsigned size, const char *pFileName)
-{
-    FILE *fp = fopen(pFileName, "wb");
-    if (NULL == fp)
-    {
-        printf("Write file failed, %s\n", pFileName);
-        return -1;
-    }
-    fwrite(data, 1, size, fp);
-    fclose(fp);
-
-    return 0;
-}
-
-static unsigned char* readFile(const char *pFileName)
-{
-    FILE *fp = fopen(pFileName, "rb");
-    if (NULL == fp)
-    {
-        printf("Read file failed, %s\n", pFileName);
-        return NULL;
-    }
-
-    long fSize = getFileSize(fp);
-    printf("File %s size %ld\n", pFileName, fSize);
-    unsigned char *pData = (unsigned char *)malloc(fSize);
-    fread(pData, 1, fSize, fp);
-    fclose(fp);
-
-    return pData;
-}
-
 static float C_REF[] =
 #if 1
 {
@@ -124,29 +83,12 @@ static float C_REF[] =
     };
 #endif
 
-static void distanceCos(float *a, float *b, unsigned size)
-{
-    int i = 0;
-    float sum = .0f;
-    float asquare = .0f, bsquare = .0f;
-    for( i = 0; i < size; i++)
-    {
-        sum     += a[i]*b[i];
-        asquare += a[i]*a[i];
-        bsquare += b[i]*b[i];
-    }
-    asquare = sqrt(asquare);
-    bsquare = sqrt(bsquare);
-    float cosf = sum/(asquare*bsquare);
-    printf("\nCos distance: %f\n", cosf);
-}
-
 int main(int argc, char *argv[])
 {
     int colIdx = 0, maxabscol = 0, maxratiocol = 0;
     int i = 1, loopCnt = 1;
     char *pFname = (char *)"96_112.jpg";
-    char *pModel = (char*)"mbface_mobilenet_v2_layer9_conv1x1_scale_14.feathermodel";
+    char *pModel = (char*)"mbface_mobilenet_v2_layer9_conv1x1_scale_8.feathermodel";
     char *pBlob = (char *)"mobilenet_v2_layer9_conv1x1_bn";
     int num_threads = 1;
     struct timeval beg, end;
@@ -222,8 +164,8 @@ int main(int argc, char *argv[])
     }
     printf("\n\nmaxDiff:\nabs   %9.6f [%9.6f, %9.6f] at cols %02d\nratio %9.6f [%9.6f, %9.6f] at cols %02d\n", maxDiff, maxDiffAsm, maxDiffRefC, maxabscol, maxDiffRatio, maxDiffAsmRatio, maxDiffRefCRatio, maxratiocol);
 
-    distanceCos(C_REF, pOut, data_size);
-
+    float cosv = distanceCos(C_REF, pOut, data_size);
+    printf("cos: %f\n", cosv);
     free(pOut);
     printf("\n");
     return 0;

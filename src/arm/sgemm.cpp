@@ -23,6 +23,7 @@ const int mc = 1024;
 const int kc = 256;
 const int nc = 256;
 
+void (*sgemm_tiny_scale_fix8)(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scale) = NULL;
 void (*sgemm_tiny_scale_fix)(int L, short *a, int lda, float *b, int ldb, float *c, int ldc) = NULL;
 void (*sgemm_tiny_scale)(int L, float *a, int lda, float *b, int ldb, float *c, int ldc) = NULL;
 void (*internalPackA)(int L, float* packA, float* a, int lda) = NULL;
@@ -78,7 +79,7 @@ void externalPackA8(int M, int L, T* packA, T* a, int lda)
     }
 }
 
-template void externalPackA8<char>(int, int, char* packA, char* a, int);
+template void externalPackA8<int8_t>(int, int, int8_t* packA, int8_t* a, int);
 template void externalPackA8<short>(int, int, short* packA, short* a, int);
 template void externalPackA8<float>(int, int, float* packA, float* a, int);
 
@@ -144,7 +145,7 @@ static void internalPackA1(int L, float* packA, float* a, int lda)
     }
 }
 
-void externalPackAFix8(int M, int L, void* packA, char* a, int lda)
+void externalPackAFix8(int M, int L, void* packA, int8_t* a, int lda)
 {
     printf("externalPackA fix8 not implement yet\n");
 }
@@ -662,6 +663,74 @@ inline void sgemm_4x7(int L, float *a, int lda, float *b, int ldb, float *c, int
     vst1q_lane_f32(cptr + 6, vc6, 3);
 }
 
+static void sgemm_8x1_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scale)
+{
+    int8_t *aptr = a;
+    float *bptr = b;
+    float *cptr = c;
+
+    int32x4_t vc4_I;
+    int32x4_t vcE_I;
+
+    vc4_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    cptr += ldc;
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    cptr += ldc;
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    cptr += ldc;
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    cptr += ldc;
+
+    vcE_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    cptr += ldc;
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    cptr += ldc;
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    cptr += ldc;
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    for(int p = 0; p < L; ++p)
+    {
+        int8x8_t va8 = vld1_s8(aptr);
+        int16x8_t va = vmovl_s8(va8);
+        int32x4_t va0, va1;
+        va0 = vmovl_s16(vget_low_s16(va));
+        va1 = vmovl_s16(vget_high_s16(va));
+        float32x4_t vaf0 = vcvtq_f32_s32(va0);
+        float32x4_t vaf1 = vcvtq_f32_s32(va1);
+        vaf0 = vmulq_n_f32(vaf0, int8scale);
+        vaf1 = vmulq_n_f32(vaf1, int8scale);
+        int32x4_t va0i32 = vcvtq_n_s32_f32(vaf0, FRACTION);
+        int32x4_t va1i32 = vcvtq_n_s32_f32(vaf1, FRACTION);
+        int16x4_t va16_0 = vmovn_s32(va0i32);
+        int16x4_t va16_1 = vmovn_s32(va1i32);
+
+        fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *bptr);
+
+        vc4_I = vmlal_n_s16(vc4_I, va16_0, b4_I);
+        vcE_I = vmlal_n_s16(vcE_I, va16_1, b4_I);
+        bptr += ldb;
+        aptr += 8;
+    }
+
+    cptr = c;
+
+    *cptr = FIX2FLOAT(FRACTIONBX2, vc4_I[0]);
+    cptr+=ldc;
+    *cptr = FIX2FLOAT(FRACTIONBX2, vc4_I[1]);
+    cptr+=ldc;
+    *cptr = FIX2FLOAT(FRACTIONBX2, vc4_I[2]);
+    cptr+=ldc;
+    *cptr = FIX2FLOAT(FRACTIONBX2, vc4_I[3]);
+    cptr+=ldc;
+    *cptr = FIX2FLOAT(FRACTIONBX2, vcE_I[0]);
+    cptr+=ldc;
+    *cptr = FIX2FLOAT(FRACTIONBX2, vcE_I[1]);
+    cptr+=ldc;
+    *cptr = FIX2FLOAT(FRACTIONBX2, vcE_I[2]);
+    cptr+=ldc;
+    *cptr = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
+}
+
 static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
 {
     short *aptr = a;
@@ -791,6 +860,96 @@ static void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int
     vst1q_lane_f32(cptr, vcE, 2);
     cptr+=ldc;
     vst1q_lane_f32(cptr, vcE, 3);
+}
+
+static void sgemm_8x2_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scale)
+{
+    int8_t *aptr = a;
+    float *bptr = b;
+    float *cptr = c;
+
+    int32x4_t vc4_I, vc5_I;
+    int32x4_t vcE_I, vcF_I;
+
+    vc4_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    cptr += ldc;
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    cptr += ldc;
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    cptr += ldc;
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vc5_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    cptr += ldc;
+
+    vcE_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[0] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    cptr += ldc;
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    cptr += ldc;
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+    cptr += ldc;
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *cptr);
+    vcF_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr+1));
+
+    for(int p = 0; p < L; ++p)
+    {
+        int8x8_t va8 = vld1_s8(aptr);
+        int16x8_t va = vmovl_s8(va8);
+        int32x4_t va0, va1;
+        va0 = vmovl_s16(vget_low_s16(va));
+        va1 = vmovl_s16(vget_high_s16(va));
+        float32x4_t vaf0 = vcvtq_f32_s32(va0);
+        float32x4_t vaf1 = vcvtq_f32_s32(va1);
+        vaf0 = vmulq_n_f32(vaf0, int8scale);
+        vaf1 = vmulq_n_f32(vaf1, int8scale);
+        int32x4_t va0i32 = vcvtq_n_s32_f32(vaf0, FRACTION);
+        int32x4_t va1i32 = vcvtq_n_s32_f32(vaf1, FRACTION);
+        int16x4_t va16_0 = vmovn_s32(va0i32);
+        int16x4_t va16_1 = vmovn_s32(va1i32);
+
+        fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr));
+        fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr+1));
+
+        vc4_I = vmlal_n_s16(vc4_I, va16_0, b4_I);
+        vc5_I = vmlal_n_s16(vc5_I, va16_0, b5_I);
+
+        vcE_I = vmlal_n_s16(vcE_I, va16_1, b4_I);
+        vcF_I = vmlal_n_s16(vcF_I, va16_1, b5_I);
+
+        bptr += ldb;
+        aptr += 8;
+    }
+
+    cptr = c;
+
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[0]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[0]);
+    cptr+=ldc;
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[1]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[1]);
+    cptr+=ldc;
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[2]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[2]);
+    cptr+=ldc;
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vc4_I[3]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vc5_I[3]);
+    cptr+=ldc;
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[0]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[0]);
+    cptr+=ldc;
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[1]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[1]);
+    cptr+=ldc;
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[2]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[2]);
+    cptr+=ldc;
+    *(cptr+0) = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
+    *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[3]);
 }
 
 static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -2291,6 +2450,7 @@ void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int lda, flo
     }
 }
 
+extern "C" void sgemm_8x8_pack_fix8( int L, int8_t *a, short *b, float *c, int ldc, float* int8scale);
 #if __aarch64__
 extern "C" void sgemm_8x8_pack_fix( int L, short *a, int lda, short *b, int ldb, float *c, int ldc );
 #else
@@ -2432,6 +2592,26 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *
     }
 }
 
+static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, short* packB, float int8scale)
+{
+    int eL = L + (4 - L % 4) % 4;
+    int remN = N % 8;
+    int fN = N - remN;
+    (void)packA;
+
+    for(int i=0; i<M; i+=8 )
+    {
+        for(int j=0; j<fN; j+=8 )
+        {
+            if(i == 0)
+                internalPackB8Fix(L, packB + j * eL, b + j, ldb);
+            sgemm_8x8_pack_fix8(L, a + i * L, packB + j * eL, c + i * ldc + j, ldc, &int8scale);
+        }
+        if(remN)
+            sgemm_tiny_scale_fix8(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc, int8scale);
+    }
+}
+
 void SGEBP_externalPackA_tiny_scale_8x8( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB)
 {
     //Align L to achieve better performance for better cache line alignment.
@@ -2513,14 +2693,16 @@ void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb,
 }
 
 template<typename T>
-void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc)
+static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc, float int8scale)
 {
     for(int i = 0; i < M; ++i)
         memset(c + ldc * i, 0, sizeof(float) * N);
-    T* packB = (T *)_mm_malloc(sizeof(T) * kc *  N, 16);
-    if (NULL == packB) return;
+    void* packB;
     if (4 == sizeof(T)) /* float */
     {
+        packB = _mm_malloc(sizeof(T) * kc *  N, 16);
+        if (NULL == packB) return;
+
         for(int l = 0; l < N; l += nc)
         {
             float* packAptr = (float*)a;
@@ -2539,6 +2721,9 @@ void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb,
     }
     else if (2 == sizeof(T))  /* short */
     {
+        packB = _mm_malloc(sizeof(T) * kc *  N, 16);
+        if (NULL == packB) return;
+
         for(int l = 0; l < N; l += nc)
         {
             short* packAptr = (short*)a;
@@ -2555,14 +2740,36 @@ void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb,
             }
         }
     }
+    else if (1 == sizeof(T))  /* char */
+    {
+        packB = _mm_malloc(sizeof(short) * kc *  N, 16);
+        if (NULL == packB) return;
+
+        for(int l = 0; l < N; l += nc)
+        {
+            int8_t* packAptr = (int8_t*)a;
+            int lb = MIN(N - l, nc);
+            for(int i = 0; i < M; i += mc)
+            {
+                int ib = MIN(M - i, mc);
+                for(int p = 0; p < L; p += kc)
+                {
+                    int pb = MIN(L - p, kc);
+                    SGEBP_externalPackA_tiny_scale_8x8_fix8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (short*)packB, int8scale);
+                    packAptr += ib * pb;
+                }
+            }
+        }
+    }
     else
         printf("Wrong tpye, %d\n", sizeof(T));
 
     _mm_free(packB);
 }
 
-template void block_sgemm_pack_8x8<float>( int, int, int, float*, int, float*, int, float*, int);
-template void block_sgemm_pack_8x8<short>( int, int, int, short*, int, float*, int, float*, int);
+template void block_sgemm_pack_8x8<float>( int, int, int, float*, int, float*, int, float*, int, float);
+template void block_sgemm_pack_8x8<short>( int, int, int, short*, int, float*, int, float*, int, float);
+template void block_sgemm_pack_8x8<int8_t>( int, int, int, int8_t*, int, float*, int, float*, int, float);
 
 void block_sgemm_internal_pack( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
 {
@@ -2640,9 +2847,48 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
     }
 }
 
-void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, char *a, float *b, float *c, int num_threads, float int8scale)
+void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a, float *b, float *c, int num_threads, float int8scale)
 {
-    printf("not implement yet\n");
+    int eM = M + (8 - M % 8) % 8;
+    //printf("-%d-\n", N % 8);
+    switch(N % 8)
+    {
+    case 1:
+        sgemm_tiny_scale_fix8 = sgemm_8x1_fix8;
+        break;
+    case 2:
+        sgemm_tiny_scale_fix8 = sgemm_8x2_fix8;
+        break;
+    }
+
+    if(num_threads>8)	num_threads = 8;
+
+    unsigned int tN = N / num_threads;
+
+    tN = (tN + 7) & 0xFFFFFFF8;
+    int lastSN = N - (num_threads - 1) * tN;
+    while(lastSN <= 0)
+    {
+        --num_threads;
+        lastSN = N - (num_threads - 1) * tN;
+    }
+    num_threads = (num_threads <= 0) ? 1 : num_threads;
+
+    if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
+    {
+        block_sgemm_pack_8x8<int8_t>(eM, N, L, a, L, b, N, c, N, int8scale);
+    }
+    else
+    {
+        #pragma omp parallel num_threads(num_threads)
+        {
+            int tid = omp_get_thread_num();
+            int sN = tN;
+            if(tid == num_threads - 1)
+                sN = N - tid * tN;
+            block_sgemm_pack_8x8<int8_t>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, int8scale);
+        }
+    }
 }
 
 void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, float *b, float *c, int num_threads)
@@ -2689,7 +2935,7 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
 
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N);
+        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N, 0.0);
     }
     else
     {
@@ -2699,7 +2945,7 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N);
+            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0);
         }
     }
 }
@@ -2750,7 +2996,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
 
     if (num_threads == 1 || N <= 8 || N - (num_threads * factor - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<float>(eM, N, L, a, L, b, N, c, N);
+        block_sgemm_pack_8x8<float>(eM, N, L, a, L, b, N, c, N, 0.0);
     }
     else
     {
@@ -2760,7 +3006,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<float>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N);
+            block_sgemm_pack_8x8<float>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0);
         }
     }
 }

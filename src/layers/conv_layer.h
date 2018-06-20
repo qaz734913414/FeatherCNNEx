@@ -45,8 +45,7 @@ public:
         padding_right = conv_param->pad_w();
         padding_bottom = conv_param->pad_h();
         fractions = conv_param->fractions();
-        int8scale = conv_param->int8scale();
-
+        int8scale = conv_param->int8scale();//FLOAT2FIX(fix16_t, FRACTION, conv_param->int8scale());
         if (0 == fractions)
         {
             kernel_data = this->_weight_blobs[0]->data();
@@ -55,8 +54,10 @@ public:
         }
         else if (8 == fractions)
         {
+            //printf("%f \n", int8scale);
             kernel_data_fix8 = this->_weight_blobs_fix8[0]->data();
             output_channels = this->_weight_blobs_fix8[0]->num();
+            //printf("%04d %04d %04d %04d\n", kernel_data_fix8[0], kernel_data_fix8[1], kernel_data_fix8[2], kernel_data_fix8[3]);
         }
         else
         {
@@ -116,7 +117,7 @@ protected:
 
     float *kernel_data;
     short *kernel_data_fix;
-    char  *kernel_data_fix8;
+    int8_t  *kernel_data_fix8;
     float *bias_data;
 };
 };

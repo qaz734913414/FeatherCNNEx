@@ -51,7 +51,7 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
         }
         else if (8 == proto->fractions())
         {
-            Blob<char>* p_blob = new Blob<char>();
+            Blob<int8_t>* p_blob = new Blob<int8_t>();
             p_blob->FromProto(proto);
             _weight_blobs_fix8.push_back(p_blob);
         }
