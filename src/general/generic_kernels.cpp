@@ -24,25 +24,6 @@
 #include <omp.h>
 #endif
 
-void pad_input(float *padded, const float *input, const size_t input_channels, const size_t input_width, const size_t input_height, const size_t padding_left, const size_t padding_top, const size_t padding_right, const size_t padding_bottom)
-{
-    int paddedWidth = (int)(input_width + padding_left + padding_right);
-    int paddedHeight = (int)(input_height + padding_top + padding_bottom);
-    memset(padded, 0, paddedWidth * paddedHeight * sizeof(float) * input_channels);
-    for (int channelId = 0; channelId < input_channels; ++channelId)
-    {
-        //Beginning position in each input channel.
-        float *padPtr = padded + channelId * paddedWidth * paddedHeight + paddedWidth * padding_top + padding_left;
-        const float *inPtr = input + channelId * input_height * input_width;
-        for (int i = 0; i < input_height; ++i)
-        {
-            memcpy(padPtr, inPtr, sizeof(float) * input_width);
-            padPtr += paddedWidth;
-            inPtr += input_width;
-        }
-    }
-}
-
 /*
  * Elementwise operations
  */

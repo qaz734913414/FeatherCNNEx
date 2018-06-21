@@ -85,6 +85,7 @@ public:
         else
             return 0;
     }
+
     int Init(float *ginput, float *goutput, float *ginputMuti)
     {
         size_t inputw = input_width + padding_left + padding_right;
@@ -111,14 +112,13 @@ public:
         MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float), this->name()+" ["+this->type()+"]"));
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&UT, 16 * input_channels * output_channels * sizeof(float)));
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&ST, 16 * input_channels * output_channels * sizeof(float)));
-        if (0 == this->fractions)
-            transformKernel(UT, kernel_data, input_channels, output_channels, ST);
-        else if (8 == this->fractions)
-            transformKernelFix8(UT, kernel_data_fix8, input_channels, output_channels, ST);
-        else
-            transformKernelFix(UT, kernel_data_fix, input_channels, output_channels, ST);
+        transformKernel(UT, kernel_data, input_channels, output_channels, ST);
         MEMPOOL_CHECK_RETURN(private_mempool.Free((void**)&ST));
-
+#ifdef WINOGRAD_FIX16_ENABLE
+        UT_FIX = (fix16_t*)UT; //inplace transofrm
+        for(unsigned i = 0; i < 16 * input_channels * output_channels; i++)
+            UT_FIX[i] = FLOAT2FIX(fix16_t, FRACTION, UT[i]);
+#endif
         if(bias_term && fuse_relu)
             winograd_out_type = BiasReLU;
         else if(bias_term)
@@ -140,6 +140,9 @@ public:
     }
 private:
     float* UT;
+#ifdef WINOGRAD_FIX16_ENABLE
+    fix16_t *UT_FIX;
+#endif
     float* input;
     float* output;
     size_t ext_pad_w;

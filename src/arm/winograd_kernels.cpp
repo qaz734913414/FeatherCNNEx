@@ -59,52 +59,6 @@ static inline void neon_transpose4x4_inplace_f32(
 }
 
 /*
- AT =
- ⎡1  1  1   0⎤
- ⎢           ⎥
- ⎣0  1  -1  1⎦
- G =
- ⎡ 1    0     0 ⎤
- ⎢              ⎥
- ⎢1/2  1/2   1/2⎥
- ⎢              ⎥
- ⎢1/2  -1/2  1/2⎥
- ⎢              ⎥
- ⎣ 0    0     1 ⎦
- BT =
- ⎡1  0   -1  0⎤
- ⎢            ⎥
- ⎢0  1   1   0⎥
- ⎢            ⎥
- ⎢0  -1  1   0⎥
- ⎢            ⎥
- ⎣0  -1  0   1⎦
- */
-
-inline void winogradOutputTransformInplace(float32x2_t* o0, float32x2_t* o1, float32x4_t* w0, float32x4_t* w1, float32x4_t* w2, float32x4_t* w3)
-{
-    float32x4_t s0, s1;
-    float32x2_t d0, d1, d2, d3;
-    float32x4_t m0 = *w0;
-    float32x4_t m1 = *w1;
-    float32x4_t m2 = *w2;
-    float32x4_t m3 = *w3;
-
-    s0 = m0 + m1 + m2;
-    s1 = m1 - m2 + m3;
-
-    float32x4x2_t rows = vtrnq_f32(s0, s1);
-
-    d0 = vget_low_f32(rows.val[0]);
-    d1 = vget_low_f32(rows.val[1]);
-    d2 = vget_high_f32(rows.val[0]);
-    d3 = vget_high_f32(rows.val[1]);
-
-    *o0 = d0 + d1 + d2;
-    *o1 = d1 - d2 + d3;
-}
-
-/*
  * Kernel Transform:
  * Layout k(outChannel, inChannel):
  * k(0, 0) k(0, 1) k(0, 2) k(0, 3) k(0, 4)....
@@ -156,62 +110,6 @@ static void winogradKernelTransform(float* transKernel, float* kernel)
     vst1q_f32(transKernel + 4, w1);
     vst1q_f32(transKernel + 8, w2);
     vst1q_f32(transKernel + 12, s2);
-}
-
-void winogradKernelTransformStride(float* transKernel[4], float* kernel)
-{
-    float32x4_t w0, w1, w2, w3;
-    float32x4_t s0, s1, s2, s3;
-
-    w0 = vld1q_f32(kernel);
-    w0 = vsetq_lane_f32(0.f, w0, 3);
-    w1 = vld1q_f32(kernel + 3);
-    w1 = vsetq_lane_f32(0.f, w1, 3);
-    w2 = vld1q_f32(kernel + 6);
-    w2 = vsetq_lane_f32(0.f, w2, 3);
-    w3 = vdupq_n_f32(0.f);
-
-    float32x4_t vhalf = vdupq_n_f32(0.5);
-
-    //s0 = w0;
-    //s1 = 0.5*(w0 + w1 + w2)
-    //s2 = 0.5*(w0 - w1 + w2)
-    //s3 = w2
-
-    //    s0 = w0;
-    s0 = vaddq_f32(w0, w2);
-    s1 = vmulq_f32(vhalf, vaddq_f32(s0, w1));
-    s2 = vmulq_f32(vhalf, vsubq_f32(s0, w1));
-    //    s3 = w2;
-
-    //s0 = w0, s3 = w2
-    float32x4x2_t row01 = vtrnq_f32(w0, s1);
-    float32x4x2_t row23 = vtrnq_f32(s2, w2);
-    s0 = vcombine_f32(vget_low_f32(row01.val[0]), vget_low_f32(row23.val[0]));
-    s1 = vcombine_f32(vget_low_f32(row01.val[1]), vget_low_f32(row23.val[1]));
-    s2 = vcombine_f32(vget_high_f32(row01.val[0]), vget_high_f32(row23.val[0]));
-    s3 = vcombine_f32(vget_high_f32(row01.val[1]), vget_high_f32(row23.val[1]));
-
-    //    w0 = s0;
-    w0 = vaddq_f32(s0, s2);
-    w1 = vmulq_f32(vhalf, vaddq_f32(w0, s1));
-    w2 = vmulq_f32(vhalf, vsubq_f32(w0, s1));
-    //    w3= s2;
-
-    vst1q_f32(transKernel[0], s0);
-    vst1q_f32(transKernel[1], w1);
-    vst1q_f32(transKernel[2], w2);
-    vst1q_f32(transKernel[3], s2);
-}
-
-void transformKernelFix8(float* UT, int8_t* kernel, int inChannels, int outChannels, float* ST)
-{
-    printf("transformKernel fix8\n");
-}
-
-void transformKernelFix(float* UT, short* kernel, int inChannels, int outChannels, float* ST)
-{
-    printf("transformKernel fix\n");
 }
 
 void transformKernel(float* UT, float* kernel, int inChannels, int outChannels, float* ST)

@@ -36,7 +36,6 @@ public:
         _fusible = true;
     }
 
-
     int Forward()
     {
         float* common_mem = NULL;
@@ -46,21 +45,17 @@ public:
         int nRowBlocks = (inputw + 3) / 6;
         int nColBlocks = (inputh + 3) / 6;
         int nBlocks = nRowBlocks * nColBlocks;
-        //Get addresses
-        float *VT = common_mem;
+
+        float *VT = common_mem; 								   //input 8x8 blocks
         float *WT = VT + 64 * nBlocks * input_channels;            //Offset by sizeof VT
         float *padded_input = WT + 64 * nBlocks * output_channels; //Offset by sizeof WT
         float *pack_array = padded_input + inputw * inputh * input_channels; //Offset by sizeof WT
         pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
-        winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, pack_array, num_threads);
 
-#if 0
-        const Blob<float> *p_bottom = _bottom_blobs[_bottom[0]];
-        const float* input = p_bottom->data();
-        float* output = _top_blobs[_top[0]]->data();
-        printf("[Conv] %s %s, in %f %f %f %f out %f %f %f %f\n", _bottom[0].c_str(), _top[0].c_str(),
-               input[0], input[1], input[2], input[3],
-               output[0], output[1], output[2], output[3]);
+#ifdef WINOGRAD_FIX16_ENABLE
+        winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT_FIX, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, pack_array, num_threads);
+#else
+        winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, pack_array, num_threads);
 #endif
         return 0;
     }
@@ -73,9 +68,7 @@ public:
             return 1;
         }
         else
-        {
             return 0;
-        }
     }
 
     int Init(float *ginput, float *goutput, float *ginputMuti)
@@ -84,9 +77,9 @@ public:
         size_t inputh = input_height + padding_top + padding_bottom;
         int nRowBlocks = (inputw + 3) / 6;
         int nColBlocks = (inputh + 3) / 6;
-        int nBlocks = nRowBlocks * nColBlocks;
+        int nBlocks = nRowBlocks * nColBlocks; //output 6x6 blocks
 
-        size_t packArraySize = getPackArraySize_F6x6_3x3(input_channels, num_threads);
+        size_t packArraySize = 32 * num_threads * input_channels *  64;
         size_t winograd_mem_size = 0;
         winograd_mem_size += 64 * nBlocks * input_channels;  //VT
         winograd_mem_size += 64 * nBlocks * output_channels; //WT
@@ -96,17 +89,15 @@ public:
         MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float), this->name()+" ["+this->type()+"]"));
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&UT, 64 * input_channels * output_channels * sizeof(float)));
 
-        if (0 == this->fractions)
-            transformKernel_F6x6_3x3(UT, kernel_data, input_channels, output_channels);
-        else if (8 == this->fractions)
-            transformKernel_F6x6_3x3Fix8(UT, kernel_data_fix8, input_channels, output_channels);
-        else
-            transformKernel_F6x6_3x3Fix(UT, kernel_data_fix, input_channels, output_channels);
-
+        /* fix convet during transform stage not during model convert */
+        transformKernel_F6x6_3x3(UT, kernel_data, input_channels, output_channels);
+#ifdef WINOGRAD_FIX16_ENABLE
+        UT_FIX = (fix16_t*)UT; //inplace transofrm
+        for(unsigned i = 0; i < 64 * input_channels * output_channels; i++)
+            UT_FIX[i] = FLOAT2FIX(fix16_t, FRACTION, UT[i]);
+#endif
         if(bias_term && fuse_relu)
-        {
             winograd_out_type = BiasReLU;
-        }
         else if(bias_term)
             winograd_out_type = Bias;
         else if(fuse_relu)
@@ -126,6 +117,9 @@ public:
     }
 private:
     float* UT;
+#ifdef WINOGRAD_FIX16_ENABLE
+    fix16_t *UT_FIX;
+#endif
     float* input;
     float* output;
 
