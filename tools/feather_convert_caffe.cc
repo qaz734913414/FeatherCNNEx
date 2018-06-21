@@ -105,133 +105,148 @@ bool CaffeModelWeightsConvert::ReadNetParam()
     return true;
 }
 
-static float KL_div(float *PDis, float *QDis, unsigned size)
+static float KL_divergence(float *PDis, float *QDis, unsigned size)
 {
 	unsigned i = 0;
 	float sum = .0f;
 	for(i = 0; i < size; i++)
 	{
-		if ((0 == PDis[i]) || (0 == QDis[i])) printf("zero: %02d %f %f\n", i, PDis[i], QDis[i]);
-		sum += PDis[i]*log(PDis[i]/QDis[i]);
+		if ((0 == PDis[i]) || (0 == QDis[i]))
+			printf("zero: %02d %f %f\n", i, PDis[i], QDis[i]);
+		else
+			sum += PDis[i]*log(PDis[i]/QDis[i]);
+	}
+	return sum;
+}
+
+static float getOptimalThreshold(float *P, unsigned size)
+{
+	unsigned i = 0;
+	float step = 0.01f, minSum = FLT_MAX, PDis[256] = {.0f}, QDis[256] = {.0f};
+	float pstep, j, thre, pminf, pabsmax, pmaxf, pabsmin;
+
+	for(i = 0; i < size; i++)
+	{
+		if(0 == i) pmaxf = pminf = P[i];
+		else
+		{
+			pminf = MIN(pminf, P[i]); pmaxf = MAX(pmaxf, P[i]);
+			pabsmin = MIN(fabs(pminf), fabs(pmaxf));
+			pabsmax = MAX(fabs(pminf), fabs(pmaxf));
+		}
+	}
+	pstep = (pmaxf - pminf)/256;
+
+	for(i = 0; i < size; i++)
+		if (P[i] >= pmaxf) PDis[255]++;
+		else PDis[(unsigned)((P[i]-pminf)/pstep)]++;
+	for(i = 0; i < 256; i++)
+		PDis[i] = (PDis[i]+1)/(size+256);
+
+	for(j = step; j < 2*pabsmax; j += step)
+	{
+		float sum = .0f, minf, maxf;
+		for(i = 0; i < size; i++)
+		{
+			if (P[i] <= -j) QDis[0]++;
+			else if (P[i] >= j) QDis[255]++;
+			else QDis[(((int8_t)(P[i]*127.0/j)))+127]++;
+		}
+		for(i = 0; i < 256; i++)
+			QDis[i] = (QDis[i]+1)/(size+256);
+		sum = KL_divergence(PDis, QDis, 256);
+		if (step == j) //first init
+		{
+			thre = j; minSum = sum;
+		}
+		else if (sum < minSum)
+		{
+			thre = j; minSum = sum;
+		}
 	}
 
-	return sum;
+	return thre;
 }
 
 static void entropy(float *P, unsigned size)
 {
-	unsigned i = 0, j = 0;
-	float P_HIS[2048] = {.0f};
-	float minSum = FLT_MAX;
-	float pminf, pabsmax, pmaxf, pabsmin;
-	float divergence[128], minDivergence = FLT_MAX;
-
+	#define BIN_NUM (20480)
+	unsigned i = 0, j = 0, m = 0, bin[BIN_NUM] = {0};
+	float minDivergence = FLT_MAX, minSum = FLT_MAX;
+	float pminf, pmaxf, pstep;
 	for(i = 0; i < size; i++)
 	{
-		if(0 == i)
-			pmaxf = pminf = P[i];
+		if(0 == i) pmaxf = pminf = P[i];
 		else
 		{
 			pminf = MIN(pminf, P[i]);
 			pmaxf = MAX(pmaxf, P[i]);
-			pabsmin = MIN(fabs(pminf), fabs(pmaxf));
-			pabsmax = MAX(fabs(pminf), fabs(pmaxf));
 		}
 	}
-
-	float pstep = (pmaxf - pminf)/2048;
+	pstep = (pmaxf - pminf)/BIN_NUM;
 	for(i = 0; i < size; i++)
 	{
-		if (pmaxf == P[i])
-			P_HIS[2047]++;
-		else
-			P_HIS[(unsigned)((P[i]-pminf)/pstep)]++;
+		if (pmaxf == P[i]) bin[BIN_NUM-1]++;
+		else bin[(unsigned)((P[i]-pminf)/pstep)]++;
 	}
-
-	int winSize = 2048/128;
-	unsigned m = 0;
-	for(i = 0; i < 128; i++)
+	#if 0
+	float average = .0f;
+	unsigned total = 0;
+	for(i = 0; i < BIN_NUM; i++)
 	{
-		float P_HISWin[16];
-		float Q_HISWin[16];
-		float outlies_count = .0f, winSumP = .0f, winSumQ = .0f;
-		unsigned cntP = 0;
-		memcpy(P_HISWin, &P_HIS[i*winSize], winSize*sizeof(float));
-		//for(j = i*winSize; j < 2048; j++) outlies_count += P_HIS[j];
-		//P_HISWin[winSize-1] += outlies_count;
-		for(j = 0; j < winSize; j++) winSumP += P_HISWin[j];
-		if (.0 == winSumP) continue;
-		for(j = 0; j < winSize; j++) if (0 != P_HISWin[j]) ++cntP;
-		for(j = 0; j < winSize; j++)
+		if (0 != bin[i])
 		{
-			if (0 == P_HISWin[j])
-				Q_HISWin[j] = 0;
-			else
-				Q_HISWin[j] = winSumP/cntP;
-			winSumQ += Q_HISWin[j];
+			average += pstep*i + pminf;
+			total += bin[i];
+			printf("[%04d/%04d] %d, %f, %f\n" , i, BIN_NUM, bin[i], pstep*i + pminf, average/total);
 		}
-
-		for(j = 0; j < winSize; j++) { P_HISWin[j] = (P_HISWin[j]+1)/(winSumP+cntP); Q_HISWin[j] = (Q_HISWin[j]+1)/(winSumQ+cntP); } 
-		divergence[i] = KL_div(P_HISWin, Q_HISWin, winSize);
-		if (divergence[i] < minDivergence) { minDivergence = divergence[i]; m = i; }
 	}
-	printf("minDivergence: %f m: %d %f\n", minDivergence, m, (m+0.5)*pstep);
-}
-
-static float KL_divergence(float *P, unsigned size)
-{
-	unsigned i = 0;
-	float step = 0.001f, j;
-	float minSum = FLT_MAX;
-	float thre = .0f;
-	float pminf, pabsmax, pmaxf, pabsmin;
-
-	for(i=0;i<size;i++)
+	getchar();
+	#endif
+	float P_HISWin[BIN_NUM] = {.0f}, Q_HISWin[BIN_NUM];
+	for(i = 128; i < BIN_NUM; i += 128)
 	{
-		if(0 == i)
-			pmaxf = pminf = P[i];
-		else
+		unsigned times = i/128;
+		float outlies_count = .0f, winSumP = .0f, winSumQ = .0f, divSum = .0f;
+		for(j = 0; j < i; j++) P_HISWin[j] = bin[j];
+		for(j = 0; j < i; j++) Q_HISWin[j] = .0f;
+		for(j = i; j < BIN_NUM; j++) outlies_count += bin[j];
+		P_HISWin[i-1] += outlies_count;
+		unsigned gcnt = 0;
+		for(j = 0; j < 128; j++)
 		{
-			pminf = MIN(pminf, P[i]);
-			pmaxf = MAX(pmaxf, P[i]);
-			pabsmin = MIN(fabs(pminf), fabs(pmaxf));
-			pabsmax = MAX(fabs(pminf), fabs(pmaxf));
+			unsigned cnt = 0;
+			float sumWin = .0f;
+			for(unsigned k = 0; k < times; k++)
+			{
+				if (.0f != P_HISWin[j*times+k])
+				{
+					cnt++;
+					gcnt++;
+				}
+			}
+			for(unsigned k = 0; k < times; k++)
+				sumWin +=  P_HISWin[j*times+k];
+			for(unsigned k = 0; k < times; k++)
+			{
+				if (.0f == P_HISWin[j*times+k])
+					Q_HISWin[j*times+k] = .0f;
+				else
+					Q_HISWin[j*times+k] = sumWin/cnt;
+			}
 		}
+
+		if (0 == gcnt) continue;
+
+		//for(j = 0; j < i; j++) winSumP += P_HISWin[j];
+		//for(j = 0; j < i; j++) winSumQ += Q_HISWin[j];
+		for(j = 0; j < i; j++) { P_HISWin[j] = (P_HISWin[j]+1)/(size+i); }
+		for(j = 0; j < i; j++) { Q_HISWin[j] = (Q_HISWin[j]+1)/(size+i); }
+		divSum = KL_divergence(P_HISWin, Q_HISWin, i);
+		if (divSum < minDivergence) { minDivergence = divSum; m = i; }
 	}
-	float pstep = (pmaxf - pminf)/255;
-	float PDis[256] = {.0f};
-	float QDis[256] = {.0f};
-	for(i=0;i<size;i++)
-		PDis[(unsigned)((P[i]-pminf)/pstep)]++;
-
-	for(i=0;i<256;i++)
-		PDis[i] = (PDis[i]+1)/(size+256);
-
-	for(j = pabsmin; j < pabsmax; j += step)
-	{
-		float sum = .0f;
-		float minf, maxf;
-
-		for(i=0;i<size;i++)
-			QDis[(((int8_t)(P[i]*127.0/j)))+127]++;
-		for(i=0;i<256;i++)
-			QDis[i] = (QDis[i]+1)/(size+256);
-
-		for(i=0;i<256;i++)
-			sum += PDis[i]*log(PDis[i]/QDis[i]);
-
-		if (step == j)
-		{
-			thre = j;
-			minSum = sum;
-		}
-		else if (sum < minSum)
-		{
-			thre = j;
-			minSum = sum;
-		}
-	}
-	return thre;
+	printf("min: %f m: %d %f\n", minDivergence, m, m*pstep);
+	//getchar();
 }
 
 void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
@@ -420,7 +435,9 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 			{
 				auto caffe_conv_param = caffe_layer.convolution_param();
 				if (1 == caffe_conv_param.kernel_size(0))
-					fractions = frac;
+				{
+				    fractions = frac;
+				}
 			}
 			else if (layer_type.compare("ConvolutionDepthwise")==0)
 			{
@@ -500,14 +517,12 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				if ((8 == fractions) && (0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
 				{
 					//entropy(&blob_data_vec[0], blob_data_vec.size());
-					//scaleThre = KL_divergence(&blob_data_vec[0], blob_data_vec.size());
+					//scaleThre = getOptimalThreshold(&blob_data_vec[0], blob_data_vec.size());
 					for(int k = 0; k != caffe_blob.data_size(); ++k)
 					{
 						fix8_t fix_data = (fix8_t)(caffe_blob.data(k)*127.0/scaleThre);
 						blob_data_vec_fix8.push_back(fix_data);
-						//if (k < 4) printf("[%04d, %9.6f] ", fix_data, caffe_blob.data(k));
 					}
-					//printf("[%9.6f] size %d\n", scaleThre, blob_data_vec_fix8.size());
 				}
 
 				if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
@@ -536,7 +551,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 					}
 
 					if (8 == fractions)
-						printf("	[%f, %f] [%f, %f] [%f, %f]\n", minf, maxf, gminf, gmaxf, scaleThre, scaleThre/127);
+						PRINTF("	%03d [%f, %f] [%f, %f]\n", i, minf, maxf, scaleThre, scaleThre/127);
 
 					if ((0 != fractions) && (8 != fractions))
 					{
@@ -790,7 +805,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				}
 				else
 				{
-					if (3 != k_h || 3 != k_w)
+					if (3 != k_h || 3 != k_w || 1 != stride_h || 1 != stride_w)
 						sgemmConvCnt++;
 					PRINTF("+ group %d\n", caffe_conv_param.group());
 				}
@@ -984,7 +999,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 			layer_vec.push_back(layer_builder.Finish());
 		}
 
-		printf("\nTotal Conv: %02d, Sgemm Conv: %02d, DW Conv: %02d, winograd Conv: %02d\n", totalConvCnt, sgemmConvCnt, dwConvCnt, totalConvCnt - sgemmConvCnt -dwConvCnt);
+		printf("\nTotal Conv: %02d, Sgemm Conv: %02d, DW Conv: %02d, winograd Conv: %02d\n", totalConvCnt, sgemmConvCnt, dwConvCnt, totalConvCnt - sgemmConvCnt - dwConvCnt);
 
 		auto layer_fbvec = fbb.CreateVector<flatbuffers::Offset<feather::LayerParameter>>(layer_vec);
 		auto name_fbb = fbb.CreateString(caffe_prototxt.name());
