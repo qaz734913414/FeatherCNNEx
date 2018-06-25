@@ -27,7 +27,7 @@ public:
     {
     }
     int Forward();
-    int Init(float *ginput, float *goutput, float *ginputMuti);
+    int Init(float *ginput, float *goutput);
 protected:
     float* input;
     float* output;

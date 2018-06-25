@@ -46,14 +46,19 @@ public:
             std::string input_name = input_param->name()->Get(i)->str();
             _top.push_back(input_name);
             _top_blobs[input_name] = new Blob<float>(num, channels, height, width);
-            _top_blobs[input_name]->Alloc();
+            //_top_blobs[input_name]->Alloc();
 
             //printf("input_name %s (n c h w) (%ld %ld %ld %ld)\n", input_name.c_str(), num, channels, height, width);
         }
     }
 
-    int Init(float *ginput, float *goutput, float *ginputMuti)
+    int Init(float *ginput, float *goutput)
     {
+        if ((NULL != ginput) && (NULL != ginput))
+        {
+            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
+        }
+
         return 0;
     }
 

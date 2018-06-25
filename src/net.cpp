@@ -15,33 +15,35 @@
 #include "feather_simple_generated.h"
 #include "layer_factory.h"
 #include "net.h"
-#include "layer.h"
 #include "layers/input_layer.h"
 #include "mempool.h"
-
+#include <assert.h>
 #include <stdio.h>
 #include <cstring>
 
 //#define MEM_USAGE_PRINT
 #define NULL_POINTER_CHECK(pointer) if (NULL == pointer) {printf("%s %d null pointer\n", __FILE__, __LINE__);exit(-1);}
 
+
 namespace feather
 {
 Net::Net(size_t num_threads)
 {
+    branchCnt = 0;
     register_layer_creators();
     CommonMemPool<float> *mempool = new CommonMemPool<float>();
     rt_param = new RuntimeParameter<float>(mempool, num_threads);
-    input = NULL;
-    output = NULL;
+    memset(pingpang, 0, MAXBRANCHNUM*2*sizeof(pingpang[0][0]));
 }
 
 
 Net::~Net()
 {
-    _mm_free(input);
-    _mm_free(output);
-    _mm_free(inputMuti);
+    for(unsigned i = 0; i < MAXBRANCHNUM; i++)
+    {
+        _mm_free(pingpang[i][0]);
+        _mm_free(pingpang[i][1]);
+    }
 
     delete rt_param->common_mempool();
     delete rt_param;
@@ -57,7 +59,7 @@ int Net::ExtractBlob(float* output_ptr, std::string name)
     const Blob<float> *p_blob = blob_map[name];
     const size_t data_size = p_blob->data_size();
     const float *data = p_blob->data();
-
+    //printf("ExtractBlob %p\n", data);
     memcpy(output_ptr, data, sizeof(float) * data_size);
     return 0;
 }
@@ -81,34 +83,22 @@ int Net::Forward(float *input)
 
     for (int i = 1; i < layers.size(); ++i)
     {
-#ifdef LAYER_TIMING
-        timespec tpstart, tpend;
-        clock_gettime(CLOCK_MONOTONIC, &tpstart);
-#endif
         //printf("Forward layer%d:%s %s\n", i, layers[i]->name().c_str(), layers[i]->type().c_str());
         layers[i]->Forward();
+#if 0
+        if (1 == layers[i]->branchId)
+            for(int t = 0 ; t < 4; t++)
+                if(3 == t)
+                    printf("%9.6f\n", layers[i]->top_blob(0)->data()[t]);
+                else
+                    printf("%9.6f, ", layers[i]->top_blob(0)->data()[t]);
+#endif
 #if 0
         for (size_t j = 0; j < layers[i]->top_blob_size(); j++)
             layers[i]->top_blob(j)->PrintBlobInfo();
 #endif
-
-#ifdef LAYER_TIMING
-        clock_gettime(CLOCK_MONOTONIC, &tpend);
-        double timedif = 1000000.0 * (tpend.tv_sec - tpstart.tv_sec) + (tpend.tv_nsec - tpstart.tv_nsec) / 1000.0;
-        printf("layer %s type %s spent %lfms\n", layers[i]->name().c_str(), layers[i]->type().c_str(), timedif / 1000.0);
-#endif
     }
     return 0;
-}
-
-void Net::TraverseNet()
-{
-    for (int i = 0; i < layers.size(); ++i)
-    {
-        printf("Layer %s %s %s\n", layers[i]->name().c_str(),
-               layers[i]->bottom(0).c_str(),
-               layers[i]->top(0).c_str());
-    }
 }
 
 void Net::InitFromPath(const char *model_path)
@@ -123,6 +113,7 @@ void Net::InitFromPath(const char *model_path)
     this->InitFromFile(fp);
     fclose(fp);
 }
+
 void Net::InitFromFile(FILE* fp)
 {
     if(fp == NULL)
@@ -144,18 +135,29 @@ void Net::InitFromFile(FILE* fp)
     this->InitFromBuffer(net_buffer);
     free(net_buffer);
 }
+
+void Net::branchBufferInit(unsigned branchId)
+{
+    pingpang[branchId][0] = (float*)_mm_malloc(max_top_blob_size, 128);
+    NULL_POINTER_CHECK(pingpang[branchId][0]);
+    pingpang[branchId][1] =(float*)_mm_malloc(max_top_blob_size, 128);
+    NULL_POINTER_CHECK(pingpang[branchId][1]);
+    branchPingPang[branchId] = 0;
+}
+
 bool Net::InitFromBuffer(const void *net_buffer)
 {
     const NetParameter *net_param = feather::GetNetParameter(net_buffer);
     size_t layer_num = VectorLength(net_param->layer());
 
     //Find input layer.
-    //printf("Loading %d layers\n", layer_num);
     for (int i = 0; i < layer_num; ++i)
     {
         if (net_param->layer()->Get(i)->type()->str().compare("Input") == 0)
         {
-            layers.push_back(LayerRegistry::CreateLayer(net_param->layer()->Get(i), rt_param));
+            Layer *new_layer = LayerRegistry::CreateLayer(net_param->layer()->Get(i), rt_param);
+            layers.push_back(new_layer);
+            layer_map[new_layer->name()] = new_layer;
             break;
         }
     }
@@ -164,14 +166,15 @@ bool Net::InitFromBuffer(const void *net_buffer)
     {
         const LayerParameter *layer_param = net_param->layer()->Get(i);
         Layer *new_layer = LayerRegistry::CreateLayer(layer_param, rt_param);
+        new_layer->pNet = this;
         //printf("setup layer %s\n", layer_param->name()->c_str());
         layers.push_back(new_layer);
+        layer_map[new_layer->name()] = new_layer;
     }
     printf("Layer setup ok\n");
 
     uint32_t total_top_blob_size = 0;
     uint32_t cur_top_blob_size = 0;
-    uint32_t max_top_blob_size = 0;
 
     /* layer 0 is data input layer not need to generate top blob */
     std::string blob_name = layers[0]->top(0);
@@ -218,7 +221,6 @@ bool Net::InitFromBuffer(const void *net_buffer)
         }
 
         max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
-
         for (int t = 0; t < layers[i]->top_size(); ++t)
         {
             std::string blob_name = layers[i]->top(t);
@@ -245,12 +247,6 @@ bool Net::InitFromBuffer(const void *net_buffer)
 #endif
     }
 
-    input = (float*)_mm_malloc(max_top_blob_size, 128);
-    NULL_POINTER_CHECK(input);
-    output =(float*)_mm_malloc(max_top_blob_size, 128);
-    NULL_POINTER_CHECK(output);
-    inputMuti =(float*)_mm_malloc(max_top_blob_size, 128);
-    NULL_POINTER_CHECK(inputMuti);
 #ifdef MEM_USAGE_PRINT
     printf("Net malloc global top/bottom buffer ok, %5.3f KB (%5.3f MB)\n", (max_top_blob_size*3)/1024.0f, (max_top_blob_size*3)/(1024.0f *1024.0f));
 #endif
@@ -285,15 +281,61 @@ bool Net::InitFromBuffer(const void *net_buffer)
                 next_layer = layers[j];
                 //printf("Layer %d after erasing: %-40s type %s\n", j, next_layer->name().c_str(), next_layer->type().c_str());
 
-                if (0 == old_bottom.compare(next_layer->name())) break;
+                if (0 == old_bottom.compare(next_layer->name())) break; //dead loop bug
             }
         }
     }
     printf("Blobs fuse ok\n");
 
+    branchBufferInit(0); //init branch 0 pingpang buffer
+
+    for (int i = 0; i < layers.size(); ++i)
+    {
+        layers[i]->consumersNum = 0;
+        layers[i]->consumers.clear();
+        std::string top_blob_name = layers[i]->top(0);
+        for (int t = i+1; t < layers.size(); ++t)
+        {
+            for (int b = 0; b < layers[t]->bottom_size(); ++b)
+            {
+                std::string blob_name = layers[t]->bottom(b);
+                if (0 == top_blob_name.compare(blob_name))
+                {
+                    layers[i]->consumersNum++;
+                    if(layers[i]->consumersNum > 1)
+                    {
+                        branchBufferInit(++branchCnt);
+                        layers[t]->branchId = branchCnt;
+                    }
+                    layers[i]->consumers.push_back(layers[t]->name());
+                    layers[t]->products.push_back(layers[i]->name());
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < layers.size(); ++i)
+    {
+        if (0 != i)
+        {
+            assert(1 == layers[i]->products.size());
+            if (layer_map[layers[i]->products[0]]->branchId > layers[i]->branchId)
+                layers[i]->branchId = layer_map[layers[i]->products[0]]->branchId;
+        }
+#if 0
+        unsigned idx = 0;
+        printf("[%03d/%03d] %-16s branch: %d consumers %02d { ", i, layers.size()-1, layers[i]->name().c_str(), layers[i]->branchId, layers[i]->consumersNum);
+        for(auto loop:layers[i]->consumers)
+        {
+            printf("[%02d] %-16s ", idx++, loop.c_str());
+        }
+        printf(" }\n");
+#endif
+    }
+
     //Rebuild blob map
     blob_map.clear();
-    for (int i = 1; i < layers.size(); ++i)
+    for (int i = 0; i < layers.size(); ++i)
     {
         for (int t = 0; t < layers[i]->top_size(); ++t)
         {
@@ -302,11 +344,18 @@ bool Net::InitFromBuffer(const void *net_buffer)
             //blob_map[blob_name]->PrintBlobInfo();
         }
 
-        /* ping pang buffer use as input output, warning muti input not implement!!!!! */
-        if (0 == (i%2))
-            layers[i]->Init(input, output, inputMuti);
-        else
-            layers[i]->Init(output, input, inputMuti);
+        unsigned layerBranchId = layers[i]->branchId;
+        //printf("[%03d] %-16s %-16s branchid: %d input pingpangidx: %d", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layerBranchId, branchPingPang[layerBranchId]);
+        float *input  = pingpang[layerBranchId][branchPingPang[layerBranchId]];
+        branchPingPang[layerBranchId]++;
+        branchPingPang[layerBranchId] = branchPingPang[layerBranchId]%2;
+
+        //printf(", output pingpangidx: %d", branchPingPang[layerBranchId]);
+        float *output = pingpang[layerBranchId][branchPingPang[layerBranchId]];
+
+        //printf(" (%p %p)\n", input, output);
+        layers[i]->Init(input, output);
+
 #ifdef MEM_USAGE_PRINT
         layers[i]->printPrivateMempool();
 #endif

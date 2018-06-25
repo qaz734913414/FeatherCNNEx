@@ -136,7 +136,7 @@ int SliceLayer::GenerateTopBlobs()
     return 0;
 }
 
-int SliceLayer::Init(float *ginput, float *goutput, float *ginputMuti)
+int SliceLayer::Init(float *ginput, float *goutput)
 {
     printf("axis %d slice_point num %lu\n", axis, slice_point.size());
     for(int i=0; i<_top.size(); i++)	printf("%s ", _top[i].c_str());

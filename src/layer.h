@@ -17,6 +17,7 @@
 #include "blob.h"
 #include "mempool.h"
 #include "rt_param.h"
+#include "net.h"
 #include <common.h>
 #ifdef __ARM_NEON
 #include <arm_neon.h>
@@ -26,7 +27,8 @@
 
 namespace feather
 {
-// template<Dtype>
+class Net;
+
 class Layer
 {
 public:
@@ -38,7 +40,7 @@ public:
 
     virtual int Fuse(Layer* next_layer);
     virtual int GenerateTopBlobs();
-    virtual int Init(float *ginput, float *goutput, float *ginputMuti);
+    virtual int Init(float *ginput, float *goutput);
     virtual int Forward();
 
     std::string name();
@@ -59,7 +61,11 @@ public:
     std::vector<Blob<float>*> _weight_blobs;
     std::vector<Blob<short>*> _weight_blobs_fix;
     std::vector<Blob<int8_t>*> _weight_blobs_fix8;
-
+    std::vector<std::string> products;
+    unsigned consumersNum;
+    std::vector<std::string> consumers;
+    Net *pNet;
+    unsigned branchId;
 protected:
     std::string _name;
     std::string _type;
@@ -73,7 +79,6 @@ protected:
     bool _fusible;
 
     size_t num_threads;
-
     CommonMemPool<float> 	*common_mempool;
     PrivateMemPool<void> 	private_mempool;
 };

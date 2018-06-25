@@ -27,6 +27,10 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     _name = layer_param->name()->str();
     _type = layer_param->type()->str();
     this->private_mempool.setName(_name);
+    consumersNum = 0;
+    branchId = 0;
+    products.clear();
+    consumers.clear();
     for(int i = 0; i < VectorLength(layer_param->bottom()); ++i)
         _bottom.push_back(layer_param->bottom()->Get(i)->str());
 
@@ -126,7 +130,7 @@ int Layer::GenerateTopBlobs()
     return 0;
 }
 
-int Layer::Init(float *ginput, float *goutput, float *ginputMuti)
+int Layer::Init(float *ginput, float *goutput)
 {
     return 0;
 }

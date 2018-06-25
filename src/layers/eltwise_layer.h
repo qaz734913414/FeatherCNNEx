@@ -63,7 +63,7 @@ public:
         return 0;
     }
 
-    int Init(float *ginput, float *goutput, float *ginputMuti)
+    int Init(float *ginput, float *goutput)
     {
         //TODO reduce memory
         input_alpha = _bottom_blobs[_bottom[0]]->data();

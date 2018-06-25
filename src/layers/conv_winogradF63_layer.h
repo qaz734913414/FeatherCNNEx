@@ -51,12 +51,13 @@ public:
         float *padded_input = WT + 64 * nBlocks * output_channels; //Offset by sizeof WT
         float *pack_array = padded_input + inputw * inputh * input_channels; //Offset by sizeof WT
         pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
-
+        //printf("F63\n");
 #ifdef WINOGRAD_FIX16_ENABLE
         winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT_FIX, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, pack_array, num_threads);
 #else
         winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, pack_array, num_threads);
 #endif
+
         return 0;
     }
 
@@ -71,7 +72,7 @@ public:
             return 0;
     }
 
-    int Init(float *ginput, float *goutput, float *ginputMuti)
+    int Init(float *ginput, float *goutput)
     {
         size_t inputw = input_width + padding_left + padding_right;
         size_t inputh = input_height + padding_top + padding_bottom;

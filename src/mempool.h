@@ -12,8 +12,7 @@
 //CONDITIONS OF ANY KIND, either express or implied. See the License for the
 //specific language governing permissions and limitations under the License.
 
-#ifndef TCNN_MEMORY_POOL_H_
-#define TCNN_MEMORY_POOL_H_
+#pragma once
 
 #include <map>
 #include <common.h>
@@ -60,4 +59,3 @@ private:
     std::map<size_t, size_t> private_map;
     std::map<PTR_TYPE*, size_t> private_ptr_map;
 };
-#endif

@@ -56,7 +56,7 @@ public:
         return 0;
     }
 
-    int Init(float *ginput, float *goutput, float *ginputMuti)
+    int Init(float *ginput, float *goutput)
     {
         float* buffer = NULL;
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&buffer, sizeof(float) * input_size * 8));
@@ -78,7 +78,6 @@ public:
 
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
-
         return 0;
     }
 

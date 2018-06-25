@@ -29,7 +29,7 @@ public:
         slope_data = this->_weight_blobs[0]->data();
     }
     int Forward();
-    int Init(float *ginput, float *goutput, float *ginputMuti);
+    int Init(float *ginput, float *goutput);
 protected:
     float* input;
     float* output;

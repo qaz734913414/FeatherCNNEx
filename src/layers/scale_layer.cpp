@@ -23,7 +23,7 @@ int ScaleLayer::Forward()
     return 0;
 }
 
-int ScaleLayer::Init(float *ginput, float *goutput, float *ginputMuti)
+int ScaleLayer::Init(float *ginput, float *goutput)
 {
     const Blob<float>* p_blob = _bottom_blobs[_bottom[0]];
     input_channels = p_blob->channels();

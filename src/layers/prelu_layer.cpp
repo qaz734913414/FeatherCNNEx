@@ -3,7 +3,7 @@
 
 namespace feather
 {
-int PReluLayer::Init(float *ginput, float *goutput, float *ginputMuti)
+int PReluLayer::Init(float *ginput, float *goutput)
 {
     if ((NULL != ginput) && (NULL != ginput))
     {
@@ -17,15 +17,16 @@ int PReluLayer::Init(float *ginput, float *goutput, float *ginputMuti)
     c = _bottom_blobs[_bottom[0]]->channels();
     h = _bottom_blobs[_bottom[0]]->height();
     w = _bottom_blobs[_bottom[0]]->width();
-
     return 0;
 }
 
 int PReluLayer::Forward()
 {
+    unsigned outSize = 0;
 //#define DUMP_DATA
     if ((0 == c) && (0 == h) && (0 != w))
     {
+        outSize = w;
         int i = 0;
         if (shared)
         {
@@ -84,6 +85,7 @@ int PReluLayer::Forward()
     }
     else if ((0 == c) && (0 != h) && (0 != w))
     {
+        outSize = w*h;
         for (int i=0; i<h; i++)
         {
             const float* inPtr = input + i*w;
@@ -123,6 +125,7 @@ int PReluLayer::Forward()
     {
         int size = w * h;
         float32x4_t vzerof32x4 = vdupq_n_f32(0.f);
+        outSize = c*size;
 
         #pragma omp parallel for num_threads(num_threads)
         for (int q=0; q<c; q++)
@@ -158,6 +161,17 @@ int PReluLayer::Forward()
         }
 #endif
     }
+
+    if (consumersNum > 1)
+    {
+        //printf("prelu %s, consumersNum:%d size:%d\n", name().c_str(), consumersNum, outSize);
+        for (int i = 0; i < consumersNum; i++)
+        {
+            unsigned consumerBranchId = pNet->layer_map[consumers[i]]->branchId;
+            memcpy(pNet->pingpang[consumerBranchId][0], output, outSize*sizeof(float));
+        }
+    }
+
     return 0;
 }
 };

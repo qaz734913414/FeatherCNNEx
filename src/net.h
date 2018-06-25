@@ -16,11 +16,14 @@
 
 #include "layer.h"
 #include "rt_param.h"
-
 #include <vector>
+#include <map>
+#include <common.h>
 
 namespace feather
 {
+class Layer;
+
 class Net
 {
 public:
@@ -30,17 +33,19 @@ public:
     void InitFromPath(const char *model_path);
     void InitFromFile(FILE *fp);
     bool InitFromBuffer(const void *net_buffer);
-
     int  Forward(float* input);
-    void TraverseNet();
     int GetBlobDataSize(size_t* data_size, std::string blob_name);
     int ExtractBlob(float* output_ptr, std::string blob_name);//Don't forget to free this memory.
+    std::map<std::string, Layer*> layer_map;
+#define MAXBRANCHNUM 16
+    float *pingpang[MAXBRANCHNUM][2];
+    unsigned branchPingPang[MAXBRANCHNUM];
+    unsigned branchCnt;
+    unsigned max_top_blob_size;
 private:
+    void branchBufferInit(unsigned branchId);
     std::vector<Layer *> layers;
     RuntimeParameter<float> *rt_param;
     std::map<std::string, const Blob<float> *> blob_map;
-    float *input;
-    float *output;
-    float *inputMuti;
 };
 };

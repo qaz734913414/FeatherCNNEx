@@ -41,7 +41,7 @@ int ConcatLayer::GenerateTopBlobs()
     return 0;
 }
 
-int ConcatLayer::Init(float *ginput, float *goutput, float *ginputMuti)
+int ConcatLayer::Init(float *ginput, float *goutput)
 {
     float* top_data = _top_blobs[_top[0]]->data();
     for(int i = 0; i < _bottom.size(); ++i)

@@ -18,7 +18,7 @@
 #include <math.h>
 namespace feather
 {
-int SoftmaxLayer::Init(float *ginput, float *goutput, float *ginputMuti)
+int SoftmaxLayer::Init(float *ginput, float *goutput)
 {
     if ((NULL != ginput) && (NULL != ginput))
     {
@@ -30,7 +30,6 @@ int SoftmaxLayer::Init(float *ginput, float *goutput, float *ginputMuti)
     output = _top_blobs[_top[0]]->data();
     const Blob<float> *p_bottom = _bottom_blobs[_bottom[0]];
     data_size = p_bottom->num() * p_bottom->channels() * p_bottom->height() * p_bottom->width();
-
     return 0;
 }
 

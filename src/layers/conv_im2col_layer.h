@@ -188,7 +188,7 @@ public:
         return true;
     }
 
-    int Init(float *ginput, float *goutput, float *ginputMuti)
+    int Init(float *ginput, float *goutput)
     {
         int M = (int)output_channels;
         int L = (int)input_channels * (int)kernel_height * (int)kernel_width;

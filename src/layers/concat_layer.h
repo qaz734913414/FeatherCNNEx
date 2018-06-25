@@ -28,7 +28,7 @@ public:
 
     }
     int Forward();
-    int Init(float *ginput, float *goutput, float *ginputMuti);
+    int Init(float *ginput, float *goutput);
     int GenerateTopBlobs();
 private:
     std::vector<float*> _top_ptr_table;

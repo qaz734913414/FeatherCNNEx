@@ -441,7 +441,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 			}
 			else if (layer_type.compare("ConvolutionDepthwise")==0)
 			{
-			    uint32_t step_h = 1, step_w = 1;
+			    uint32_t step_h, step_w;
 
 				auto caffe_conv_param = caffe_layer.convolution_param();
 				if(caffe_conv_param.stride_size() == 1){
@@ -493,7 +493,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				{
 					float data = caffe_blob.data(k);
 					if(layer_type.compare("PReLU")==0)
-						PRINTF("PRelu [%02d/%02d] %f\n", k, caffe_blob.data_size(), data);
+						;//PRINTF("PRelu [%02d/%02d] %f\n", k, caffe_blob.data_size(), data);
 					/* only weight blob of Conv layer do fix16 change (bias ignore) */
 					if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
 					{
@@ -790,7 +790,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				conv_param_builder.add_fractions(fractions);
 				PRINTF("+ fractions %u\n", fractions);
 				conv_param_builder.add_int8scale(scaleThre/127.0);
-				PRINTF("+ absmaxf %f\n", scaleThre/127.0);
+				PRINTF("+ int8scale %f\n", scaleThre/127.0);
 
 				if (layer_type.compare("ConvolutionDepthwise")==0)
 					conv_param_builder.add_group(caffe_conv_param.num_output());
@@ -900,14 +900,6 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				inner_product_param_builder.add_bias_term(caffe_inner_product_param.bias_term());
 				inner_product_param = inner_product_param_builder.Finish();	
 			}
-			else if(layer_type.compare("BatchNorm")==0)
-			{
-				//Do nothing
-			}
-			else if(layer_type.compare("Softmax")==0)
-			{
-
-			}
 			else if(layer_type.compare("Scale")==0)
 			{
 				auto caffe_scale_param = caffe_layer.scale_param();
@@ -946,14 +938,6 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				PRINTF("+ Loaded coeff size %ld\n", coeff_vec.size());
 				eltwise_param = feather::CreateEltwiseParameterDirect(fbb, feather_op, &coeff_vec);
 			}
-			else if(layer_type.compare("ReLU")==0)
-			{
-				//Do nothing
-			}
-			else if(layer_type.compare("PReLU")==0)
-			{
-			
-			}
 			else if(layer_type.compare("Dropout")==0)
 			{
 				float scale = 1.0f;
@@ -965,6 +949,18 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 				feather::DropoutParameterBuilder dropout_param_builder(fbb);
 				dropout_param_builder.add_dropout_ratio(scale);
 				dropout_param = dropout_param_builder.Finish();	
+			}
+			else if(layer_type.compare("BatchNorm")==0)
+			{
+			}
+			else if(layer_type.compare("Softmax")==0)
+			{
+			}
+			else if(layer_type.compare("ReLU")==0)
+			{
+			}
+			else if(layer_type.compare("PReLU")==0)
+			{
 			}
 
 			auto layer_name_fbb = fbb.CreateString(layer_name);

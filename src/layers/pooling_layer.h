@@ -20,8 +20,7 @@
 #include <math.h>
 #include <limits>
 
-#define MAX(a,b) ((a)>(b))?(a):(b)
-#define MIN(a,b) ((a)<(b))?(a):(b)
+#include <common.h>
 
 namespace feather
 {
@@ -86,7 +85,7 @@ public:
         }
     }
 
-    int Init(float *ginput, float *goutput, float *ginputMuti)
+    int Init(float *ginput, float *goutput)
     {
         if ((NULL != ginput) && (NULL != ginput))
         {
@@ -96,7 +95,6 @@ public:
 
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
-
         return 0;
     }
 

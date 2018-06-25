@@ -42,7 +42,7 @@ public:
         MEMPOOL_CHECK_RETURN(common_mempool->GetPtr(&common_mem));
         const size_t inputw = input_width + padding_left + padding_right;
         const size_t inputh = input_height + padding_top + padding_bottom;
-
+        printf("F23\n");
         //Get addresses
         float *VT = common_mem;
         float *WT = VT + 16 * (inputw / 2 - 1) * (inputh / 2 - 1) * input_channels;            //Offset by sizeof VT
@@ -86,7 +86,7 @@ public:
             return 0;
     }
 
-    int Init(float *ginput, float *goutput, float *ginputMuti)
+    int Init(float *ginput, float *goutput)
     {
         size_t inputw = input_width + padding_left + padding_right;
         size_t inputh = input_height + padding_top + padding_bottom;

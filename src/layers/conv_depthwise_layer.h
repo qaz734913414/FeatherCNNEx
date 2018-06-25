@@ -33,7 +33,7 @@ public:
         //From proto
     }
 
-    int Init(float *ginput, float *goutput, float *ginputMuti)
+    int Init(float *ginput, float *goutput)
     {
         int inputw = input_width + padding_left + padding_right;
         int inputh = input_height + padding_top + padding_bottom;
@@ -47,7 +47,6 @@ public:
 
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
-
         return 0;
     }
 
