@@ -17,6 +17,7 @@
 #include "../feather_simple_generated.h"
 #include "conv_layer.h"
 #include "blob.h"
+#include "utils.h"
 
 #include "arm/generic_kernels.h"
 #include "arm/winograd_kernels.h"
@@ -42,7 +43,7 @@ public:
         MEMPOOL_CHECK_RETURN(common_mempool->GetPtr(&common_mem));
         const size_t inputw = input_width + padding_left + padding_right;
         const size_t inputh = input_height + padding_top + padding_bottom;
-        printf("F23\n");
+        //printf("F23\n");
         //Get addresses
         float *VT = common_mem;
         float *WT = VT + 16 * (inputw / 2 - 1) * (inputh / 2 - 1) * input_channels;            //Offset by sizeof VT
@@ -116,8 +117,14 @@ public:
         MEMPOOL_CHECK_RETURN(private_mempool.Free((void**)&ST));
 #ifdef WINOGRAD_FIX16_ENABLE
         UT_FIX = (fix16_t*)UT; //inplace transofrm
-        for(unsigned i = 0; i < 16 * input_channels * output_channels; i++)
-            UT_FIX[i] = FLOAT2FIX(fix16_t, FRACTION, UT[i]);
+        unsigned offset = 1;
+        for(unsigned i = 0; i < 64 * input_channels * output_channels; i += offset)
+        {
+            //UT_FIX[i] = FLOAT2FIX(fix16_t, FRACTION, UT[i]);
+            float32x4_t vsrc = vld1q_f32(UT+i);
+            vst1q_f16_f32((void*)&UT_FIX[i], vsrc);
+            offset = 4;
+        }
 #endif
         if(bias_term && fuse_relu)
             winograd_out_type = BiasReLU;

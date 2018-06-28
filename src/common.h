@@ -34,6 +34,8 @@ typedef short fix16_t;
 #define FLOAT2FIX(fixt, fracbits, x) fixt(((x)*(float)((fixt(1)<<(fracbits)))))
 #define FIX2FLOAT(fracbits,x) ((float)(x)/((1)<<fracbits))
 #define INT82FLOAT(x, scale) ((x*scale)/127.0)
+#define prt_v(a) printf("%10.6f, %10.6f, %10.6f, %10.6f, ", a[0], a[1], a[2], a[3]);
+#define prt_v6(a) printf("%10.6f, %10.6f, %10.6f, %10.6f, %10.6f, %10.6f,\n", a[0], a[1], a[2], a[3], a[4], a[5]);
 
 void* _mm_malloc(size_t sz, size_t align);
 void _mm_free(void* ptr);

@@ -322,7 +322,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
             if (layer_map[layers[i]->products[0]]->branchId > layers[i]->branchId)
                 layers[i]->branchId = layer_map[layers[i]->products[0]]->branchId;
         }
-#if 0
+#if 1
         unsigned idx = 0;
         printf("[%03d/%03d] %-16s branch: %d consumers %02d { ", i, layers.size()-1, layers[i]->name().c_str(), layers[i]->branchId, layers[i]->consumersNum);
         for(auto loop:layers[i]->consumers)
@@ -345,17 +345,16 @@ bool Net::InitFromBuffer(const void *net_buffer)
         }
 
         unsigned layerBranchId = layers[i]->branchId;
-        //printf("[%03d] %-16s %-16s branchid: %d input pingpangidx: %d", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layerBranchId, branchPingPang[layerBranchId]);
+        printf("[%03d] %-16s %-16s branchid: %d input pingpangidx: %d", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layerBranchId, branchPingPang[layerBranchId]);
         float *input  = pingpang[layerBranchId][branchPingPang[layerBranchId]];
         branchPingPang[layerBranchId]++;
         branchPingPang[layerBranchId] = branchPingPang[layerBranchId]%2;
 
-        //printf(", output pingpangidx: %d", branchPingPang[layerBranchId]);
+        printf(", output pingpangidx: %d", branchPingPang[layerBranchId]);
         float *output = pingpang[layerBranchId][branchPingPang[layerBranchId]];
 
-        //printf(" (%p %p)\n", input, output);
+        printf(" (%p %p)\n", input, output);
         layers[i]->Init(input, output);
-
 #ifdef MEM_USAGE_PRINT
         layers[i]->printPrivateMempool();
 #endif
@@ -366,6 +365,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
 #ifdef MEM_USAGE_PRINT
     rt_param->common_mempool()->PrintStats();
 #endif
+    printf("Net init ok\n");
     return true;
 }
 };

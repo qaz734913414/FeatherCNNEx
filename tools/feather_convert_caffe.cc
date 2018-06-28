@@ -23,7 +23,7 @@
 #include <google/protobuf/text_format.h>
 #include "common.h"
 
-#if 0
+#if 1
 #define PRINTF printf
 #else
 #define PRINTF
@@ -201,7 +201,6 @@ static void entropy(float *P, unsigned size)
 			printf("[%04d/%04d] %d, %f, %f\n" , i, BIN_NUM, bin[i], pstep*i + pminf, average/total);
 		}
 	}
-	getchar();
 	#endif
 	float P_HISWin[BIN_NUM] = {.0f}, Q_HISWin[BIN_NUM];
 	for(i = 128; i < BIN_NUM; i += 128)
@@ -434,7 +433,31 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 			if (layer_type.compare("Convolution")==0)
 			{
 				auto caffe_conv_param = caffe_layer.convolution_param();
-				if (1 == caffe_conv_param.kernel_size(0))
+				unsigned k_w, k_h;
+				if(caffe_conv_param.kernel_size_size() == 1)
+				{
+					k_w = k_h = caffe_conv_param.kernel_size(0);
+				}
+				else if(caffe_conv_param.kernel_size_size() == 2)
+				{
+					k_h = caffe_conv_param.kernel_size(0);
+					k_w = caffe_conv_param.kernel_size(1);
+				}
+				else
+				{
+					if (caffe_conv_param.has_kernel_h() && caffe_conv_param.has_kernel_w())
+					{
+						k_h = caffe_conv_param.kernel_h();
+						k_w = caffe_conv_param.kernel_w();
+					}
+					else
+					{
+						PRINTF("\nERR: code should not reach here as wrong kernel size\n");
+						exit(-1);
+					}
+				}
+
+				if ((1 == k_h) && (1 == k_w))
 				{
 				    fractions = frac;
 				}
@@ -789,8 +812,16 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold)
 
 				conv_param_builder.add_fractions(fractions);
 				PRINTF("+ fractions %u\n", fractions);
-				conv_param_builder.add_int8scale(scaleThre/127.0);
-				PRINTF("+ int8scale %f\n", scaleThre/127.0);
+				if (8 == fractions)
+				{
+					conv_param_builder.add_int8scale(scaleThre/127.0);
+					PRINTF("+ int8scale %f\n", scaleThre/127.0);
+				}
+				else
+				{
+					conv_param_builder.add_int8scale(.0);
+					PRINTF("+ int8scale 0.0\n");
+				}
 
 				if (layer_type.compare("ConvolutionDepthwise")==0)
 					conv_param_builder.add_group(caffe_conv_param.num_output());

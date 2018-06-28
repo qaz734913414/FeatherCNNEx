@@ -51,13 +51,49 @@ public:
         float *padded_input = WT + 64 * nBlocks * output_channels; //Offset by sizeof WT
         float *pack_array = padded_input + inputw * inputh * input_channels; //Offset by sizeof WT
         pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
-        //printf("F63\n");
+#if 0
+        {
+#ifdef WINOGRAD_FIX16_ENABLE
+            fix16_t min, max;
+            for(unsigned i = 0; i < 64 * input_channels * output_channels; i++)
+            {
+                if (0 == i)
+                {
+                    min = max = UT_FIX[i];
+                }
+                else
+                {
+                    max = MAX(max, UT_FIX[i]);
+                    min = MIN(min, UT_FIX[i]);
+                }
+            }
+            printf("weight fix min %d max %d [%d %d %d %d] [%f %f %f %f]\n", min, max,
+                   UT_FIX[0], UT_FIX[1], UT_FIX[2], UT_FIX[3],
+                   FIX2FLOAT(FRACTION, UT_FIX[0]), FIX2FLOAT(FRACTION, UT_FIX[1]), FIX2FLOAT(FRACTION, UT_FIX[2]), FIX2FLOAT(FRACTION, UT_FIX[3]));
+#else
+            float min, max;
+            for(unsigned i = 0; i < 64 * input_channels * output_channels; i++)
+            {
+                if (0 == i)
+                {
+                    min = max = UT[i];
+                }
+                else
+                {
+                    max = MAX(max, UT[i]);
+                    min = MIN(min, UT[i]);
+                }
+            }
+            printf("weight min %f max %f [%f %f %f %f]\n", min, max, UT[0], UT[1], UT[2], UT[3]);
+#endif
+        }
+#endif
+
 #ifdef WINOGRAD_FIX16_ENABLE
         winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT_FIX, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, pack_array, num_threads);
 #else
         winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, pack_array, num_threads);
 #endif
-
         return 0;
     }
 
@@ -86,16 +122,20 @@ public:
         winograd_mem_size += 64 * nBlocks * output_channels; //WT
         winograd_mem_size += packArraySize; //WT
         winograd_mem_size += inputw * inputh * input_channels;                           //Padded Input
-
         MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float), this->name()+" ["+this->type()+"]"));
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&UT, 64 * input_channels * output_channels * sizeof(float)));
-
-        /* fix convet during transform stage not during model convert */
+        /* fix convet in transform stage not in model convert */
         transformKernel_F6x6_3x3(UT, kernel_data, input_channels, output_channels);
 #ifdef WINOGRAD_FIX16_ENABLE
         UT_FIX = (fix16_t*)UT; //inplace transofrm
-        for(unsigned i = 0; i < 64 * input_channels * output_channels; i++)
-            UT_FIX[i] = FLOAT2FIX(fix16_t, FRACTION, UT[i]);
+        unsigned offset = 1;
+        for(unsigned i = 0; i < 64 * input_channels * output_channels; i += offset)
+        {
+            //UT_FIX[i] = FLOAT2FIX(fix16_t, FRACTION, UT[i]);
+            float32x4_t vsrc = vld1q_f32(UT+i);
+            vst1q_f16_f32((void*)&UT_FIX[i], vsrc);
+            offset = 4;
+        }
 #endif
         if(bias_term && fuse_relu)
             winograd_out_type = BiasReLU;
