@@ -23,9 +23,10 @@
 #include <omp.h>
 #endif
 
-//#define DEBUG_PRINT_KERNEL
-//#define DEBUG_PRINT_OUT
-//#define WINOGRAD_BENCH
+extern "C" void TensorGEMMInnerKernel4x4x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
+extern "C" void TensorGEMMInnerKernel4x3x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
+extern "C" void TensorGEMMInnerKernel4x2x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
+extern "C" void TensorGEMMInnerKernel4x1x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 
 static inline void neon_transpose4x4_inplace_f32(
     float32x4_t row0[1],
@@ -33,38 +34,13 @@ static inline void neon_transpose4x4_inplace_f32(
     float32x4_t row2[1],
     float32x4_t row3[1])
 {
-    /*
-     * row0 = ( x00 x01 x02 x03 )
-     * row1 = ( x10 x11 x12 x13 )
-     * row2 = ( x20 x21 x22 x23 )
-     * row3 = ( x30 x31 x32 x33 )
-     */
-    /*
-     * row01 = ( x00 x10 x02 x12 ), ( x01 x11 x03, x13 )
-     * row23 = ( x20 x30 x22 x32 ), ( x21 x31 x23, x33 )
-     */
     float32x4x2_t row01 = vtrnq_f32(*row0, *row1);
     float32x4x2_t row23 = vtrnq_f32(*row2, *row3);
-
-    /*
-     * row0 = ( x00 x10 x20 x30 )
-     * row1 = ( x01 x11 x21 x31 )
-     * row2 = ( x02 x12 x22 x32 )
-     * row3 = ( x03 x13 x23 x33 )
-     */
     *row0 = vcombine_f32(vget_low_f32(row01.val[0]), vget_low_f32(row23.val[0]));
     *row1 = vcombine_f32(vget_low_f32(row01.val[1]), vget_low_f32(row23.val[1]));
     *row2 = vcombine_f32(vget_high_f32(row01.val[0]), vget_high_f32(row23.val[0]));
     *row3 = vcombine_f32(vget_high_f32(row01.val[1]), vget_high_f32(row23.val[1]));
 }
-
-/*
- * Kernel Transform:
- * Layout k(outChannel, inChannel):
- * k(0, 0) k(0, 1) k(0, 2) k(0, 3) k(0, 4)....
- * k(1, 0) k(1, 1) k(1, 2) k(1, 3) k(1, 4)....
- * k(2, 0) k(2, 1) k(2, 2) k(2, 3) k(2, 4)....
- */
 
 static void winogradKernelTransform(float* transKernel, float* kernel)
 {
@@ -81,18 +57,10 @@ static void winogradKernelTransform(float* transKernel, float* kernel)
 
     float32x4_t vhalf = vdupq_n_f32(0.5);
 
-    //s0 = w0;
-    //s1 = 0.5*(w0 + w1 + w2)
-    //s2 = 0.5*(w0 - w1 + w2)
-    //s3 = w2
-
-    //    s0 = w0;
     s0 = vaddq_f32(w0, w2);
     s1 = vmulq_f32(vhalf, vaddq_f32(s0, w1));
     s2 = vmulq_f32(vhalf, vsubq_f32(s0, w1));
-    //    s3 = w2;
 
-    //s0 = w0, s3 = w2
     float32x4x2_t row01 = vtrnq_f32(w0, s1);
     float32x4x2_t row23 = vtrnq_f32(s2, w2);
     s0 = vcombine_f32(vget_low_f32(row01.val[0]), vget_low_f32(row23.val[0]));
@@ -100,11 +68,9 @@ static void winogradKernelTransform(float* transKernel, float* kernel)
     s2 = vcombine_f32(vget_high_f32(row01.val[0]), vget_high_f32(row23.val[0]));
     s3 = vcombine_f32(vget_high_f32(row01.val[1]), vget_high_f32(row23.val[1]));
 
-    //    w0 = s0;
     w0 = vaddq_f32(s0, s2);
     w1 = vmulq_f32(vhalf, vaddq_f32(w0, s1));
     w2 = vmulq_f32(vhalf, vsubq_f32(w0, s1));
-    //    w3= s2;
 
     vst1q_f32(transKernel, s0);
     vst1q_f32(transKernel + 4, w1);
@@ -115,12 +81,9 @@ static void winogradKernelTransform(float* transKernel, float* kernel)
 void transformKernel(float* UT, float* kernel, int inChannels, int outChannels, float* ST)
 {
     for(int j = 0; j < outChannels; ++j)
-    {
         for(int i = 0; i < inChannels; ++i)
-        {
             winogradKernelTransform(ST + 16 * (j * inChannels + i), kernel + 9 * (j * inChannels + i));
-        }
-    }
+
     const int stride = inChannels * outChannels * 4;
     float* utp[4];
     for(int i = 0; i < inChannels; ++i)
@@ -132,7 +95,6 @@ void transformKernel(float* UT, float* kernel, int inChannels, int outChannels, 
         float *stp = ST + 16 * i;//For i-th input channel
         for(int j = 0; j < outChannels; j += 4)
         {
-            //float *stp = ST + (i * outChannels + j) * 16;
             float32x4_t k00, k01, k02, k03;
             float32x4_t k10, k11, k12, k13;
             float32x4_t k20, k21, k22, k23;
@@ -186,33 +148,13 @@ void transformKernel(float* UT, float* kernel, int inChannels, int outChannels, 
     }
 }
 
-/*
- * Input transform:
- *
- * First traverse all the output channels and then the input channels,
- * so that each input frame would be only transformed once.
- * The out buffer for UT x VT result would be heavily flushed.
- * We can do cache blocking against the output channels if necessary.
- */
-
-/*
- * Reshape:
- * Dimensions: (nRowBlocks * nColBlocks * 16 / 16) x (Input channels * 16)
- * Illustrations:
- * INPUT CHANNEL IDS:   |   0   |   1   |   2   |   3   |...
- * 4x4 Data blocks:     |BLOCK 0|BLOCK 0|BLOCK 0|BLOCK 0|
- *                      |BLOCK 1|BLOCK 1|BLOCK 1|BLOCK 1|
- *                      |BLOCK 2|BLOCK 2|BLOCK 2|BLOCK 2|
- */
-
-void winogradInputFrameTransform(float* VT, int ldvt, int inChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks)
+static void winogradInputFrameTransform(float* VT, int ldvt, int inChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks)
 {
     float32x4_t d0, d1, d2, d3;
     float32x4_t w0, w1, w2, w3;
 
     for(int ic = 0; ic < inChannels; ++ic)
     {
-
         float *inputFrame = input + ic * frameStride;
         float *outp = VT + ic * 16;
         for(int j = 0; j < nColBlocks; ++j)
@@ -254,7 +196,7 @@ void winogradInputFrameTransform(float* VT, int ldvt, int inChannels, float* inp
     }
 }
 
-inline void inputTransform(float32x4_t &d0, float32x4_t &d1, float32x4_t &d2, float32x4_t &d3)
+static inline void inputTransform(float32x4_t &d0, float32x4_t &d1, float32x4_t &d2, float32x4_t &d3)
 {
     float32x4_t w0, w1, w2, w3;
     w0 = vsubq_f32(d0, d2);
@@ -268,7 +210,7 @@ inline void inputTransform(float32x4_t &d0, float32x4_t &d1, float32x4_t &d2, fl
     d3 = vsubq_f32(w3, w1);
 }
 
-void winogradInputFrameTransformStride(float* VT, int ldvt, int inChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, int num_threads)
+static void winogradInputFrameTransformStride(float* VT, int ldvt, int inChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, int num_threads)
 {
     const int nBlocks = nRowBlocks * nColBlocks;
     const int nBlocksAligned = nBlocks - nBlocks % 4;
@@ -278,10 +220,10 @@ void winogradInputFrameTransformStride(float* VT, int ldvt, int inChannels, floa
     outp[1] = outp[0] + outStride;
     outp[2] = outp[1] + outStride;
     outp[3] = outp[2] + outStride;
+
     #pragma omp parallel for num_threads(num_threads) collapse(2) schedule(static)
     for(int ic = 0; ic < inChannels; ++ic)
     {
-        //int idx = 0;
         for(int i = 0; i < nBlocksAligned; i++)
         {
             float *inputFrame = input + ic * frameStride;
@@ -336,7 +278,99 @@ void winogradInputFrameTransformStride(float* VT, int ldvt, int inChannels, floa
     }
 }
 
-inline void GEBPInnerKernel4x4x4(float* &vp, float* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
+static void winogradInputFrameTransformStride_fp16(fix16_t* VT, int ldvt, int inChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, int num_threads)
+{
+    const int nBlocks = nRowBlocks * nColBlocks;
+    const int nBlocksAligned = nBlocks - nBlocks % 4;
+    const int outStride = 4 * nBlocks * inChannels;
+    fix16_t* outp[4];
+    outp[0] = VT;
+    outp[1] = outp[0] + outStride;
+    outp[2] = outp[1] + outStride;
+    outp[3] = outp[2] + outStride;
+
+    #pragma omp parallel for num_threads(num_threads) collapse(2) schedule(static)
+    for(int ic = 0; ic < inChannels; ++ic)
+    {
+        for(int i = 0; i < nBlocksAligned; i++)
+        {
+            float *inputFrame = input + ic * frameStride;
+            int fx = i % nRowBlocks;
+            int fy = i / nRowBlocks;
+            float* r0 = inputFrame + ldin * fy * 2 + fx * 2;
+            float* r1 = r0 + ldin;
+            float* r2 = r1 + ldin;
+            float* r3 = r2 + ldin;
+            float32x4_t d0, d1, d2, d3;
+            d0 = vld1q_f32(r0);
+            d1 = vld1q_f32(r1);
+            d2 = vld1q_f32(r2);
+            d3 = vld1q_f32(r3);
+            inputTransform(d0, d1, d2, d3);
+            int yidx, xidx, offset;
+            yidx = i / 4;
+            xidx = (i % 4 + ic * 4) * 4;
+            offset = xidx + yidx * inChannels * 16;
+            vst1q_f16_f32(outp[0] + offset, d0);
+            vst1q_f16_f32(outp[1] + offset, d1);
+            vst1q_f16_f32(outp[2] + offset, d2);
+            vst1q_f16_f32(outp[3] + offset, d3);
+        }
+    }
+
+    #pragma omp parallel for num_threads(num_threads)
+    for(int ic = 0; ic < inChannels; ++ic)
+    {
+        for(int i = nBlocksAligned; i < nBlocks; ++i)
+        {
+            float *inputFrame = input + ic * frameStride;
+            int fx = i % nRowBlocks;
+            int fy = i / nRowBlocks;
+            float* r0 = inputFrame + ldin * fy * 2 + fx * 2;
+            float* r1 = r0 + ldin;
+            float* r2 = r1 + ldin;
+            float* r3 = r2 + ldin;
+            float32x4_t d0, d1, d2, d3;
+            d0 = vld1q_f32(r0);
+            d1 = vld1q_f32(r1);
+            d2 = vld1q_f32(r2);
+            d3 = vld1q_f32(r3);
+            inputTransform(d0, d1, d2, d3);
+            int baseOffset = nBlocksAligned * inChannels * 4;
+            int offset = baseOffset + ic * 4 * (nBlocks % 4) + (i - nBlocksAligned) * 4;
+            vst1q_f16_f32(outp[0] + offset, d0);
+            vst1q_f16_f32(outp[1] + offset, d1);
+            vst1q_f16_f32(outp[2] + offset, d2);
+            vst1q_f16_f32(outp[3] + offset, d3);
+        }
+    }
+}
+
+static inline void GEBPInnerKernel4x4x4_fp16(fix16_t* &vp, fix16_t* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
+{
+    for(int i = beginIdx; i < endIdx; i+=4)
+        TensorGEMMInnerKernel4x4x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+}
+
+static inline void GEBPInnerKernel4x3x4_fp16(fix16_t* &vp, fix16_t* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
+{
+    for(int i = beginIdx; i < endIdx; i+=3)
+        TensorGEMMInnerKernel4x3x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+}
+
+static inline void GEBPInnerKernel4x2x4_fp16(fix16_t* &vp, fix16_t* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
+{
+    for(int i = beginIdx; i < endIdx; i+=2)
+        TensorGEMMInnerKernel4x2x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+}
+
+static inline void GEBPInnerKernel4x1x4_fp16(fix16_t* &vp, fix16_t* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
+{
+    for(int i = beginIdx; i < endIdx; i++)
+        TensorGEMMInnerKernel4x1x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+}
+
+static inline void GEBPInnerKernel4x4x4(float* &vp, float* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
 {
     float32x4_t vc00, vc01, vc02, vc03;
     float32x4_t vc10, vc11, vc12, vc13;
@@ -348,34 +382,32 @@ inline void GEBPInnerKernel4x4x4(float* &vp, float* UTp, float* WTp, const int b
     for(int i = beginIdx; i < endIdx; i+=4)
     {
         vc00 = vdupq_n_f32(0.f);
-        vc01 = vdupq_n_f32(0.f);
-        vc02 = vdupq_n_f32(0.f);
-        vc03 = vdupq_n_f32(0.f);
-        vc10 = vdupq_n_f32(0.f);
-        vc11 = vdupq_n_f32(0.f);
-        vc12 = vdupq_n_f32(0.f);
-        vc13 = vdupq_n_f32(0.f);
-        vc20 = vdupq_n_f32(0.f);
-        vc21 = vdupq_n_f32(0.f);
-        vc22 = vdupq_n_f32(0.f);
-        vc23 = vdupq_n_f32(0.f);
-        vc30 = vdupq_n_f32(0.f);
-        vc31 = vdupq_n_f32(0.f);
-        vc32 = vdupq_n_f32(0.f);
-        vc33 = vdupq_n_f32(0.f);
+        vc01 = vc00;
+        vc02 = vc00;
+        vc03 = vc00;
+        vc10 = vc00;
+        vc11 = vc00;
+        vc12 = vc00;
+        vc13 = vc00;
+        vc20 = vc00;
+        vc21 = vc00;
+        vc22 = vc00;
+        vc23 = vc00;
+        vc30 = vc00;
+        vc31 = vc00;
+        vc32 = vc00;
+        vc33 = vc00;
         float* up = UTp;
-        for(int ic = 0; ic < inChannels; ++ic)
+        for(int ic = 0; ic < inChannels; ++ic, vp += 16, up += 16)
         {
             v0 = vld1q_f32(vp);
             v1 = vld1q_f32(vp + 4);
             v2 = vld1q_f32(vp + 8);
             v3 = vld1q_f32(vp + 12);
-            vp += 16;
             u0 = vld1q_f32(up);
             u1 = vld1q_f32(up + 4);
             u2 = vld1q_f32(up + 8);
             u3 = vld1q_f32(up + 12);
-            up += 16;
 #ifdef __aarch64__
             vc00 = vfmaq_f32(vc00, u0, v0);
             vc01 = vfmaq_f32(vc01, u0, v1);
@@ -442,7 +474,7 @@ inline void GEBPInnerKernel4x4x4(float* &vp, float* UTp, float* WTp, const int b
     }
 }
 
-inline void GEBPInnerKernel4x3x4(float* &vp, float* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
+static inline void GEBPInnerKernel4x3x4(float* &vp, float* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
 {
     float32x4_t vc00, vc01, vc02;
     float32x4_t vc10, vc11, vc12;
@@ -454,32 +486,28 @@ inline void GEBPInnerKernel4x3x4(float* &vp, float* UTp, float* WTp, const int b
     for(int i = beginIdx; i < endIdx; i+=3)
     {
         vc00 = vdupq_n_f32(0.f);
-        vc01 = vdupq_n_f32(0.f);
-        vc02 = vdupq_n_f32(0.f);
-        vc10 = vdupq_n_f32(0.f);
-        vc11 = vdupq_n_f32(0.f);
-        vc12 = vdupq_n_f32(0.f);
-        vc20 = vdupq_n_f32(0.f);
-        vc21 = vdupq_n_f32(0.f);
-        vc22 = vdupq_n_f32(0.f);
-        vc30 = vdupq_n_f32(0.f);
-        vc31 = vdupq_n_f32(0.f);
-        vc32 = vdupq_n_f32(0.f);
+        vc01 = vc00;
+        vc02 = vc00;
+        vc10 = vc00;
+        vc11 = vc00;
+        vc12 = vc00;
+        vc20 = vc00;
+        vc21 = vc00;
+        vc22 = vc00;
+        vc30 = vc00;
+        vc31 = vc00;
+        vc32 = vc00;
 
         float *up = UTp;
-
-        for(int ic = 0; ic < inChannels; ++ic)
+        for(int ic = 0; ic < inChannels; ++ic, vp += 12, up += 16)
         {
             v0 = vld1q_f32(vp);
             v1 = vld1q_f32(vp + 4);
             v2 = vld1q_f32(vp + 8);
-            vp += 12;
             u0 = vld1q_f32(up);
             u1 = vld1q_f32(up + 4);
             u2 = vld1q_f32(up + 8);
             u3 = vld1q_f32(up + 12);
-            up += 16;
-
 #ifdef __aarch64__
             vc00 = vfmaq_f32(vc00, u0, v0);
             vc01 = vfmaq_f32(vc01, u0, v1);
@@ -534,7 +562,7 @@ inline void GEBPInnerKernel4x3x4(float* &vp, float* UTp, float* WTp, const int b
     }
 }
 
-inline void GEBPInnerKernel4x2x4(float* &vp, float* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
+static inline void GEBPInnerKernel4x2x4(float* &vp, float* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
 {
     float32x4_t vc00, vc01;
     float32x4_t vc10, vc11;
@@ -543,31 +571,26 @@ inline void GEBPInnerKernel4x2x4(float* &vp, float* UTp, float* WTp, const int b
 
     float32x4_t u0, u1, u2, u3;
     float32x4_t v0, v1;
-    int idx = 0;
     for(int i = beginIdx; i < endIdx; i+=2)
     {
         vc00 = vdupq_n_f32(0.f);
-        vc01 = vdupq_n_f32(0.f);
-        vc10 = vdupq_n_f32(0.f);
-        vc11 = vdupq_n_f32(0.f);
-        vc20 = vdupq_n_f32(0.f);
-        vc21 = vdupq_n_f32(0.f);
-        vc30 = vdupq_n_f32(0.f);
-        vc31 = vdupq_n_f32(0.f);
+        vc01 = vc00;
+        vc10 = vc00;
+        vc11 = vc00;
+        vc20 = vc00;
+        vc21 = vc00;
+        vc30 = vc00;
+        vc31 = vc00;
 
         float *up = UTp;
-
-        for(int ic = 0; ic < inChannels; ++ic)
+        for(int ic = 0; ic < inChannels; ++ic, vp += 8, up += 16)
         {
             v0 = vld1q_f32(vp);
             v1 = vld1q_f32(vp + 4);
-            vp += 8;
             u0 = vld1q_f32(up);
             u1 = vld1q_f32(up + 4);
             u2 = vld1q_f32(up + 8);
             u3 = vld1q_f32(up + 12);
-            up += 16;
-
 #ifdef __aarch64__
             vc00 = vfmaq_f32(vc00, u0, v0);
             vc01 = vfmaq_f32(vc01, u0, v1);
@@ -610,29 +633,25 @@ inline void GEBPInnerKernel4x2x4(float* &vp, float* UTp, float* WTp, const int b
     }
 }
 
-inline void GEBPInnerKernel4x1x4(float* &vp, float* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
+static inline void GEBPInnerKernel4x1x4(float* &vp, float* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
 {
     float32x4_t vc00, vc10, vc20, vc30;
-
     float32x4_t u0, u1, u2, u3;
     float32x4_t v0;
     for(int i = beginIdx; i < endIdx; i++)
     {
         vc00 = vdupq_n_f32(0.f);
-        vc10 = vdupq_n_f32(0.f);
-        vc20 = vdupq_n_f32(0.f);
-        vc30 = vdupq_n_f32(0.f);
+        vc10 = vc00;
+        vc20 = vc00;
+        vc30 = vc00;
         float *up = UTp;
-        for(int ic = 0; ic < inChannels; ++ic)
+        for(int ic = 0; ic < inChannels; ++ic, vp += 4, up += 16)
         {
             v0 = vld1q_f32(vp);
-            vp += 4;
             u0 = vld1q_f32(up);
             u1 = vld1q_f32(up + 4);
             u2 = vld1q_f32(up + 8);
             u3 = vld1q_f32(up + 12);
-            up += 16;
-
 #ifdef __aarch64__
             vc00 = vfmaq_f32(vc00, u0, v0);
             vc10 = vfmaq_f32(vc10, u1, v0);
@@ -655,10 +674,9 @@ inline void GEBPInnerKernel4x1x4(float* &vp, float* UTp, float* WTp, const int b
         vst1q_f32(wp,      vc30);
         wp += wstride;
     }
-
 }
 
-void GEMMCubic(float* output, int ldout, float* WT, float* VT, const int ldvt, float* UT, const int ldut, const int inChannels, const int outChannels, const int nRowBlocks, const int nColBlocks)
+static void GEMMCubic(float* output, int ldout, float* WT, float* VT, const int ldvt, float* UT, const int ldut, const int inChannels, const int outChannels, const int nRowBlocks, const int nColBlocks)
 {
     const int nBlocks = nRowBlocks * nColBlocks;
     const int nBlocksAligned = nBlocks - nBlocks % 4;
@@ -685,8 +703,34 @@ void GEMMCubic(float* output, int ldout, float* WT, float* VT, const int ldvt, f
     }
 }
 
+static void GEMMCubic_fp16(float* output, int ldout, float* WT, fix16_t* VT, const int ldvt, fix16_t* UT, const int ldut, const int inChannels, const int outChannels, const int nRowBlocks, const int nColBlocks)
+{
+    const int nBlocks = nRowBlocks * nColBlocks;
+    const int nBlocksAligned = nBlocks - nBlocks % 4;
+    const int wstride = nBlocks * 4;
 
-void GEMMCubicFourOutputChannels(float* output, int ldout, float* WT, float* VT, float* UT, const int inChannels, const int outChannels, const int nRowBlocks, const int nColBlocks, const int oc)
+    for(int oc = 0; oc < outChannels; oc += 4)
+    {
+        fix16_t *vp = VT;
+        fix16_t *UTp = UT + oc / 4 * inChannels * 16;
+        float *WTp = WT + oc * nRowBlocks * nColBlocks * 4;
+        GEBPInnerKernel4x4x4_fp16(vp, UTp, WTp, 0, nBlocksAligned, inChannels, wstride);
+        switch(nBlocks % 4)
+        {
+        case 1:
+            GEBPInnerKernel4x1x4_fp16(vp, UTp, WTp, nBlocksAligned, nBlocks, inChannels, wstride);
+            break;
+        case 2:
+            GEBPInnerKernel4x2x4_fp16(vp, UTp, WTp, nBlocksAligned, nBlocks, inChannels, wstride);
+            break;
+        case 3:
+            GEBPInnerKernel4x3x4_fp16(vp, UTp, WTp, nBlocksAligned, nBlocks, inChannels, wstride);
+            break;
+        }
+    }
+}
+
+static void GEMMCubicFourOutputChannels(float* output, int ldout, float* WT, float* VT, float* UT, const int inChannels, const int outChannels, const int nRowBlocks, const int nColBlocks, const int oc)
 {
     const int nBlocks = nRowBlocks * nColBlocks;
     const int nBlocksAligned = nBlocks - nBlocks % 4;
@@ -711,10 +755,35 @@ void GEMMCubicFourOutputChannels(float* output, int ldout, float* WT, float* VT,
     }
 }
 
-void winogradOutputTransform(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, int num_threads)
+static void GEMMCubicFourOutputChannels_fp16(float* output, int ldout, float* WT, fix16_t* VT, fix16_t* UT, const int inChannels, const int outChannels, const int nRowBlocks, const int nColBlocks, const int oc)
+{
+    const int nBlocks = nRowBlocks * nColBlocks;
+    const int nBlocksAligned = nBlocks - nBlocks % 4;
+    const int wstride = nBlocks * 4;
+
+    fix16_t *vp = VT;
+    fix16_t *UTp = UT + oc / 4 * inChannels * 16;
+    float *WTp = WT + oc * nRowBlocks * nColBlocks * 4;
+
+    GEBPInnerKernel4x4x4_fp16(vp, UTp, WTp, 0, nBlocksAligned, inChannels, wstride);
+    switch(nBlocks % 4)
+    {
+    case 1:
+        GEBPInnerKernel4x1x4_fp16(vp, UTp, WTp, nBlocksAligned, nBlocks, inChannels, wstride);
+        break;
+    case 2:
+        GEBPInnerKernel4x2x4_fp16(vp, UTp, WTp, nBlocksAligned, nBlocks, inChannels, wstride);
+        break;
+    case 3:
+        GEBPInnerKernel4x3x4_fp16(vp, UTp, WTp, nBlocksAligned, nBlocks, inChannels, wstride);
+        break;
+    }
+}
+
+static void winogradOutputTransform(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, int num_threads)
 {
     int nBlocks = nRowBlocks * nColBlocks;
-    //Output Transform
+
     #pragma omp parallel for num_threads(num_threads) schedule(static)
     for(int oc = 0; oc < outChannels; ++oc)
     {
@@ -766,10 +835,10 @@ void winogradOutputTransform(float* output, int ldout, float* WT, int outChannel
     }
 }
 
-void winogradOutputTransformBias(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, float *biasArr, int num_threads)
+static void winogradOutputTransformBias(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, float *biasArr, int num_threads)
 {
     int nBlocks = nRowBlocks * nColBlocks;
-    //Output Transform
+
     #pragma omp parallel for num_threads(num_threads) schedule(static)
     for(int oc = 0; oc < outChannels; ++oc)
     {
@@ -819,11 +888,11 @@ void winogradOutputTransformBias(float* output, int ldout, float* WT, int outCha
     }
 }
 
-void winogradOutputTransformBiasReLU(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, float *biasArr, int num_threads)
+static void winogradOutputTransformBiasReLU(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, float *biasArr, int num_threads)
 {
     int nBlocks = nRowBlocks * nColBlocks;
     const float32x2_t vZero2 = vdup_n_f32(0.f);
-    //Output Transform
+
     #pragma omp parallel for num_threads(num_threads) schedule(static)
     for(int oc = 0; oc < outChannels; ++oc)
     {
@@ -876,11 +945,11 @@ void winogradOutputTransformBiasReLU(float* output, int ldout, float* WT, int ou
     }
 }
 
-void winogradOutputTransformReLU(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, int num_threads)
+static void winogradOutputTransformReLU(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, int num_threads)
 {
     int nBlocks = nRowBlocks * nColBlocks;
     const float32x2_t vZero2 = vdup_n_f32(0.f);
-    //Output Transform
+
     #pragma omp parallel for num_threads(num_threads) schedule(static)
     for(int oc = 0; oc < outChannels; ++oc)
     {
@@ -932,18 +1001,32 @@ void winogradOutputTransformReLU(float* output, int ldout, float* WT, int outCha
     }
 }
 
-void winogradNonFusedTransform_inner(float *output, int ldout, float* WT, float* VT, int ldvt, float* UT, int ldut, int inChannels, int outChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float* biasArr)
+template<typename T>
+static void winogradNonFusedTransform_inner(float *output, int ldout, float* WT, T* VT, int ldvt, T* UT, int ldut, int inChannels, int outChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float* biasArr)
 {
-    winogradInputFrameTransformStride(VT, ldvt, inChannels, input, frameStride, ldin, nRowBlocks, nColBlocks, 1);
-    for(int i = 0; i < 4; ++i)
+    if (4 == sizeof(VT[0]))
+        winogradInputFrameTransformStride((float*)VT, ldvt, inChannels, input, frameStride, ldin, nRowBlocks, nColBlocks, 1);
+    else if (2 == sizeof(VT[0]))
+        winogradInputFrameTransformStride_fp16((fix16_t*)VT, ldvt, inChannels, input, frameStride, ldin, nRowBlocks, nColBlocks, 1);
+
+    if (4 == sizeof(VT[0]))
     {
-        GEMMCubic(output, ldout,
-                  WT + i * outChannels * nRowBlocks * nColBlocks * 4,
-                  VT + i * nRowBlocks * nColBlocks * inChannels * 4, ldvt,
-                  UT + i * inChannels * outChannels * 4, ldut,
-                  inChannels, outChannels, nRowBlocks, nColBlocks);
+        for(int i = 0; i < 4; ++i)
+            GEMMCubic(output, ldout,
+                      WT + i * outChannels * nRowBlocks * nColBlocks * 4,
+                      (float*)VT + i * nRowBlocks * nColBlocks * inChannels * 4, ldvt,
+                      (float*)UT + i * inChannels * outChannels * 4, ldut,
+                      inChannels, outChannels, nRowBlocks, nColBlocks);
     }
-    //out type
+    else if (2 == sizeof(VT[0]))
+    {
+        for(int i = 0; i < 4; ++i)
+            GEMMCubic_fp16(output, ldout,
+                           WT + i * outChannels * nRowBlocks * nColBlocks * 4,
+                           (fix16_t*)VT + i * nRowBlocks * nColBlocks * inChannels * 4, ldvt,
+                           (fix16_t*)UT + i * inChannels * outChannels * 4, ldut,
+                           inChannels, outChannels, nRowBlocks, nColBlocks);
+    }
     switch (outType)
     {
     case None:
@@ -961,36 +1044,46 @@ void winogradNonFusedTransform_inner(float *output, int ldout, float* WT, float*
     }
 }
 
+template void winogradNonFusedTransform_inner<fix16_t>(float *output, int ldout, float* WT, fix16_t* VT, int ldvt, fix16_t* UT, int ldut, int inChannels, int outChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float* biasArr);
+template void winogradNonFusedTransform_inner<float>(float *output, int ldout, float* WT, float* VT, int ldvt, float* UT, int ldut, int inChannels, int outChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float* biasArr);
 
-void winogradNonFusedTransformMT_inner(float *output, int ldout, float* WT, float* VT, int ldvt, float* UT, int ldut, int inChannels, int outChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float* biasArr, int num_threads)
+template<typename T>
+static void winogradNonFusedTransformMT_inner(float *output, int ldout, float* WT, T* VT, int ldvt, T* UT, int ldut, int inChannels, int outChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float* biasArr, int num_threads)
 {
-#ifdef WINOGRAD_BENCH
-    Timer tmr;
-    tmr.startBench();
-#endif
-    winogradInputFrameTransformStride(VT, ldvt, inChannels, input, frameStride, ldin, nRowBlocks, nColBlocks, num_threads);
-#ifdef WINOGRAD_BENCH
-    tmr.endBench("Input Transform:");
-    tmr.startBench();
-#endif
-    #pragma omp parallel for num_threads(num_threads) schedule(static)
-    for(int i = 0; i < outChannels; i++)
-    {
-        const int oc = (i * 4) % outChannels;
-        const int mi = i / (outChannels / 4);
-        GEMMCubicFourOutputChannels(output, ldout,
-                                    WT + mi * outChannels * nRowBlocks * nColBlocks * 4,
-                                    VT + mi * nRowBlocks * nColBlocks * inChannels * 4,
-                                    UT + mi * inChannels * outChannels * 4,
-                                    inChannels, outChannels, nRowBlocks, nColBlocks, oc);
-    }
-#ifdef WINOGRAD_BENCH
-    tmr.endBench("Multiplication:");
-#endif
+    if (4 == sizeof(VT[0]))
+        winogradInputFrameTransformStride((float *)VT, ldvt, inChannels, input, frameStride, ldin, nRowBlocks, nColBlocks, num_threads);
+    else if (2 == sizeof(VT[0]))
+        winogradInputFrameTransformStride_fp16((fix16_t*)VT, ldvt, inChannels, input, frameStride, ldin, nRowBlocks, nColBlocks, num_threads);
 
-#ifdef WINOGRAD_BENCH
-    tmr.startBench();
-#endif
+    if (4 == sizeof(VT[0]))
+    {
+        #pragma omp parallel for num_threads(num_threads) schedule(static)
+        for(int i = 0; i < outChannels; i++)
+        {
+            const int oc = (i * 4) % outChannels;
+            const int mi = i / (outChannels / 4);
+            GEMMCubicFourOutputChannels(output, ldout,
+                                        WT + mi * outChannels * nRowBlocks * nColBlocks * 4,
+                                        (float*)VT + mi * nRowBlocks * nColBlocks * inChannels * 4,
+                                        (float*)UT + mi * inChannels * outChannels * 4,
+                                        inChannels, outChannels, nRowBlocks, nColBlocks, oc);
+        }
+    }
+    else if (2 == sizeof(VT[0]))
+    {
+        #pragma omp parallel for num_threads(num_threads) schedule(static)
+        for(int i = 0; i < outChannels; i++)
+        {
+            const int oc = (i * 4) % outChannels;
+            const int mi = i / (outChannels / 4);
+            GEMMCubicFourOutputChannels_fp16(output, ldout,
+                                             WT + mi * outChannels * nRowBlocks * nColBlocks * 4,
+                                             (fix16_t*)VT + mi * nRowBlocks * nColBlocks * inChannels * 4,
+                                             (fix16_t*)UT + mi * inChannels * outChannels * 4,
+                                             inChannels, outChannels, nRowBlocks, nColBlocks, oc);
+        }
+    }
+
     switch (outType)
     {
     case None:
@@ -1006,13 +1099,13 @@ void winogradNonFusedTransformMT_inner(float *output, int ldout, float* WT, floa
         winogradOutputTransformBiasReLU(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
         break;
     }
-
-#ifdef WINOGRAD_BENCH
-    tmr.endBench("Output transform:");
-#endif
 }
 
-void winogradNonFusedTransform(float *output, int outChannels, float* WT, float* VT, float* UT, float* input, int inChannels, int inputw, int inputh, WinogradOutType outType, float* biasArr, int num_threads)
+template void winogradNonFusedTransformMT_inner<fix16_t>(float *output, int ldout, float* WT, fix16_t* VT, int ldvt, fix16_t* UT, int ldut, int inChannels, int outChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float* biasArr, int num_threads);
+template void winogradNonFusedTransformMT_inner<float>(float *output, int ldout, float* WT, float* VT, int ldvt, float* UT, int ldut, int inChannels, int outChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float* biasArr, int num_threads);
+
+template<typename T>
+void winogradNonFusedTransform(float *output, int outChannels, float* WT, T* VT, T* UT, float* input, int inChannels, int inputw, int inputh, WinogradOutType outType, float* biasArr, int num_threads)
 {
     const int inputFrameStride = inputw * inputh;
     const int nRowBlocks = inputw / 2 - 1;
@@ -1025,3 +1118,6 @@ void winogradNonFusedTransform(float *output, int outChannels, float* WT, float*
     else
         winogradNonFusedTransformMT_inner(output, ldout, WT, VT, ldvt, UT, ldut, inChannels, outChannels, input, inputFrameStride, inputw, nRowBlocks, nColBlocks, outType, biasArr, num_threads);
 }
+
+template void winogradNonFusedTransform<fix16_t>(float *output, int outChannels, float* WT, fix16_t* VT, fix16_t* UT, float* input, int inChannels, int inputw, int inputh, WinogradOutType outType, float* biasArr, int num_threads);
+template void winogradNonFusedTransform<float>(float *output, int outChannels, float* WT, float* VT, float* UT, float* input, int inChannels, int inputw, int inputh, WinogradOutType outType, float* biasArr, int num_threads);

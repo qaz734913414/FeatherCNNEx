@@ -1278,57 +1278,61 @@ static inline void winograd_f6k3_output_transform_inplace(
     m0 = m0 + m1_add_m2;
     m5 = m7 + m1_sub_m2;
 
+    const float32x4_t const_2  = vdupq_n_f32(2.0f);
+    const float32x4_t const_4  = vmulq_f32(const_2, const_2);
+    const float32x4_t const_8  = vmulq_f32(const_4, const_2);
+    const float32x4_t const_16 = vmulq_f32(const_8, const_2);
+    const float32x4_t const_32 = vmulq_f32(const_16, const_2);
 #ifdef __aarch64__
-    const float32x4_t const_16 = vdupq_n_f32(16.0f);
+    //const float32x4_t const_16 = vdupq_n_f32(16.0f);
     m1 = vfmaq_f32(m1_sub_m2, const_16, m5_sub_m6);
     m4 = vfmaq_f32(m1_add_m2, const_16, m3_add_m4);
 
-    const float32x4_t const_8 = vdupq_n_f32(8.0f);
+    //const float32x4_t const_8 = vdupq_n_f32(8.0f);
     m2 = vfmaq_f32(m1_add_m2, const_8, m5_add_m6);
     m3 = vfmaq_f32(m1_sub_m2, const_8, m3_sub_m4);
 
-    const float32x4_t const_32 = vdupq_n_f32(32.0f);
+    //const float32x4_t const_32 = vdupq_n_f32(32.0f);
     m0 = vfmaq_f32(m0, const_32, m5_add_m6);
     m0 += m3_add_m4;
 
     m5 = vfmaq_f32(m5, const_32, m3_sub_m4);
     m5 += m5_sub_m6;
 
-    const float32x4_t const_2 = vdupq_n_f32(2.0f);
+    //const float32x4_t const_2 = vdupq_n_f32(2.0f);
     m1 = vfmaq_f32(m1, m3_sub_m4, const_2);
     m4 = vfmaq_f32(m4, m5_add_m6, const_2);
 
-    const float32x4_t const_4 = vdupq_n_f32(4.0f);
+    //const float32x4_t const_4 = vdupq_n_f32(4.0f);
     m2 = vfmaq_f32(m2, m3_add_m4, const_4);
     m3 = vfmaq_f32(m3, m5_sub_m6, const_4);
 #else
-    const float32x4_t const_16 = vdupq_n_f32(16.0f);
+    //const float32x4_t const_16 = vdupq_n_f32(16.0f);
     m1 = vmlaq_f32(m1_sub_m2, const_16, m5_sub_m6);
     m4 = vmlaq_f32(m1_add_m2, const_16, m3_add_m4);
 
-    const float32x4_t const_8 = vdupq_n_f32(8.0f);
+    //const float32x4_t const_8 = vdupq_n_f32(8.0f);
     m2 = vmlaq_f32(m1_add_m2, const_8, m5_add_m6);
     m3 = vmlaq_f32(m1_sub_m2, const_8, m3_sub_m4);
 
-    const float32x4_t const_32 = vdupq_n_f32(32.0f);
+    //const float32x4_t const_32 = vdupq_n_f32(32.0f);
     m0 = vmlaq_f32(m0, const_32, m5_add_m6);
     m0 += m3_add_m4;
 
     m5 = vmlaq_f32(m5, const_32, m3_sub_m4);
     m5 += m5_sub_m6;
 
-    const float32x4_t const_2 = vdupq_n_f32(2.0f);
+    //const float32x4_t const_2 = vdupq_n_f32(2.0f);
     m1 = vmlaq_f32(m1, m3_sub_m4, const_2);
     m4 = vmlaq_f32(m4, m5_add_m6, const_2);
 
-    const float32x4_t const_4 = vdupq_n_f32(4.0f);
+    //const float32x4_t const_4 = vdupq_n_f32(4.0f);
     m2 = vmlaq_f32(m2, m3_add_m4, const_4);
     m3 = vmlaq_f32(m3, m5_sub_m6, const_4);
 #endif
 
-    const float32x4_t const_0 = vdupq_n_f32(0.0f);
-    m6 = const_0;
-    m7 = const_0;
+    m6 = veorq_u32(m6, m6);
+    m7 = veorq_u32(m7, m7);
 }
 
 template<bool HAS_RELU, bool HAS_BIAS>
@@ -1349,7 +1353,6 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
         {
             for(int i = 0; i < nRowBlocks; ++i)
             {
-                float32x4_t vBias = vdupq_n_f32(biasArr[oc]);
                 int bid = nRowBlocks * j + i;
                 float *wp = WT + oc * nBlocks * 64 + (bid & 0xFFFFFFFC) * 64 + (bid & 0x3) * 4;
                 float32x4_t l0, l1, l2, l3, l4, l5, l6, l7, r0, r1, r2, r3, r4, r5, r6, r7;
@@ -1402,6 +1405,7 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
                 winograd_f6k3_output_transform_inplace(l4, l5, l6, l7, r4, r5, r6, r7);
                 if(HAS_BIAS)
                 {
+                    float32x4_t vBias = vdupq_n_f32(biasArr[oc]);
                     l0 = vaddq_f32(l0, vBias);
                     l1 = vaddq_f32(l1, vBias);
                     l2 = vaddq_f32(l2, vBias);
@@ -1527,7 +1531,7 @@ template<typename T>
 void winogradNonFusedTransform_F6x6_3x3(float *output, int outChannels, float *WT, float *VT, T *UT, float *input, int inChannels, int inputh, int inputw, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads)
 {
     const int inputFrameStride = inputw * inputh;
-    const int nRowBlocks = (inputw + 3) / 6;//inputw - kernelw + 5
+    const int nRowBlocks = (inputw + 3) / 6;
     const int nColBlocks = (inputh + 3) / 6;
     const int ldout = inputw - 2;
     winogradNonFusedTransform_inner(output, ldout, WT, VT, UT, inChannels, outChannels, input, inputh, inputw, inputFrameStride, inputw, nRowBlocks, nColBlocks, outType, biasArr, pack_array, num_threads);

@@ -14,20 +14,18 @@
 
 #pragma once
 #include <stdio.h>
-
-#define WINOGRAD_FIX16_ENABLE
+#include <common.h>
+#include <utils.h>
 
 enum WinogradOutType
 {
     None, ReLU, Bias, BiasReLU
 };
 
-//UT larger than 16 * inChannels * outChannels
 void transformKernel(float* UT, float* kernel, int inChannels, int outChannels, float *ST);
 
-//VT larger than 16 * (inputw / 2 - 1) * (inputh / 2 - 1) * inChannels
-//WT larger than 16 * (inputw / 2 - 1) * (inputh / 2 - 1) * outChannels
-void winogradNonFusedTransform(float *output, int outChannels, float* WT, float* VT, float* UT, float* input, int inChannels, int inputw, int inputh, WinogradOutType outType, float* biasArr, int num_threads);
+template<typename T>
+void winogradNonFusedTransform(float *output, int outChannels, float* WT, T* VT, T* UT, float* input, int inChannels, int inputw, int inputh, WinogradOutType outType, float* biasArr, int num_threads);
 
 void transformKernel_F6x6_3x3(float* UT, float* kernel, int inChannels, int outChannels);
 template<typename T>

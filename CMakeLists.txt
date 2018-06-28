@@ -55,6 +55,9 @@ endif()
 add_definitions(-fPIC)
 add_definitions(-Ofast)
 add_definitions(-ffast-math)
+add_definitions(-DWINOGRAD_FP16_ENABLE)
+add_definitions(-fvisibility=hidden -fvisibility-inlines-hidden)
+add_definitions(-fdata-sections -ffunction-sections)
 message(STATUS "CMAKE_SYSTEM_PROCESSOR ${CMAKE_SYSTEM_PROCESSOR}")
 if( CMAKE_SYSTEM_PROCESSOR MATCHES armv7-a )
 add_definitions(-mfpu=neon-fp16)
@@ -62,8 +65,6 @@ endif()
 # add_definitions(-march=native)
 
 # add_definitions(-flto)
-
-add_definitions(-fvisibility=hidden -fvisibility-inlines-hidden)
 
 if(ANDROID)
     # disable shared library on android

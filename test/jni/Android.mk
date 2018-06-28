@@ -21,6 +21,8 @@ LOCAL_CPPFLAGS += -Wall -frtti
 
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 LOCAL_ARM_NEON = true
+LOCAL_CFLAGS += -mfpu=neon-fp16
+LOCAL_CPPFLAGS += -mfpu=neon-fp16
 endif
 
 LOCAL_CFLAGS += -fopenmp
