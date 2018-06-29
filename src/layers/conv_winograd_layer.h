@@ -43,12 +43,14 @@ public:
         MEMPOOL_CHECK_RETURN(common_mempool->GetPtr(&common_mem));
         const size_t inputw = input_width + padding_left + padding_right;
         const size_t inputh = input_height + padding_top + padding_bottom;
-        //printf("F23\n");
         //Get addresses
         float *VT = common_mem;
         float *WT = VT + 16 * (inputw / 2 - 1) * (inputh / 2 - 1) * input_channels;            //Offset by sizeof VT
         float *padded_input = WT + 16 * (inputw / 2 - 1) * (inputh / 2 - 1) * output_channels; //Offset by sizeof WT
         pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
+
+        //printf("F23 [%d %d]\n", ext_pad_w, ext_pad_h);
+
         if (ext_pad_w || ext_pad_h)
         {
             int outputw = inputw - kernel_width + 1;
@@ -77,8 +79,19 @@ public:
             winogradNonFusedTransform(output, output_channels, WT, VT, UT, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
 #endif
         }
-        return 0;
 
+#if 0
+        char fname[128];
+#ifdef WINOGRAD_FP16_ENABLE
+        sprintf(fname, "%s_fp.out", name().c_str());
+#else
+        sprintf(fname, "%s.out", name().c_str());
+#endif
+        printf("----%s\n", fname);
+        writeFile((unsigned char*)output, output_channels*output_height*output_width*sizeof(float), fname);
+#endif
+
+        return 0;
     }
 
     int Fuse(Layer *next_layer)
@@ -114,15 +127,15 @@ public:
             int outputh = inputh - kernel_height + 1;
             winograd_mem_size += outputw * outputh * output_channels;
         }
-        float* ST = NULL;
+        float* tmp = NULL;
         MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float), this->name()+" ["+this->type()+"]"));
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&UT, 16 * input_channels * output_channels * sizeof(float)));
-        MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&ST, 16 * input_channels * output_channels * sizeof(float)));
-        transformKernel(UT, kernel_data, input_channels, output_channels, ST);
-        MEMPOOL_CHECK_RETURN(private_mempool.Free((void**)&ST));
+        MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&tmp, 16 * input_channels * output_channels * sizeof(float)));
+        transformKernel(UT, kernel_data, input_channels, output_channels, tmp);
+        MEMPOOL_CHECK_RETURN(private_mempool.Free((void**)&tmp));
 #ifdef WINOGRAD_FP16_ENABLE
         UT_FIX = (fix16_t*)UT; //inplace transofrm
-        for(unsigned i = 0; i < 64 * input_channels * output_channels; i += 4)
+        for(unsigned i = 0; i < 16 * input_channels * output_channels; i += 4)
             vst1q_f16_f32((void*)&UT_FIX[i], vld1q_f32(UT+i));
 #endif
         if(bias_term && fuse_relu)

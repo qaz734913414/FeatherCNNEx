@@ -349,25 +349,37 @@ static void winogradInputFrameTransformStride_fp16(fix16_t* VT, int ldvt, int in
 static inline void GEBPInnerKernel4x4x4_fp16(fix16_t* &vp, fix16_t* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
 {
     for(int i = beginIdx; i < endIdx; i+=4)
+    {
         TensorGEMMInnerKernel4x4x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+        vp += inChannels*16;
+    }
 }
 
 static inline void GEBPInnerKernel4x3x4_fp16(fix16_t* &vp, fix16_t* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
 {
     for(int i = beginIdx; i < endIdx; i+=3)
+    {
         TensorGEMMInnerKernel4x3x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+        vp += inChannels*12;
+    }
 }
 
 static inline void GEBPInnerKernel4x2x4_fp16(fix16_t* &vp, fix16_t* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
 {
     for(int i = beginIdx; i < endIdx; i+=2)
+    {
         TensorGEMMInnerKernel4x2x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+        vp += inChannels*8;
+    }
 }
 
 static inline void GEBPInnerKernel4x1x4_fp16(fix16_t* &vp, fix16_t* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
 {
     for(int i = beginIdx; i < endIdx; i++)
+    {
         TensorGEMMInnerKernel4x1x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+        vp += inChannels*4;
+    }
 }
 
 static inline void GEBPInnerKernel4x4x4(float* &vp, float* UTp, float* WTp, const int beginIdx, const int endIdx, int inChannels, const int wstride)
@@ -1008,7 +1020,6 @@ static void winogradNonFusedTransform_inner(float *output, int ldout, float* WT,
         winogradInputFrameTransformStride((float*)VT, ldvt, inChannels, input, frameStride, ldin, nRowBlocks, nColBlocks, 1);
     else if (2 == sizeof(VT[0]))
         winogradInputFrameTransformStride_fp16((fix16_t*)VT, ldvt, inChannels, input, frameStride, ldin, nRowBlocks, nColBlocks, 1);
-
     if (4 == sizeof(VT[0]))
     {
         for(int i = 0; i < 4; ++i)
