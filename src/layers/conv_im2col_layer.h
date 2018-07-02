@@ -84,7 +84,6 @@ public:
 
             Im2col();
 
-            //jintaomeng  support the case for group != input_channels
             int block = (int)input_channels/group * (int)kernel_width * (int)kernel_height;
             if (output_channels % 8 == 0)
             {

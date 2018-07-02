@@ -34,6 +34,7 @@ extern "C" void TensorGEMMInnerKernel4x3x4_fix16(float* WTp, const int wstride, 
 extern "C" void TensorGEMMInnerKernel4x2x4_fix16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 extern "C" void TensorGEMMInnerKernel4x1x4_fix16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 
+extern "C" void TensorGEMMInnerKernel4x4x4_fp16_n(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 extern "C" void TensorGEMMInnerKernel4x4x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 extern "C" void TensorGEMMInnerKernel4x3x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 extern "C" void TensorGEMMInnerKernel4x2x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
@@ -54,7 +55,6 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
     vc32x4x4_2 = vc32x4x4_0;
     vc32x4x4_3 = vc32x4x4_0;
 
-    //float max, min;
     const float *up = UTp;
     for (int ic = 0; ic < inChannels; ++ic, vp += 16, up += 16)
     {
@@ -115,49 +115,8 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
         vc32x4x4_3.val[2] = vmlaq_f32(vc32x4x4_3.val[2], u32x4x4.val[3], v32x4x4.val[2]);
         vc32x4x4_3.val[3] = vmlaq_f32(vc32x4x4_3.val[3], u32x4x4.val[3], v32x4x4.val[3]);
 #endif
-
-#if 0
-        max = vmaxvq_f32(vc32x4x4_0.val[0]);
-        max = MAX(max, vmaxvq_f32(vc32x4x4_0.val[1]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_0.val[2]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_0.val[3]));
-
-        max = MAX(max, vmaxvq_f32(vc32x4x4_1.val[0]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_1.val[1]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_1.val[2]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_1.val[3]));
-
-        max = MAX(max, vmaxvq_f32(vc32x4x4_2.val[0]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_2.val[1]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_2.val[2]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_2.val[3]));
-
-        max = MAX(max, vmaxvq_f32(vc32x4x4_3.val[0]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_3.val[1]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_3.val[2]));
-        max = MAX(max, vmaxvq_f32(vc32x4x4_3.val[3]));
-
-        min = vminvq_f32(vc32x4x4_0.val[0]);
-        min = MIN(min, vminvq_f32(vc32x4x4_0.val[1]));
-        min = MIN(min, vminvq_f32(vc32x4x4_0.val[2]));
-        min = MIN(min, vminvq_f32(vc32x4x4_0.val[3]));
-
-        min = MIN(min, vminvq_f32(vc32x4x4_1.val[0]));
-        min = MIN(min, vminvq_f32(vc32x4x4_1.val[1]));
-        min = MIN(min, vminvq_f32(vc32x4x4_1.val[2]));
-        min = MIN(min, vminvq_f32(vc32x4x4_1.val[3]));
-
-        min = MIN(min, vminvq_f32(vc32x4x4_2.val[0]));
-        min = MIN(min, vminvq_f32(vc32x4x4_2.val[1]));
-        min = MIN(min, vminvq_f32(vc32x4x4_2.val[2]));
-        min = MIN(min, vminvq_f32(vc32x4x4_2.val[3]));
-
-        min = MIN(min, vminvq_f32(vc32x4x4_3.val[0]));
-        min = MIN(min, vminvq_f32(vc32x4x4_3.val[1]));
-        min = MIN(min, vminvq_f32(vc32x4x4_3.val[2]));
-        min = MIN(min, vminvq_f32(vc32x4x4_3.val[3]));
-#endif
     }
+
 #ifdef __aarch64__
     vst1q_f32_x4(WTp, vc32x4x4_0);
     vst1q_f32_x4(WTp + 1*wstride, vc32x4x4_1);
@@ -184,7 +143,6 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
     vst1q_f32(WTp + 3*wstride + 8, vc32x4x4_3.val[2]);
     vst1q_f32(WTp + 3*wstride + 12, vc32x4x4_3.val[3]);
 #endif
-    //printf("-%s %f %f-\n", __func__, min, max);
 }
 
 static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, const float* &UTp, const float* &vp, const int &inChannels)
@@ -202,7 +160,6 @@ static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, c
     vc32x4x3_1 = vc32x4x3_0;
     vc32x4x3_2 = vc32x4x3_0;
     vc32x4x3_3 = vc32x4x3_0;
-    //float max, min;
 
     const float *up = UTp;
     for (int ic = 0; ic < inChannels; ++ic, vp += 12, up += 16)
@@ -252,40 +209,6 @@ static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, c
         vc32x4x3_3.val[1] = vmlaq_f32(vc32x4x3_3.val[1], u32x4x4.val[3], v32x4x3.val[1]);
         vc32x4x3_3.val[2] = vmlaq_f32(vc32x4x3_3.val[2], u32x4x4.val[3], v32x4x3.val[2]);
 #endif
-
-#if 0
-        max = vmaxvq_f32(vc32x4x3_0.val[0]);
-        max = MAX(max, vmaxvq_f32(vc32x4x3_0.val[1]));
-        max = MAX(max, vmaxvq_f32(vc32x4x3_0.val[2]));
-
-        max = MAX(max, vmaxvq_f32(vc32x4x3_1.val[0]));
-        max = MAX(max, vmaxvq_f32(vc32x4x3_1.val[1]));
-        max = MAX(max, vmaxvq_f32(vc32x4x3_1.val[2]));
-
-        max = MAX(max, vmaxvq_f32(vc32x4x3_2.val[0]));
-        max = MAX(max, vmaxvq_f32(vc32x4x3_2.val[1]));
-        max = MAX(max, vmaxvq_f32(vc32x4x3_2.val[2]));
-
-        max = MAX(max, vmaxvq_f32(vc32x4x3_3.val[0]));
-        max = MAX(max, vmaxvq_f32(vc32x4x3_3.val[1]));
-        max = MAX(max, vmaxvq_f32(vc32x4x3_3.val[2]));
-
-        min = vminvq_f32(vc32x4x3_0.val[0]);
-        min = MIN(min, vminvq_f32(vc32x4x3_0.val[1]));
-        min = MIN(min, vminvq_f32(vc32x4x3_0.val[2]));
-
-        min = MIN(min, vminvq_f32(vc32x4x3_1.val[0]));
-        min = MIN(min, vminvq_f32(vc32x4x3_1.val[1]));
-        min = MIN(min, vminvq_f32(vc32x4x3_1.val[2]));
-
-        min = MIN(min, vminvq_f32(vc32x4x3_2.val[0]));
-        min = MIN(min, vminvq_f32(vc32x4x3_2.val[1]));
-        min = MIN(min, vminvq_f32(vc32x4x3_2.val[2]));
-
-        min = MIN(min, vminvq_f32(vc32x4x3_3.val[0]));
-        min = MIN(min, vminvq_f32(vc32x4x3_3.val[1]));
-        min = MIN(min, vminvq_f32(vc32x4x3_3.val[2]));
-#endif
     }
 
 #ifdef __aarch64__
@@ -310,7 +233,6 @@ static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, c
     vst1q_f32(WTp + 3*wstride + 4, vc32x4x3_3.val[1]);
     vst1q_f32(WTp + 3*wstride + 8, vc32x4x3_3.val[2]);
 #endif
-    //printf("-%s %f %f-\n", __func__, min, max);
 }
 
 static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, const float* &UTp, const float* &vp, const int &inChannels)
@@ -324,7 +246,6 @@ static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, c
     vc32x4x2_1 = vc32x4x2_0;
     vc32x4x2_2 = vc32x4x2_0;
     vc32x4x2_3 = vc32x4x2_0;
-    //float max, min;
 
     const float *up = UTp;
     for (int ic = 0; ic < inChannels; ++ic, vp += 8, up += 16)
@@ -359,32 +280,6 @@ static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, c
         vc32x4x2_3.val[0] = vmlaq_f32(vc32x4x2_3.val[0], u32x4x4.val[3], v32x4x2.val[0]);
         vc32x4x2_3.val[1] = vmlaq_f32(vc32x4x2_3.val[1], u32x4x4.val[3], v32x4x2.val[1]);
 #endif
-#if 0
-        max = vmaxvq_f32(vc32x4x2_0.val[0]);
-        max = MAX(max, vmaxvq_f32(vc32x4x2_0.val[1]));
-
-        max = MAX(max, vmaxvq_f32(vc32x4x2_1.val[0]));
-        max = MAX(max, vmaxvq_f32(vc32x4x2_1.val[1]));
-
-        max = MAX(max, vmaxvq_f32(vc32x4x2_2.val[0]));
-        max = MAX(max, vmaxvq_f32(vc32x4x2_2.val[1]));
-
-        max = MAX(max, vmaxvq_f32(vc32x4x2_3.val[0]));
-        max = MAX(max, vmaxvq_f32(vc32x4x2_3.val[1]));
-
-        min = vminvq_f32(vc32x4x2_0.val[0]);
-        min = MIN(min, vminvq_f32(vc32x4x2_0.val[1]));
-
-        min = MIN(min, vminvq_f32(vc32x4x2_1.val[0]));
-        min = MIN(min, vminvq_f32(vc32x4x2_1.val[1]));
-
-        min = MIN(min, vminvq_f32(vc32x4x2_2.val[0]));
-        min = MIN(min, vminvq_f32(vc32x4x2_2.val[1]));
-
-        min = MIN(min, vminvq_f32(vc32x4x2_3.val[0]));
-        min = MIN(min, vminvq_f32(vc32x4x2_3.val[1]));
-#endif
-
     }
 
 #ifdef __aarch64__
@@ -405,7 +300,6 @@ static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, c
     vst1q_f32(WTp + 3*wstride, vc32x4x2_3.val[0]);
     vst1q_f32(WTp + 3*wstride + 4, vc32x4x2_3.val[1]);
 #endif
-    //printf("-%s %f %f-\n", __func__, min, max);
 }
 
 static inline void TensorGEMMInnerKernel4x1x4(float* &WTp, const int &wstride, const float* &UTp, const float* &vp, const int &inChannels)
@@ -421,7 +315,6 @@ static inline void TensorGEMMInnerKernel4x1x4(float* &WTp, const int &wstride, c
     vc10 = vc00;
     vc20 = vc00;
     vc30 = vc00;
-    //float max, min;
 
     const float *up = UTp;
     for (int ic = 0; ic < inChannels; ++ic, vp += 4, up += 16)
@@ -445,25 +338,12 @@ static inline void TensorGEMMInnerKernel4x1x4(float* &WTp, const int &wstride, c
         vc20 = vmlaq_f32(vc20, u32x4x4.val[2], v0);
         vc30 = vmlaq_f32(vc30, u32x4x4.val[3], v0);
 #endif
-
-#if 0
-        max = vmaxvq_f32(vc00);
-        max = MAX(max, vmaxvq_f32(vc10));
-        max = MAX(max, vmaxvq_f32(vc20));
-        max = MAX(max, vmaxvq_f32(vc30));
-
-        min = vminvq_f32(vc00);
-        min = MIN(min, vminvq_f32(vc10));
-        min = MIN(min, vminvq_f32(vc20));
-        min = MIN(min, vminvq_f32(vc30));
-#endif
     }
 
     vst1q_f32(WTp, vc00);
     vst1q_f32(WTp + wstride, vc10);
     vst1q_f32(WTp + 2*wstride, vc20);
     vst1q_f32(WTp + 3*wstride, vc30);
-    //printf("-%s %f %f-\n", __func__, min, max);
 }
 
 static void naive_gemm_temp(int M, int N, int L, float *A, float *B, float *C)
@@ -563,7 +443,7 @@ void transformKernel_F6x6_3x3(float *UT, float *kernel, int inChannels, int outC
  *                      |BLOCK 2|BLOCK 2|BLOCK 2|BLOCK 2|
  */
 
-inline void input_transform(
+static inline void input_transform(
     float32x4_t &r0,
     float32x4_t &r1,
     float32x4_t &r2,
@@ -620,17 +500,18 @@ inline void input_transform(
 
 void winogradInputFrameTransformSeq(float *VT, int inChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, int num_threads)
 {
-#ifdef __aarch64__
-    const float32x4_t f4 = vdupq_n_f32(4.0f);
     const float32x4_t f2 = vdupq_n_f32(2.0f);
-    const float32x4_t f2_5 = vdupq_n_f32(2.5f);
-    const float32x4_t f5_25 = vdupq_n_f32(5.25f);
-    const float32x4_t f4_25 = vdupq_n_f32(4.25f);
-    const float32x4_t f1_25 = vdupq_n_f32(1.25f);
-    const float32x4_t f0_5 = vdupq_n_f32(0.5f);
     const float32x4_t f0_25 = vdupq_n_f32(0.25f);
+    const float32x4_t f1_25 = vdupq_n_f32(1.25f);
+#ifdef __aarch64__
+    const float32x4_t f4 = vmulq_n_f32(f2, 2.0);
+    const float32x4_t f4_25 = vdupq_n_f32(4.25f);
+    const float32x4_t f0_5 = vmulq_n_f32(f0_25, 2.0f);
     const float32x4_t vZero = vdupq_n_f32(0.0f);
+    const float32x4_t f5_25 = vaddq_f32(f1_25, f4);
+    const float32x4_t f2_5 = vmulq_n_f32(f0_5, 5.0f);
 #endif
+
     const int nBlocks = nRowBlocks * nColBlocks;
     const int nBlocksAligned = nBlocks & 0xFFFFFFFC;
     const int rem = nBlocks & 0x3;
@@ -650,15 +531,12 @@ void winogradInputFrameTransformSeq(float *VT, int inChannels, float *input, int
         for (int j = 0; j < nColBlocks; ++j)
         {
 #ifndef __aarch64__
-            const float32x4_t f4 = vdupq_n_f32(4.0f);
-            const float32x4_t f2 = vdupq_n_f32(2.0f);
-            const float32x4_t f2_5 = vdupq_n_f32(2.5f);
-            const float32x4_t f5_25 = vdupq_n_f32(5.25f);
+            const float32x4_t f4 = vmulq_n_f32(f2, 2.0);
             const float32x4_t f4_25 = vdupq_n_f32(4.25f);
-            const float32x4_t f1_25 = vdupq_n_f32(1.25f);
-            const float32x4_t f0_5 = vdupq_n_f32(0.5f);
-            const float32x4_t f0_25 = vdupq_n_f32(0.25f);
+            const float32x4_t f0_5 = vmulq_n_f32(f0_25, 2.0f);
             const float32x4_t vZero = vdupq_n_f32(0.0f);
+            const float32x4_t f5_25 = vaddq_f32(f1_25, f4);
+            const float32x4_t f2_5 = vmulq_n_f32(f0_5, 5.0f);
 #endif
             float ext[64];
             float32x4_t l0, l1, l2, l3, l4, l5, l6, l7;
@@ -807,15 +685,15 @@ void winogradInputFrameTransformSeq(float *VT, int inChannels, float *input, int
 
 void winogradInputFrameTransformSeq_fix16(fix16_t *VT, int inChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, int num_threads)
 {
-#ifdef __aarch64__
-    const float32x4_t f4 = vdupq_n_f32(4.0f);
     const float32x4_t f2 = vdupq_n_f32(2.0f);
-    const float32x4_t f2_5 = vdupq_n_f32(2.5f);
-    const float32x4_t f5_25 = vdupq_n_f32(5.25f);
-    const float32x4_t f4_25 = vdupq_n_f32(4.25f);
-    const float32x4_t f1_25 = vdupq_n_f32(1.25f);
-    const float32x4_t f0_5 = vdupq_n_f32(0.5f);
     const float32x4_t f0_25 = vdupq_n_f32(0.25f);
+    const float32x4_t f1_25 = vdupq_n_f32(1.25f);
+#ifdef __aarch64__
+    const float32x4_t f4 = vmulq_n_f32(f2, 2.0);
+    const float32x4_t f4_25 = vdupq_n_f32(4.25f);
+    const float32x4_t f0_5 = vmulq_n_f32(f0_25, 2.0f);
+    const float32x4_t f5_25 = vaddq_f32(f1_25, f4);
+    const float32x4_t f2_5 = vmulq_n_f32(f0_5, 5.0f);
 #endif
 
     const int nBlocks = nRowBlocks * nColBlocks;
@@ -836,14 +714,11 @@ void winogradInputFrameTransformSeq_fix16(fix16_t *VT, int inChannels, float *in
         for (int j = 0; j < nColBlocks; ++j)
         {
 #ifndef __aarch64__
-            const float32x4_t f4 = vdupq_n_f32(4.0f);
-            const float32x4_t f2 = vdupq_n_f32(2.0f);
-            const float32x4_t f2_5 = vdupq_n_f32(2.5f);
-            const float32x4_t f5_25 = vdupq_n_f32(5.25f);
+            const float32x4_t f4 = vmulq_n_f32(f2, 2.0);
             const float32x4_t f4_25 = vdupq_n_f32(4.25f);
-            const float32x4_t f1_25 = vdupq_n_f32(1.25f);
-            const float32x4_t f0_5 = vdupq_n_f32(0.5f);
-            const float32x4_t f0_25 = vdupq_n_f32(0.25f);
+            const float32x4_t f0_5 = vmulq_n_f32(f0_25, 2.0f);
+            const float32x4_t f5_25 = vaddq_f32(f1_25, f4);
+            const float32x4_t f2_5 = vmulq_n_f32(f0_5, 5.0f);
 #endif
             float ext[64];
 
@@ -1034,38 +909,46 @@ void TensorGEMM_fix16
                 for (int d = 0; d < depth; ++d)
                 {
                     fix16_t *pack_workp = pack_arr + (i - start_block_id) * depth * inChannels * 4 + d * inChannels * 4 * ((i < end_block_id_aligned) ? 4 : rem);
-                    int16x4_t v0, v1, v2, v3;
                     for (int ic = 0; ic < inChannels; ++ic) //channle 8x8 blocks into continue memory
                     {
+                        int16x4x4_t v16x4x4;
                         if (i < end_block_id_aligned)
                         {
                             const fix16_t *svp = VT + i * 4 * depth + d * 4 * 4 + ic * vstride;
-                            v0 = vld1_s16(svp);
-                            v1 = vld1_s16(svp + 4);
-                            v2 = vld1_s16(svp + 8);
-                            v3 = vld1_s16(svp + 12);
+#ifdef __aarch64__
+                            v16x4x4 = vld1_s16_x4(svp);
                             svp += vstride;
-                            vst1_s16(pack_workp, v0);
-                            vst1_s16(pack_workp +  4, v1);
-                            vst1_s16(pack_workp +  8, v2);
-                            vst1_s16(pack_workp + 12, v3);
+                            vst1_s16_x4(pack_workp, v16x4x4);
                             pack_workp += 16;
+#else
+                            v16x4x4.val[0] = vld1_s16(svp);
+                            v16x4x4.val[1] = vld1_s16(svp + 4);
+                            v16x4x4.val[2] = vld1_s16(svp + 8);
+                            v16x4x4.val[3] = vld1_s16(svp + 12);
+                            svp += vstride;
+                            vst1_s16(pack_workp, v16x4x4.val[0]);
+                            vst1_s16(pack_workp +  4, v16x4x4.val[1]);
+                            vst1_s16(pack_workp +  8, v16x4x4.val[2]);
+                            vst1_s16(pack_workp + 12, v16x4x4.val[3]);
+                            pack_workp += 16;
+#endif
                         }
                         else
                         {
                             const fix16_t *svp = VT + i * 4 * depth + d * 4 * rem + ic * vstride;
-                            v0 = vld1_s16(svp);
+                            v16x4x4.val[0] = vld1_s16(svp);
+                            vst1_s16(pack_workp, v16x4x4.val[0]);
                             if (rem > 1)
-                                v1 = vld1_s16(svp + 4);
+                            {
+                                v16x4x4.val[1] = vld1_s16(svp + 4);
+                                vst1_s16(pack_workp +  4, v16x4x4.val[1]);
+                            }
                             if (rem > 2)
-                                v2 = vld1_s16(svp + 8);
+                            {
+                                v16x4x4.val[2] = vld1_s16(svp + 8);
+                                vst1_s16(pack_workp +  8, v16x4x4.val[2]);
+                            }
                             svp += vstride;
-
-                            vst1_s16(pack_workp, v0);
-                            if (rem > 1)
-                                vst1_s16(pack_workp +  4, v1);
-                            if (rem > 2)
-                                vst1_s16(pack_workp +  8, v2);
                             pack_workp += rem * 4;
                         }
                     }
@@ -1078,7 +961,7 @@ void TensorGEMM_fix16
 
 #else
 #ifdef _OPENMP
-            #pragma omp for collapse(3)
+            #pragma omp for
 #endif
             for (int oc = 0; oc < outChannels; oc += 4)
             {
@@ -1093,8 +976,12 @@ void TensorGEMM_fix16
                             const fix16_t *vp = pack_arr + (i - start_block_id) * inChannels * depth * 4
                                                 + d * depth * inChannels;
                             float *WTp = WT + oc * wstride + i * depth * 4 + d * 16 + (i % 4) * 4;
-                            //printf("[4]---\n");
+#ifdef __aarch64__
                             TensorGEMMInnerKernel4x4x4_fp16(WTp, wstride, UTp, vp, inChannels);
+#else
+                            TensorGEMMInnerKernel4x4x4_fp16_n(WTp, wstride, UTp, vp, inChannels);
+                            TensorGEMMInnerKernel4x4x4_fp16_n(WTp + 2*wstride, wstride, UTp + 8, vp, inChannels);
+#endif
                         }
                         else
                         {
@@ -1104,21 +991,13 @@ void TensorGEMM_fix16
                             const fix16_t *vp = pack_arr + (i - start_block_id) * inChannels * depth * 4
                                                 + d * depth * inChannels * (4 * len) / 16;
                             float *WTp = WT + oc * wstride + i * depth * 4 + d * 4 * len + (i % 4) * 4;
+                            //if (0 != len) printf("[%d]---\n", len);
                             if (len == 1)
-                            {
-                                //printf("[1]---\n");
                                 TensorGEMMInnerKernel4x1x4_fp16(WTp, wstride, UTp, vp, inChannels);
-                            }
-                            if (len == 2)
-                            {
-                                printf("[2] not test\n");
+                            else if (len == 2)
                                 TensorGEMMInnerKernel4x2x4_fp16(WTp, wstride, UTp, vp, inChannels);
-                            }
-                            if (len == 3)
-                            {
-                                printf("[3] not test\n");
+                            else if (len == 3)
                                 TensorGEMMInnerKernel4x3x4_fp16(WTp, wstride, UTp, vp, inChannels);
-                            }
                         }
                     }
                 }
@@ -1278,11 +1157,14 @@ static inline void winograd_f6k3_output_transform_inplace(
     m0 = m0 + m1_add_m2;
     m5 = m7 + m1_sub_m2;
 
+#if 1
     const float32x4_t const_2  = vdupq_n_f32(2.0f);
     const float32x4_t const_4  = vmulq_f32(const_2, const_2);
     const float32x4_t const_8  = vmulq_f32(const_4, const_2);
     const float32x4_t const_16 = vmulq_f32(const_8, const_2);
     const float32x4_t const_32 = vmulq_f32(const_16, const_2);
+#endif
+
 #ifdef __aarch64__
     //const float32x4_t const_16 = vdupq_n_f32(16.0f);
     m1 = vfmaq_f32(m1_sub_m2, const_16, m5_sub_m6);
@@ -1345,7 +1227,7 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
 #ifdef __APPLE__
     dispatch_apply(outChannels, dispatch_get_global_queue(0, 0), ^(size_t oc)
 #else
-    #pragma omp parallel for num_threads(num_threads) schedule(static) collapse(3)
+    #pragma omp parallel for num_threads(num_threads) schedule(static)
     for (int oc = 0; oc < outChannels; ++oc)
 #endif
     {
@@ -1495,6 +1377,7 @@ template<typename T>
 void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float *VT, T *UT, int inChannels, int outChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads)
 {
     int nBlocks = nRowBlocks * nColBlocks;
+//#define TIME_PROFILE
 
     if (4 == sizeof(UT[0]))
     {
@@ -1503,10 +1386,27 @@ void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float 
     }
     else if (2 == sizeof(UT[0]))
     {
+#ifdef TIME_PROFILE
+        Timer t;
+        t.startBench();
+#endif
         winogradInputFrameTransformSeq_fix16((fix16_t*)VT, inChannels, input, inputh, inputw, frameStride, ldin, nRowBlocks, nColBlocks, num_threads);
+#ifdef TIME_PROFILE
+        t.endBench("winogradInputFrameTransformSeq_fix16");
+#endif
+#ifdef TIME_PROFILE
+        t.startBench();
+#endif
         TensorGEMM_fix16(WT, (fix16_t*)VT, (fix16_t*)UT, 16, inChannels, outChannels, nRowBlocks, nColBlocks, num_threads, (fix16_t*)pack_array, num_threads * 32);
+#ifdef TIME_PROFILE
+        t.endBench("TensorGEMM_fix16");
+#endif
     }
 
+#ifdef TIME_PROFILE
+    Timer t;
+    t.startBench();
+#endif
     switch (outType)
     {
     case None:
@@ -1522,6 +1422,9 @@ void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float 
         winogradOutputTransformF63<true, true>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
         break;
     }
+#ifdef TIME_PROFILE
+    t.endBench("winogradOutputTransformF63");
+#endif
 }
 
 template void winogradNonFusedTransform_inner<fix16_t>(float *output, int ldout, float *WT, float *VT, fix16_t *UT, int inChannels, int outChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads);

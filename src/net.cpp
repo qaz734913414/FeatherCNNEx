@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <cstring>
+#include "arm/helper.h"
 
 //#define MEM_USAGE_PRINT
 #define NULL_POINTER_CHECK(pointer) if (NULL == pointer) {printf("%s %d null pointer\n", __FILE__, __LINE__);exit(-1);}
@@ -84,7 +85,15 @@ int Net::Forward(float *input)
     for (int i = 1; i < layers.size(); ++i)
     {
         //printf("Forward layer%d:%s %s\n", i, layers[i]->name().c_str(), layers[i]->type().c_str());
+//#define TIME_PROFILE
+#ifdef TIME_PROFILE
+        Timer t;
+        t.startBench();
+#endif
         layers[i]->Forward();
+#ifdef TIME_PROFILE
+        t.endBench(layers[i]->name().c_str());
+#endif
 #if 0
         if (1 == layers[i]->branchId)
             for(int t = 0 ; t < 4; t++)
@@ -322,7 +331,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
             if (layer_map[layers[i]->products[0]]->branchId > layers[i]->branchId)
                 layers[i]->branchId = layer_map[layers[i]->products[0]]->branchId;
         }
-#if 1
+#if 0
         unsigned idx = 0;
         printf("[%03d/%03d] %-16s branch: %d consumers %02d { ", i, layers.size()-1, layers[i]->name().c_str(), layers[i]->branchId, layers[i]->consumersNum);
         for(auto loop:layers[i]->consumers)
@@ -345,15 +354,15 @@ bool Net::InitFromBuffer(const void *net_buffer)
         }
 
         unsigned layerBranchId = layers[i]->branchId;
-        printf("[%03d] %-16s %-16s branchid: %d input pingpangidx: %d", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layerBranchId, branchPingPang[layerBranchId]);
+        //printf("[%03d] %-16s %-16s branchid: %d input pingpangidx: %d", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layerBranchId, branchPingPang[layerBranchId]);
         float *input  = pingpang[layerBranchId][branchPingPang[layerBranchId]];
         branchPingPang[layerBranchId]++;
         branchPingPang[layerBranchId] = branchPingPang[layerBranchId]%2;
 
-        printf(", output pingpangidx: %d", branchPingPang[layerBranchId]);
+        //printf(", output pingpangidx: %d", branchPingPang[layerBranchId]);
         float *output = pingpang[layerBranchId][branchPingPang[layerBranchId]];
 
-        printf(" (%p %p)\n", input, output);
+        //printf(" (%p %p)\n", input, output);
         layers[i]->Init(input, output);
 #ifdef MEM_USAGE_PRINT
         layers[i]->printPrivateMempool();

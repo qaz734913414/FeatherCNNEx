@@ -213,7 +213,6 @@ int main(int argc, char *argv[])
     float *pImgBuff;
 #if 1
     pImgBuff = (float *)malloc(img.cols * img.rows * img.channels() *sizeof(float));
-    from_rgb_normal(img.data, img.cols, img.rows, pImgBuff, 127.5f, 0.0078125f);
 #else
     std::vector<cv::Mat> bgrChannels(3);
     split(img, bgrChannels);
@@ -236,6 +235,7 @@ int main(int argc, char *argv[])
 
     for(int loop = 0; loop < loopCnt; loop++)
     {
+        from_rgb_normal(img.data, img.cols, img.rows, pImgBuff, 127.5f, 0.0078125f);
         int ret = forward_net.Forward(pImgBuff);
         forward_net.ExtractBlob(pOut, pBlob);
         printf("[%03d/%03d] ret: %d\n", loop, loopCnt, ret);
