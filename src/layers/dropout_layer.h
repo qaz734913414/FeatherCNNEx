@@ -68,8 +68,6 @@ public:
     }
 protected:
     float scale;
-    float* input;
-    float* output;
     int n, c, w, h;
 };
 };

@@ -586,9 +586,6 @@ public:
     }
 
 private:
-    float *input;
-    float *output;
-
     size_t input_height;
     size_t input_width;
     size_t input_channels;

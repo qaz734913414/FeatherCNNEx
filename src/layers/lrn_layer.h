@@ -41,7 +41,5 @@ private:
     size_t width;
     size_t height;
     size_t channels;
-    float *input;
-    float *output;
 };
 };

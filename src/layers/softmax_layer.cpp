@@ -14,8 +14,10 @@
 
 #include "softmax_layer.h"
 #include "arm/generic_kernels.h"
-
 #include <math.h>
+#include "neon_mathfun.h"
+#include "utils.h"
+
 namespace feather
 {
 int SoftmaxLayer::Init(float *ginput, float *goutput)
@@ -33,17 +35,81 @@ int SoftmaxLayer::Init(float *ginput, float *goutput)
     return 0;
 }
 
-int SoftmaxLayer::Forward()
+static int NE_softmax(float *input, unsigned c, unsigned h, unsigned w, float *output)
 {
-    float sum = 0.0;
-    for(size_t i = 0; i < data_size; ++i)
+    int size = w * h;
+    float *max = (float*)malloc(size*sizeof(float));
+    for (int i = 0; i < size; i++) max[i] = -FLT_MAX;
+
+    for (int q=0; q<c; q++)
     {
-        output[i] = static_cast<float>(exp(input[i]));
-        sum += output[i];
+        float* ptr = input + q*size;
+        for (int i=0; i<size; i++)
+        {
+            max[i] = MAX(max[i], ptr[i]);
+        }
     }
 
-    for(size_t i = 0; i < data_size; ++i)
-        output[i] = output[i] / sum;
+    for (int q=0; q<c; q++)
+    {
+        float* ptr = input + q*size;
+        for (int i=0; i<size; i++)
+        {
+            ptr[i] = exp(ptr[i] - max[i]);
+        }
+    }
+    float *sum = max;
+    for (int i = 0; i < size; i++) sum[i] = .0f;
+    for (int q=0; q<c; q++)
+    {
+        float* ptr = input + q*size;
+        for (int i=0; i<size; i++)
+        {
+            sum[i] += ptr[i];
+        }
+    }
+
+    for (int q=0; q<c; q++)
+    {
+        float* ptr = input + q*size;
+        float* ptrOut = output + q*size;
+        for (int i=0; i<size; i++)
+        {
+            ptrOut[i] = ptr[i] / sum[i];
+        }
+    }
+    free(max);
     return 0;
+}
+
+int SoftmaxLayer::Forward()
+{
+    const Blob<float> *p_bottom = _bottom_blobs[_bottom[0]];
+    unsigned n = p_bottom->num();
+    unsigned c = p_bottom->channels();
+    unsigned h = p_bottom->height();
+    unsigned w = p_bottom->width();
+    //printf("[%d %d %d %d]\n", n,c,h,w);
+    int ret = NE_softmax(input, c, h, w, output);
+#if 0
+    //printf("data_size: %d\n", data_size);
+    for(int i = 0 ; i < ((16 > (data_size/2))?(data_size/2):16); i++)
+    {
+        if ((0 != i)&& (0 == i % 16))
+            printf("\n");
+        printf("%9.6f, ", output[i]);
+    }
+    printf("\n");
+
+    for(int i = 0 ; i < ((16 > (data_size/2))?(data_size/2):16); i++)
+    {
+        if ((0 != i)&& (0 == i % 16))
+            printf("\n");
+        printf("%9.6f, ", output[(data_size / 2) + i]);
+    }
+    printf("\n\n");
+#endif
+
+    return ret;
 }
 };

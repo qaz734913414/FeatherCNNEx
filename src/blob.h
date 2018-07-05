@@ -107,6 +107,18 @@ public:
     {
         return _width;
     }
+    size_t setChannels( size_t channels)
+    {
+        return _channels = channels;
+    }
+    size_t setHeight(size_t height)
+    {
+        return _height = height;
+    }
+    size_t setWidth(size_t width)
+    {
+        return _width = width;
+    }
     size_t fractions() const
     {
         return _fractions;

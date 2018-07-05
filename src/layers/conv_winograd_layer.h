@@ -50,7 +50,6 @@ public:
         pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
 
         //printf("F23 [%d %d]\n", ext_pad_w, ext_pad_h);
-
         if (ext_pad_w || ext_pad_h)
         {
             int outputw = inputw - kernel_width + 1;
@@ -79,18 +78,6 @@ public:
             winogradNonFusedTransform(output, output_channels, WT, VT, UT, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
 #endif
         }
-
-#if 0
-        char fname[128];
-#ifdef WINOGRAD_FP16_ENABLE
-        sprintf(fname, "%s_fp.out", name().c_str());
-#else
-        sprintf(fname, "%s.out", name().c_str());
-#endif
-        printf("----%s\n", fname);
-        writeFile((unsigned char*)output, output_channels*output_height*output_width*sizeof(float), fname);
-#endif
-
         return 0;
     }
 
@@ -162,8 +149,6 @@ private:
 #ifdef WINOGRAD_FP16_ENABLE
     fix16_t *UT_FIX;
 #endif
-    float* input;
-    float* output;
     size_t ext_pad_w;
     size_t ext_pad_h;
 

@@ -31,8 +31,6 @@ public:
     int Forward();
     int Init(float *ginput, float *goutput);
 protected:
-    float* input;
-    float* output;
     int n, c, h, w;
     bool shared;
     float *slope_data;

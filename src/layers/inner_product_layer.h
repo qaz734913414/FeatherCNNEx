@@ -108,8 +108,6 @@ protected:
     size_t output_size;
 
     bool bias_term;
-    float *input;
-    float *output;
     float *kernel_data;
     float *bias_data;
 };

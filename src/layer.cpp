@@ -29,6 +29,8 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     this->private_mempool.setName(_name);
     consumersNum = 0;
     branchId = 0;
+    alignHeight = alignWidth = 0;
+    _subType = " ";
     products.clear();
     consumers.clear();
     for(int i = 0; i < VectorLength(layer_param->bottom()); ++i)
@@ -167,14 +169,14 @@ size_t Layer::top_blob_size()
 {
     return _top_blobs.size();
 }
-const Blob<float>* Layer::top_blob(std::string name)
+Blob<float>* Layer::top_blob(std::string name)
 {
     if(_top_blobs.find(name) != _top_blobs.end())
         return _top_blobs[name];
     else
         return NULL;
 }
-const Blob<float>* Layer::top_blob(size_t idx)
+Blob<float>* Layer::top_blob(size_t idx)
 {
     std::string name = this->top(idx);
     return top_blob(name);

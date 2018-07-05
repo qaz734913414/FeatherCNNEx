@@ -29,8 +29,6 @@ public:
     int Forward();
     int Init(float *ginput, float *goutput);
 protected:
-    float* input;
-    float* output;
     int n, c, h, w;
     size_t data_size;
 };

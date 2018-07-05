@@ -79,7 +79,5 @@ public:
 
 private:
     float* padded_input;
-    float *input;
-    float *output;
 };
 };

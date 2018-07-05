@@ -2829,17 +2829,17 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
         sgemm_tiny_scale = sgemm_4x7;
         break;
     }
-    const int factor = 1;
-    int tN = N / num_threads / factor;
+
+    int tN = N / num_threads;
     tN = tN + (8 - tN % 8) % 8;
-    if (num_threads == 1 || N <= 8 || N - (num_threads * factor - 1) * tN <= 0)
+    if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
         block_sgemm_pack(eM, N, L, a, L, b, N, c, N);
     }
     else
     {
 #pragma parallel for num_threads(num_threads)
-        for(int i = 0; i < num_threads * factor; ++i)
+        for(int i = 0; i < num_threads; ++i)
         {
             int sN = (tN < N - i * tN) ? tN : N - i * tN;
             block_sgemm_pack(eM, sN, L, a, L, b + i * tN, N, c + i * tN, N);

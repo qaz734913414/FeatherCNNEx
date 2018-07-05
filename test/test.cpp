@@ -179,7 +179,7 @@ int main(int argc, char *argv[])
 
         gettimeofday(&beg, NULL);
 
-        from_rgb_normal(img.data, img.cols, img.rows, pImgBuff, 127.5f, 0.0078125f);
+        from_rgb_normal(img.data, img.cols, img.rows, pImgBuff, 127.5f, 0.0078125f, 0);
         forward_net.Forward(pImgBuff);
         forward_net.ExtractBlob(pOut, pBlob);
 
@@ -210,22 +210,13 @@ int main(int argc, char *argv[])
         printf("read img failed, %s\n", pFname);
         return -1;
     }
-    float *pImgBuff;
-#if 1
-    pImgBuff = (float *)malloc(img.cols * img.rows * img.channels() *sizeof(float));
-#else
-    std::vector<cv::Mat> bgrChannels(3);
-    split(img, bgrChannels);
-    cv::Mat bgr(img.rows, img.cols, CV_8UC3);
-    memcpy(bgr.data, bgrChannels[0].data, img.rows*img.cols);
-    memcpy(bgr.data+img.rows*img.cols, bgrChannels[1].data, img.rows*img.cols);
-    memcpy(bgr.data+2*img.rows*img.cols, bgrChannels[2].data, img.rows*img.cols);
-    bgr.convertTo(bgr, CV_32F, 1.0 / 128, -127.5/128);
-    pImgBuff = (float*)bgr.data;
-    printf("c: %d w: %d h : %d step: %u\n", bgr.channels(), bgr.cols, bgr.rows, (unsigned int)bgr.step[0]);
-#endif
+
+    float *pImgBuff = (float *)malloc(img.cols * img.rows * img.channels() *sizeof(float));
 
     Net forward_net(num_threads);
+    forward_net.inChannels = 3;
+    forward_net.inWidth = img.cols;
+    forward_net.inHeight = img.rows;
     forward_net.InitFromPath(pModel);
 
     size_t data_size;
@@ -235,7 +226,7 @@ int main(int argc, char *argv[])
 
     for(int loop = 0; loop < loopCnt; loop++)
     {
-        from_rgb_normal(img.data, img.cols, img.rows, pImgBuff, 127.5f, 0.0078125f);
+        from_rgb_normal(img.data, img.cols, img.rows, pImgBuff, 127.5f, 0.0078125f, 0);
         int ret = forward_net.Forward(pImgBuff);
         forward_net.ExtractBlob(pOut, pBlob);
         printf("[%03d/%03d] ret: %d\n", loop, loopCnt, ret);
@@ -243,14 +234,9 @@ int main(int argc, char *argv[])
 
     gettimeofday(&end, NULL);
     printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d\n\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads);
+    free(pImgBuff);
 
     printf("out blob size: %u\n", (unsigned int)data_size);
-    free(pImgBuff);
-    float maxDiff      = .0f;
-    float maxDiffRefC  =.0f, maxDiffAsm = .0f;
-    float maxDiffRatio = .0f;
-    float maxDiffRefCRatio =.0f, maxDiffAsmRatio = .0f;
-
     for(int i = 0 ; i < data_size; i++)
     {
         if ((0 != i)&& (0 == i % 16))
@@ -258,6 +244,12 @@ int main(int argc, char *argv[])
         printf("%9.6f, ", pOut[i]);
     }
     printf("\n");
+#if 0
+    float maxDiff      = .0f;
+    float maxDiffRefC  =.0f, maxDiffAsm = .0f;
+    float maxDiffRatio = .0f;
+    float maxDiffRefCRatio =.0f, maxDiffAsmRatio = .0f;
+
     for(int i = 0 ; i < data_size; i++)
     {
         if (0 == i) printf("col: %02d ", 0);
@@ -286,8 +278,9 @@ int main(int argc, char *argv[])
 
     float cosv = distanceCos(C_REF, pOut, data_size);
     printf("cos: %f\n", cosv);
-    free(pOut);
     printf("\n");
+#endif
+    free(pOut);
 #endif
     return 0;
 }

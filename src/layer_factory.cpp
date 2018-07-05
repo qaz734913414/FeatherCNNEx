@@ -55,30 +55,34 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
     size_t input_channels = layer_param->blobs()->Get(0)->channels();
     size_t output_channels = layer_param->blobs()->Get(0)->num();
     ConvLayer *conv_layer = NULL;
-    printf("[conv] group:%lu kernel_height: %lu kernel_width: %lu stride %lu, %lu input_channels %lu output_channels %lu\n", group, kernel_height, kernel_width, stride_height, stride_width, input_channels, output_channels);
+    //printf("[conv] group:%lu kernel_height: %lu kernel_width: %lu stride %lu, %lu input_channels %lu output_channels %lu\n", group, kernel_height, kernel_width, stride_height, stride_width, input_channels, output_channels);
     if(group == 1 && kernel_height == 3 && kernel_width == 3 && stride_height == 1 && stride_width == 1 &&
             input_channels > 0 && output_channels < 512 && (0 == output_channels % 4))
     {
-        printf("F63\n");
+        //printf("F63\n");
         conv_layer = (ConvLayer*) new ConvWinogradF63Layer(layer_param, rt_param);
+        conv_layer->_subType = "winograd F63";
         //conv_layer = (ConvLayer*) new ConvWinogradLayer(layer_param, rt_param);
     }
     else if(group == 1 && kernel_height == 3 && kernel_width == 3 &&
             stride_height == 1 && stride_width == 1 &&
             input_channels > 4)
     {
-        printf("F23\n");
+        //printf("F23\n");
         conv_layer = (ConvLayer*) new ConvWinogradLayer(layer_param, rt_param);
+        conv_layer->_subType = "winograd F23";
     }
     else if(group == 1)
     {
-        printf("im2col\n");
+        //printf("im2col\n");
         conv_layer = (ConvLayer*) new ConvIm2colLayer(layer_param, rt_param);
+        conv_layer->_subType = "sgemm";
     }
     else
     {
-        printf("Depthwise\n");
+        //printf("Depthwise\n");
         conv_layer = new ConvDepthwiseLayer(layer_param, rt_param);
+        conv_layer->_subType = "depthwise";
     }
     return (Layer *) conv_layer;
 }

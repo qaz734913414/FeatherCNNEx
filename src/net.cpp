@@ -23,8 +23,6 @@
 #include "arm/helper.h"
 
 //#define MEM_USAGE_PRINT
-#define NULL_POINTER_CHECK(pointer) if (NULL == pointer) {printf("%s %d null pointer\n", __FILE__, __LINE__);exit(-1);}
-
 
 namespace feather
 {
@@ -35,8 +33,9 @@ Net::Net(size_t num_threads)
     CommonMemPool<float> *mempool = new CommonMemPool<float>();
     rt_param = new RuntimeParameter<float>(mempool, num_threads);
     memset(pingpang, 0, MAXBRANCHNUM*2*sizeof(pingpang[0][0]));
+    max_top_blob_size = 0;
+    net_name[0] = 0;
 }
-
 
 Net::~Net()
 {
@@ -65,16 +64,49 @@ int Net::ExtractBlob(float* output_ptr, std::string name)
     return 0;
 }
 
-int Net::GetBlobDataSize(size_t *data_size, std::string name)
+float* Net::ExtractBlob(std::string name)
 {
     if (blob_map.find(std::string(name)) == blob_map.end())
     {
         fprintf(stderr, "Cannot find blob %s\n", name.c_str());
+        return NULL;
+    }
+    const Blob<float> *p_blob = blob_map[name];
+    const size_t data_size = p_blob->data_size();
+    float *data = p_blob->data();
+    return data;
+}
+
+int Net::GetBlobShape(unsigned *pChannel, unsigned *pWidth, unsigned *pHeight, std::string name)
+{
+    if (blob_map.find(std::string(name)) == blob_map.end())
+    {
+        fprintf(stderr, "Cannot find blob %s @ %s\n", name.c_str(), __func__);
+        return -1;
+    }
+    const Blob<float> *p_blob = blob_map[name];
+    *pChannel = p_blob->channels();
+    *pWidth = p_blob->width();
+    *pHeight = p_blob->height();
+    return 0;
+}
+
+int Net::GetBlobDataSize(size_t *data_size, std::string name)
+{
+    if (blob_map.find(std::string(name)) == blob_map.end())
+    {
+        fprintf(stderr, "Cannot find blob %s @ %s\n", name.c_str(), __func__);
         return -1;
     }
     const Blob<float> *p_blob = blob_map[name];
     *data_size = p_blob->data_size();
     return 0;
+}
+
+float* Net::GetInputBuffer()
+{
+    InputLayer *input_layer = (InputLayer *)layers[0];
+    return input_layer->input_blob(input_layer->input_name(0))->data();
 }
 
 int Net::Forward(float *input)
@@ -84,7 +116,7 @@ int Net::Forward(float *input)
 
     for (int i = 1; i < layers.size(); ++i)
     {
-        //printf("Forward layer%d:%s %s\n", i, layers[i]->name().c_str(), layers[i]->type().c_str());
+        //printf("Forward layer%d:%s %s %s... \n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
 //#define TIME_PROFILE
 #ifdef TIME_PROFILE
         Timer t;
@@ -105,6 +137,26 @@ int Net::Forward(float *input)
 #if 0
         for (size_t j = 0; j < layers[i]->top_blob_size(); j++)
             layers[i]->top_blob(j)->PrintBlobInfo();
+#endif
+    }
+    return 0;
+}
+
+int Net::Forward()
+{
+    //layers[0]->top_blob(0)->PrintBlobInfo();
+    for (int i = 1; i < layers.size(); ++i)
+    {
+        //printf("Forward layer%d:%s %s %s... \n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
+//#define TIME_PROFILE
+#ifdef TIME_PROFILE
+        Timer t;
+        t.startBench();
+#endif
+        layers[i]->Forward();
+#ifdef TIME_PROFILE
+        if (strcmp(net_name, "pnet") == 0)
+            t.endBench(layers[i]->name().c_str());
 #endif
     }
     return 0;
@@ -140,7 +192,7 @@ void Net::InitFromFile(FILE* fp)
         fprintf(stderr, "Reading model failed! file_size %ld read size %ld\n", file_size, read_size);
         exit(-1);
     }
-    printf("Finished loading from file\n");
+    //printf("Finished loading from file\n");
     this->InitFromBuffer(net_buffer);
     free(net_buffer);
 }
@@ -148,9 +200,9 @@ void Net::InitFromFile(FILE* fp)
 void Net::branchBufferInit(unsigned branchId)
 {
     pingpang[branchId][0] = (float*)_mm_malloc(max_top_blob_size, 128);
-    NULL_POINTER_CHECK(pingpang[branchId][0]);
+    POINTER_CHECK_NO_RET(pingpang[branchId][0]);
     pingpang[branchId][1] =(float*)_mm_malloc(max_top_blob_size, 128);
-    NULL_POINTER_CHECK(pingpang[branchId][1]);
+    POINTER_CHECK_NO_RET(pingpang[branchId][1]);
     branchPingPang[branchId] = 0;
 }
 
@@ -171,6 +223,12 @@ bool Net::InitFromBuffer(const void *net_buffer)
         }
     }
 
+    printf("InBlob change from [%d %d %d] ", layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
+    layers[0]->top_blob(0)->setChannels(inChannels);
+    layers[0]->top_blob(0)->setWidth(inWidth);
+    layers[0]->top_blob(0)->setHeight(inHeight);
+    printf("to [%d %d %d]\n", layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
+
     for (int i = 1; i < layer_num; ++i)
     {
         const LayerParameter *layer_param = net_param->layer()->Get(i);
@@ -180,7 +238,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
         layers.push_back(new_layer);
         layer_map[new_layer->name()] = new_layer;
     }
-    printf("Layer setup ok\n");
+    //printf("Layer setup ok\n");
 
     uint32_t total_top_blob_size = 0;
     uint32_t cur_top_blob_size = 0;
@@ -190,7 +248,12 @@ bool Net::InitFromBuffer(const void *net_buffer)
     blob_map[blob_name] = layers[0]->top_blob(blob_name);
 
     cur_top_blob_size = layers[0]->top_blob(0)->channels() * layers[0]->top_blob(0)->width() * layers[0]->top_blob(0)->height() * sizeof(float);
-    max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
+    if (cur_top_blob_size >= max_top_blob_size)
+    {
+        max_top_blob_size = cur_top_blob_size;
+        strcpy(max_top_blob_name, layers[0]->name().c_str());
+    }
+    //max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
     total_top_blob_size += cur_top_blob_size;
 #ifdef MEM_USAGE_PRINT
     printf("[%03d]-[00] Top Blob size: c: %04d w: %04d h: %04d  size: %08ld [%6.3f MB] Bottom num: %ld\n",
@@ -219,17 +282,23 @@ bool Net::InitFromBuffer(const void *net_buffer)
         cur_top_blob_size = 0;
         for (int k = 0; k < layers[i]->top_blob_size(); k++)
         {
-            cur_top_blob_size   += layers[i]->top_blob(k)->channels() * layers[i]->top_blob(k)->width() * layers[i]->top_blob(k)->height() * sizeof(float);
-            total_top_blob_size += layers[i]->top_blob(k)->channels() * layers[i]->top_blob(k)->width() * layers[i]->top_blob(k)->height() * sizeof(float);
+            cur_top_blob_size   += layers[i]->top_blob(k)->channels() * (layers[i]->top_blob(k)->width()+layers[i]->alignWidth) * (layers[i]->top_blob(k)->height()+layers[i]->alignHeight) * sizeof(float);
+            total_top_blob_size += layers[i]->top_blob(k)->channels() * (layers[i]->top_blob(k)->width()+layers[i]->alignWidth) * (layers[i]->top_blob(k)->height()+layers[i]->alignHeight) * sizeof(float);
 #ifdef MEM_USAGE_PRINT
             printf("[%03d]-[%02d] Top Blob size: c: %04d w: %04d h: %04d  size: %08ld [%6.3f MB] Bottom num: %ld\n",
-                   i, k, layers[i]->top_blob(k)->channels(), layers[i]->top_blob(k)->width(), layers[i]->top_blob(k)->height(),
+                   i, k, layers[i]->top_blob(k)->channels(), layers[i]->top_blob(k)->width()+layers[i]->alignWidth, layers[i]->top_blob(k)->height()+layers[i]->alignHeight,
                    cur_top_blob_size, (total_top_blob_size*1.0f)/(1024*1024),
                    layers[i]->bottom_size());
 #endif
         }
 
-        max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
+        if (cur_top_blob_size >= max_top_blob_size)
+        {
+            max_top_blob_size = cur_top_blob_size;
+            strcpy(max_top_blob_name, layers[i]->name().c_str());
+        }
+
+        //max_top_blob_size = MAX(max_top_blob_size, cur_top_blob_size);
         for (int t = 0; t < layers[i]->top_size(); ++t)
         {
             std::string blob_name = layers[i]->top(t);
@@ -257,8 +326,9 @@ bool Net::InitFromBuffer(const void *net_buffer)
     }
 
 #ifdef MEM_USAGE_PRINT
-    printf("Net malloc global top/bottom buffer ok, %5.3f KB (%5.3f MB)\n", (max_top_blob_size*3)/1024.0f, (max_top_blob_size*3)/(1024.0f *1024.0f));
+    printf("Net max global blob %d %5.3f KB at layer %s\n", max_top_blob_size, max_top_blob_size/1024.0f, max_top_blob_name);
 #endif
+
     //Try to fuse some layers together
     for (int i = 1; i < layers.size() - 1; ++i)
     {
@@ -294,7 +364,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
             }
         }
     }
-    printf("Blobs fuse ok\n");
+    //printf("Blobs fuse ok\n");
 
     branchBufferInit(0); //init branch 0 pingpang buffer
 
@@ -364,11 +434,12 @@ bool Net::InitFromBuffer(const void *net_buffer)
 
         //printf(" (%p %p)\n", input, output);
         layers[i]->Init(input, output);
+
 #ifdef MEM_USAGE_PRINT
         layers[i]->printPrivateMempool();
 #endif
     }
-    printf("Layers init ok\n");
+    //printf("Layers init ok\n");
 
     rt_param->common_mempool()->Alloc();
 #ifdef MEM_USAGE_PRINT

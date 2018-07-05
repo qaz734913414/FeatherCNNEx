@@ -75,7 +75,6 @@ public:
 private:
     float* input_alpha;
     float* input_beta;
-    float* output;
     size_t data_len;
     bool fuse_relu;
 };

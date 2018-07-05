@@ -49,8 +49,6 @@ private:
     float* scale_data;
     bool _bias_term;
     float* bias_data;
-    float *input;
-    float *output;
     size_t stride;
 private:
     void (*scale_kernel)(const size_t channels, const size_t stride, const  float* bias_data, const float* scale_data, const float* input, float* output, const size_t num_threads);

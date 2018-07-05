@@ -50,8 +50,8 @@ public:
     std::string top(size_t i);
     size_t top_size();
     size_t top_blob_size();
-    const Blob<float>* top_blob(std::string name);
-    const Blob<float>* top_blob(size_t idx);
+    Blob<float>* top_blob(std::string name);
+    Blob<float>* top_blob(size_t idx);
     //For fusing
     const size_t weight_blob_num() const;
     const Blob<float>* weight_blob(size_t i) const;
@@ -66,10 +66,15 @@ public:
     std::vector<std::string> consumers;
     Net *pNet;
     unsigned branchId;
+    unsigned alignWidth;
+    unsigned alignHeight;
+    float* input;
+    float* output;
+    std::string _subType;
+
 protected:
     std::string _name;
     std::string _type;
-
     std::vector<std::string> _bottom;
     std::vector<std::string> _top;
 

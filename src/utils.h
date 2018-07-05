@@ -1,6 +1,7 @@
 #pragma once
 
 #include <arm_neon.h>
+#include "resizeNeon.h"
 
 #if defined(__aarch64__) || (defined(__ARM_NEON_FP) && (__ARM_NEON_FP & 2))
 #ifdef __clang__
@@ -56,4 +57,5 @@ static inline void vst1q_f16_f32(void* address, float32x4_t vector)
 }
 #endif
 
-void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, float scale);
+void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, float scale, int bgr);
+int NE_pnetSoftmax(float* src, int cols, int rows, int sstep);
