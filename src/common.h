@@ -51,6 +51,13 @@ typedef short fix16_t;
 		return; \
 	}
 
+static inline unsigned alignSize(unsigned sz, int n)
+{
+    return (sz + n-1) & -n;
+}
+
+void padBufferInv(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads);
+void padBuffer(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads);
 void* _mm_malloc(size_t sz, size_t align);
 void _mm_free(void* ptr);
 void writeFile(unsigned char *data, unsigned size, const char *pFileName);

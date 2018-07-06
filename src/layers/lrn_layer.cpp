@@ -49,7 +49,7 @@ int LRNLayer::Init(float *ginput, float *goutput)
     MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&_scale_data, sizeof(float) * width * height * channels));
     memset(_padded_sqr_data, 0, sizeof(float) * padded_size);
 
-    if ((NULL != ginput) && (NULL != ginput))
+    if ((NULL != ginput) && (NULL != goutput))
     {
         ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
         ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);

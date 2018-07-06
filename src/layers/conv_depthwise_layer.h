@@ -39,7 +39,7 @@ public:
         int inputh = input_height + padding_top + padding_bottom;
         MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&padded_input, inputw * inputh * input_channels * sizeof(float)));
 
-        if ((NULL != ginput) && (NULL != ginput))
+        if ((NULL != ginput) && (NULL != goutput))
         {
             ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
             ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);

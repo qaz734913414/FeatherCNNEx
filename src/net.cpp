@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <cstring>
 #include "arm/helper.h"
-
+#include "common.h"
 //#define MEM_USAGE_PRINT
 
 namespace feather
@@ -32,7 +32,11 @@ Net::Net(size_t num_threads)
     register_layer_creators();
     CommonMemPool<float> *mempool = new CommonMemPool<float>();
     rt_param = new RuntimeParameter<float>(mempool, num_threads);
-    memset(pingpang, 0, MAXBRANCHNUM*2*sizeof(pingpang[0][0]));
+    for(unsigned i = 0; i < MAXBRANCHNUM; i++)
+    {
+        pingpang[i][0] = NULL;
+        pingpang[i][1] = NULL;
+    }
     max_top_blob_size = 0;
     net_name[0] = 0;
 }
@@ -41,8 +45,10 @@ Net::~Net()
 {
     for(unsigned i = 0; i < MAXBRANCHNUM; i++)
     {
+        //printf("%s [%d] -0- %p %p\n", net_name, i, pingpang[i][0], pingpang[i][1]);
         _mm_free(pingpang[i][0]);
         _mm_free(pingpang[i][1]);
+        //printf("[%d] -1-\n", i);
     }
 
     delete rt_param->common_mempool();
@@ -148,15 +154,15 @@ int Net::Forward()
     for (int i = 1; i < layers.size(); ++i)
     {
         //printf("Forward layer%d:%s %s %s... \n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
-//#define TIME_PROFILE
+#define TIME_PROFILE
 #ifdef TIME_PROFILE
         Timer t;
         t.startBench();
 #endif
         layers[i]->Forward();
 #ifdef TIME_PROFILE
-        if (strcmp(net_name, "pnet") == 0)
-            t.endBench(layers[i]->name().c_str());
+        if ((strcmp(net_name, "pnet") == 0) && (0 == strcmp(layers[i]->type().c_str(), "Convolution")))
+            t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
 #endif
     }
     return 0;
@@ -201,9 +207,10 @@ void Net::branchBufferInit(unsigned branchId)
 {
     pingpang[branchId][0] = (float*)_mm_malloc(max_top_blob_size, 128);
     POINTER_CHECK_NO_RET(pingpang[branchId][0]);
-    pingpang[branchId][1] =(float*)_mm_malloc(max_top_blob_size, 128);
+    pingpang[branchId][1] = (float*)_mm_malloc(max_top_blob_size, 128);
     POINTER_CHECK_NO_RET(pingpang[branchId][1]);
     branchPingPang[branchId] = 0;
+    //printf("---[%d] %p %p--\n", branchId, pingpang[branchId][0], pingpang[branchId][1]);
 }
 
 bool Net::InitFromBuffer(const void *net_buffer)
@@ -228,7 +235,8 @@ bool Net::InitFromBuffer(const void *net_buffer)
     layers[0]->top_blob(0)->setWidth(inWidth);
     layers[0]->top_blob(0)->setHeight(inHeight);
     printf("to [%d %d %d]\n", layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
-
+    rt_param->input_width = inWidth;
+    rt_param->input_height = inHeight;
     for (int i = 1; i < layer_num; ++i)
     {
         const LayerParameter *layer_param = net_param->layer()->Get(i);

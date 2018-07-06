@@ -134,7 +134,7 @@ public:
         else
             winograd_out_type = None;
 
-        if ((NULL != ginput) && (NULL != ginput))
+        if ((NULL != ginput) && (NULL != goutput))
         {
             ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
             ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);

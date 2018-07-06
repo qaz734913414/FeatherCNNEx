@@ -1,3 +1,5 @@
+#ifndef __aarch64__
+
 #define SRC 	r0
 #define DST 	r1
 #define WIDTH 	r2
@@ -300,3 +302,4 @@ IM2COL_END:
 	mov	sp, fp
 	pop	{r4-r9, fp}
 	bx	lr
+#endif

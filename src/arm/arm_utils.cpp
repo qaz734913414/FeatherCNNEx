@@ -3,6 +3,57 @@
 #include "common.h"
 #include <math.h>
 
+void fill(float * ptr, int size, float _v)
+{
+#if __ARM_NEON
+    int nn = size >> 2;
+    int remain = size - (nn << 2);
+#else
+    int remain = size;
+#endif // __ARM_NEON
+
+#if __ARM_NEON
+    float32x4_t _c = vdupq_n_f32(_v);
+#if __aarch64__
+    if (nn > 0)
+    {
+        asm volatile (
+            "0:                             \n"
+            "subs       %w0, %w0, #1        \n"
+            "st1        {%4.4s}, [%1], #16  \n"
+            "bne        0b                  \n"
+            : "=r"(nn),     // %0
+            "=r"(ptr)     // %1
+            : "0"(nn),
+            "1"(ptr),
+            "w"(_c)       // %4
+            : "cc", "memory"
+        );
+    }
+#else
+    if (nn > 0)
+    {
+        asm volatile(
+            "0:                             \n"
+            "subs       %0, #1              \n"
+            "vst1.f32   {%e4-%f4}, [%1 :128]!\n"
+            "bne        0b                  \n"
+            : "=r"(nn),     // %0
+            "=r"(ptr)     // %1
+            : "0"(nn),
+            "1"(ptr),
+            "w"(_c)       // %4
+            : "cc", "memory"
+        );
+    }
+#endif // __aarch64__
+#endif // __ARM_NEON
+    for (; remain>0; remain--)
+    {
+        *ptr++ = _v;
+    }
+}
+
 void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, float scale, int bgr)
 {
     int size = w * h;
@@ -94,16 +145,17 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
     return;
 }
 
-int NE_pnetSoftmax(float* src, int cols, int rows, int sstep)
+int NE_pnetSoftmax(float* src, int cols, int rows, int sstep, float *dst)
 {
     float *c0 = src;
     float *c1 = src + cols*rows;
-    float *dst = c1;
 
     for (int y = 0; y < rows; y++)
     {
         float* ptr0 = c0 + y*sstep;
         float* ptr1 = c1 + y*sstep;
+        float *dst0 = dst + y*cols;
+        float *dst1 = dst + y*cols;
 
         int x = 0;
         for( ; x <= cols - 4; x += 4 )
@@ -126,7 +178,8 @@ int NE_pnetSoftmax(float* src, int cols, int rows, int sstep)
             vsrc0f32x4 = vmulq_f32(vsrc0f32x4, reciprocal);
             vsrc1f32x4 = vmulq_f32(vsrc1f32x4, reciprocal);
 
-            vst1q_f32(&dst[x], vsrc1f32x4);
+            vst1q_f32(&dst0[x], vsrc0f32x4);
+            vst1q_f32(&dst1[x], vsrc1f32x4);
         }
 
         for( ; x < cols; x++ )
@@ -138,8 +191,8 @@ int NE_pnetSoftmax(float* src, int cols, int rows, int sstep)
 
             float sum = ptr0[x] + ptr1[x];
 
-            ptr0[x] /= sum;
-            ptr1[x] /= sum;
+            dst0[x] /= sum;
+            dst1[x] /= sum;
         }
     }
     return 0;

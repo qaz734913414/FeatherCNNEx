@@ -54,7 +54,7 @@ public:
 
     int Init(float *ginput, float *goutput)
     {
-        if ((NULL != ginput) && (NULL != ginput))
+        if ((NULL != ginput) && (NULL != goutput))
         {
             ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
         }

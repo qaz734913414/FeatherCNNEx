@@ -24,6 +24,20 @@
 #include <fstream>
 #include <math.h>
 
+void padBuffer(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads)
+{
+    #pragma omp parallel for if (channels > 4) num_threads(num_threads)
+    for(int i = 0; i < channels; i++)
+        memcpy(dst + i*(channelSize + channelPad), src + i*(channelSize), channelSize*sizeof(float));
+}
+
+void padBufferInv(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads)
+{
+    #pragma omp parallel for if (channels > 4) num_threads(num_threads)
+    for(int i = 0; i < channels; i++)
+        memcpy(dst + i*channelSize, src + i*(channelSize + channelPad), channelSize*sizeof(float));
+}
+
 void* _mm_malloc(size_t sz, size_t align)
 {
     void *ptr;
