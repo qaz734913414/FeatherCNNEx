@@ -272,15 +272,15 @@ public:
         //printf("MNK: %d %d %d, [%d %d %d] [%d %d %d]\n", M, K, eM, input_channels, input_height, input_width, output_channels, output_height, output_width);
         if (0 == fractions)
         {
-            MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&packed_kernel, sizeof(float) * eM * K));
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(float) * eM * K));
         }
         else if (8 == fractions)
         {
-            MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&packed_kernel, sizeof(char) * eM * K));
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(char) * eM * K));
         }
         else
         {
-            MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&packed_kernel, sizeof(short) * eM * K));
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(short) * eM * K));
         }
         MEMPOOL_CHECK_RETURN(common_mempool->Request(sizeof(float)*(input_channels*kernel_height*kernel_width)*(output_width*output_height),
                              this->name()+" ["+this->type()+"]"));

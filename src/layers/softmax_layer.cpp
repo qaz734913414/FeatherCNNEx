@@ -34,7 +34,7 @@ int SoftmaxLayer::Init(float *ginput, float *goutput)
     c = p_bottom->channels();
     h = p_bottom->height();
     w = p_bottom->width();
-    MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&max,  sizeof(float) * w * h));
+    MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&max,  sizeof(float) * w * h));
 
     return 0;
 }

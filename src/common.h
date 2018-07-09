@@ -20,6 +20,11 @@
 #include <vector>
 #include <cstdlib>
 #include <pthread.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "fix.h"
 
 #ifndef MAX
@@ -56,6 +61,7 @@ static inline unsigned alignSize(unsigned sz, int n)
     return (sz + n-1) & -n;
 }
 
+int makeDir(const char* inpath);
 void padBufferInv(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads);
 void padBuffer(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads);
 void* _mm_malloc(size_t sz, size_t align);

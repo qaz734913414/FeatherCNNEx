@@ -18,6 +18,21 @@
 
 namespace feather
 {
+Layer::~Layer()
+{
+    delete private_mempool;
+
+    _weight_blobs.clear();
+    _weight_blobs_fix.clear();
+    _weight_blobs_fix8.clear();
+
+    _bottom.clear();
+    _top.clear();
+
+    _top_blobs.clear();
+    _bottom_blobs.clear();
+}
+
 Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param)
     : _fusible(false),
       num_threads(rt_param->num_threads()),
@@ -26,7 +41,8 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     const LayerParameter* layer_param = (const LayerParameter*)layer_param_in;
     _name = layer_param->name()->str();
     _type = layer_param->type()->str();
-    this->private_mempool.setName(_name);
+    private_mempool = new PrivateMemPool<void>();
+    private_mempool->setName(_name);
     consumersNum = 0;
     branchId = 0;
     alignHeight = alignWidth = 0;
@@ -195,6 +211,7 @@ bool Layer::fusible() const
 }
 void Layer::printPrivateMempool()
 {
-    private_mempool.PrintStats();
+    if (NULL != private_mempool)
+        private_mempool->PrintStats();
 }
 };

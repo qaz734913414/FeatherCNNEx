@@ -83,9 +83,6 @@ public:
         int nBlocks = nRowBlocks * nColBlocks; //output 6x6 blocks
 
         packInputSize = num_threads * 32 * input_channels *  64;
-#ifdef WINOGRAD_FP16_ENABLE
-        packInputSize /= 2;
-#endif
         size_t winograd_mem_size = 0;
         winograd_mem_size += 64 * nBlocks * input_channels;  //VT -- input  transform
         winograd_mem_size += 64 * nBlocks * output_channels; //WT -- output transform
@@ -93,7 +90,7 @@ public:
         if (0 != (padding_left + padding_top + padding_right + padding_bottom))
             winograd_mem_size += inputw * inputh * input_channels; //Padded Input
         MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float), this->name()+" ["+this->type()+"]"));
-        MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&UT, 64 * input_channels * output_channels * sizeof(float)));
+        MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&UT, 64 * input_channels * output_channels * sizeof(float)));
         /* fix convet in transform stage not in model convert */
         transformKernel_F6x6_3x3(UT, kernel_data, input_channels, output_channels);
 #ifdef WINOGRAD_FP16_ENABLE

@@ -59,9 +59,9 @@ public:
         padInChannel  = alignSize(input_height*input_width,   16) - input_height*input_width;
         padOutChannel = alignSize(output_height*output_width, 16) - output_height*output_width;
         if(padInChannel)
-            MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&align_input,  sizeof(float) * input_channels * alignSize(input_height*input_width,   16)));
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&align_input,  sizeof(float) * input_channels * alignSize(input_height*input_width,   16)));
         if(padOutChannel)
-            MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&align_output, sizeof(float) * output_channels * alignSize(output_height*output_width, 16)));
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&align_output, sizeof(float) * output_channels * alignSize(output_height*output_width, 16)));
 
         if ((NULL != ginput) && (NULL != goutput))
         {

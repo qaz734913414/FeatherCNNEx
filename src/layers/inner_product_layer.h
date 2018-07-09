@@ -59,7 +59,7 @@ public:
     int Init(float *ginput, float *goutput)
     {
         float* buffer = NULL;
-        MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&buffer, sizeof(float) * input_size * 8));
+        MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&buffer, sizeof(float) * input_size * 8));
         if(input_size % 8 == 0 && output_size % 8 == 0)
         {
             for(int i=0; i < output_size / 8; i++)
@@ -69,7 +69,7 @@ public:
         {
             //Naive implementation doesn't require preprocess
         }
-        MEMPOOL_CHECK_RETURN(private_mempool.Free((void**)&buffer));
+        MEMPOOL_CHECK_RETURN(private_mempool->Free((void**)&buffer));
         if ((NULL != ginput) && (NULL != goutput))
         {
             ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);

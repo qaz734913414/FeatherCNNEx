@@ -60,7 +60,7 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
     if(group == 1 && kernel_height == 3 && kernel_width == 3 && stride_height == 1 && stride_width == 1 &&
             input_channels > 0 && output_channels < 512 && (0 == output_channels % 4))
     {
-        printf("F63\n");
+        //printf("F63\n");
         conv_layer = (ConvLayer*) new ConvWinogradF63Layer(layer_param, rt_param);
         conv_layer->_subType = "winograd F63";
         //conv_layer = (ConvLayer*) new ConvWinogradLayer(layer_param, rt_param);
@@ -69,7 +69,7 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
             stride_height == 1 && stride_width == 1 &&
             input_channels > 4)
     {
-        printf("F23\n");
+        //printf("F23\n");
         conv_layer = (ConvLayer*) new ConvWinogradLayer(layer_param, rt_param);
         conv_layer->_subType = "winograd F23";
     }
@@ -77,7 +77,7 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
             stride_height == 1 && stride_width == 1 &&
             input_channels <= 4)
     {
-        printf("Direct\n");
+        //printf("Direct\n");
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
         conv_layer->_subType = "Direct";
     }
@@ -85,19 +85,19 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
             stride_height == 1 && stride_width == 1 &&
             input_channels <= 64 && output_channels <= 64)
     {
-        printf("Direct\n");
+        //printf("Direct\n");
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
         conv_layer->_subType = "Direct";
     }
     else if(group == 1)
     {
-        printf("im2col\n");
+        //printf("im2col\n");
         conv_layer = (ConvLayer*) new ConvIm2colLayer(layer_param, rt_param);
         conv_layer->_subType = "sgemm";
     }
     else
     {
-        printf("Depthwise\n");
+        //printf("Depthwise\n");
         conv_layer = new ConvDepthwiseLayer(layer_param, rt_param);
         conv_layer->_subType = "depthwise";
     }

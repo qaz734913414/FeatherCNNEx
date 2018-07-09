@@ -37,7 +37,7 @@ public:
     {
         int inputw = input_width + padding_left + padding_right;
         int inputh = input_height + padding_top + padding_bottom;
-        MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&padded_input, inputw * inputh * input_channels * sizeof(float)));
+        MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&padded_input, inputw * inputh * input_channels * sizeof(float)));
 
         if ((NULL != ginput) && (NULL != goutput))
         {

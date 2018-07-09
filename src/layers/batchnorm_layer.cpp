@@ -58,8 +58,8 @@ int BatchNormLayer::Init(float *ginput, float *goutput)
     input_height   = p_blob->height();
     input_width    = p_blob->width();
 
-    MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&alpha, input_channels* sizeof(float)));
-    MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&beta, input_channels* sizeof(float)));
+    MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&alpha, input_channels* sizeof(float)));
+    MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&beta, input_channels* sizeof(float)));
 
     float *mean_data, *var_data;
     mean_data  = _weight_blobs[0]->data();

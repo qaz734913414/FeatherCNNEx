@@ -38,6 +38,66 @@ void padBufferInv(float *dst, float *src, unsigned channelSize, unsigned channel
         memcpy(dst + i*channelSize, src + i*(channelSize + channelPad), channelSize*sizeof(float));
 }
 
+int makeDir(const char* inpath)
+{
+    int beginCmpPath;
+    int endCmpPath;
+    int fullPathLen;
+    char path[512];
+    int pathLen;
+    char currentPath[128] = {0};
+    char fullPath[128] = {0};
+
+    strcpy(path, inpath);
+    char *pSplit = strrchr(path, '.');
+    if (NULL != pSplit)
+    {
+        pSplit = strrchr(path, '/');
+        if(NULL != pSplit)
+            *pSplit = 0;
+    }
+    pathLen = strlen(path);
+
+    if('/' != path[0])
+    {
+        getcwd(currentPath, sizeof(currentPath));
+        strcat(currentPath, "/");
+        beginCmpPath = strlen(currentPath);
+        strcat(currentPath, path);
+        if(path[pathLen] != '/')
+            strcat(currentPath, "/");
+        endCmpPath = strlen(currentPath);
+    }
+    else
+    {
+        int pathLen = strlen(path);
+        strcpy(currentPath, path);
+        if(path[pathLen] != '/')
+            strcat(currentPath, "/");
+        beginCmpPath = 1;
+        endCmpPath = strlen(currentPath);
+    }
+
+    for(int i = beginCmpPath; i < endCmpPath ; i++ )
+    {
+        if('/' == currentPath[i])
+        {
+            currentPath[i] = '\0';
+            if(access(currentPath, NULL) != 0)
+            {
+                if(mkdir(currentPath, 0755) == -1)
+                {
+                    printf("currentPath = %s\n", currentPath);
+                    perror("mkdir error %s\n");
+                    return -1;
+                }
+            }
+            currentPath[i] = '/';
+        }
+    }
+    return 0;
+}
+
 void* _mm_malloc(size_t sz, size_t align)
 {
     void *ptr;

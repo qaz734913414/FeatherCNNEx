@@ -45,14 +45,15 @@ Net::~Net()
 {
     for(unsigned i = 0; i < MAXBRANCHNUM; i++)
     {
-        //printf("%s [%d] -0- %p %p\n", net_name, i, pingpang[i][0], pingpang[i][1]);
         _mm_free(pingpang[i][0]);
         _mm_free(pingpang[i][1]);
-        //printf("[%d] -1-\n", i);
     }
 
     delete rt_param->common_mempool();
     delete rt_param;
+
+    for(auto loop:layers)
+        delete loop;
 }
 
 int Net::ExtractBlob(float* output_ptr, std::string name)
@@ -154,7 +155,7 @@ int Net::Forward()
     for (int i = 1; i < layers.size(); ++i)
     {
         //printf("Forward layer%d:%s %s %s... \n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
-#define TIME_PROFILE
+//#define TIME_PROFILE
 #ifdef TIME_PROFILE
         Timer t;
         t.startBench();
@@ -230,11 +231,11 @@ bool Net::InitFromBuffer(const void *net_buffer)
         }
     }
 
-    printf("InBlob change from [%d %d %d] ", layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
+    //printf("InBlob change from [%d %d %d] ", layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
     layers[0]->top_blob(0)->setChannels(inChannels);
     layers[0]->top_blob(0)->setWidth(inWidth);
     layers[0]->top_blob(0)->setHeight(inHeight);
-    printf("to [%d %d %d]\n", layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
+    //printf("to [%d %d %d]\n", layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
     rt_param->input_width = inWidth;
     rt_param->input_height = inHeight;
     for (int i = 1; i < layer_num; ++i)
@@ -316,7 +317,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
 #ifdef MEM_USAGE_PRINT
     printf("Top max blobs size: %5.3f KB (%5.3f MB)\n", max_top_blob_size/1024.0f, max_top_blob_size/(1024.0f *1024.0f));
 #endif
-    printf("Top blobs create ok\n");
+    //printf("Top blobs create ok\n");
     uint32_t total_weight_size = 0;
     for (int i = 1; i < layers.size(); ++i)
     {
@@ -453,7 +454,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
 #ifdef MEM_USAGE_PRINT
     rt_param->common_mempool()->PrintStats();
 #endif
-    printf("Net init ok\n");
+    //printf("Net init ok\n");
     return true;
 }
 };

@@ -116,10 +116,10 @@ public:
         }
         float* tmp = NULL;
         MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float), this->name()+" ["+this->type()+"]"));
-        MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&UT, 16 * input_channels * output_channels * sizeof(float)));
-        MEMPOOL_CHECK_RETURN(private_mempool.Alloc((void**)&tmp, 16 * input_channels * output_channels * sizeof(float)));
+        MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&UT, 16 * input_channels * output_channels * sizeof(float)));
+        MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&tmp, 16 * input_channels * output_channels * sizeof(float)));
         transformKernel(UT, kernel_data, input_channels, output_channels, tmp);
-        MEMPOOL_CHECK_RETURN(private_mempool.Free((void**)&tmp));
+        MEMPOOL_CHECK_RETURN(private_mempool->Free((void**)&tmp));
 #ifdef WINOGRAD_FP16_ENABLE
         UT_FIX = (fix16_t*)UT; //inplace transofrm
         for(unsigned i = 0; i < 16 * input_channels * output_channels; i += 4)
