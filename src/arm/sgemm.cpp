@@ -19,17 +19,6 @@
 #include "common.h"
 #include "sgemm.h"
 
-const int mc = 1024;
-const int kc = 256;
-const int nc = 256;
-
-void (*sgemm_tiny_scale_fix8)(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scale) = NULL;
-void (*sgemm_tiny_scale_fix)(int L, short *a, int lda, float *b, int ldb, float *c, int ldc) = NULL;
-void (*sgemm_tiny_scale)(int L, float *a, int lda, float *b, int ldb, float *c, int ldc) = NULL;
-void (*internalPackA)(int L, float* packA, float* a, int lda) = NULL;
-void block_sgemm_internal_pack( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc);
-void block_sgemm_pack( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc);
-
 template<typename T>
 static void internalPackA8(int L, T* packA, T* a, int lda)
 {
@@ -2286,80 +2275,6 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
     vst1q_lane_f32(cptr + 6, vcG, 3);
 }
 
-void block_sgemm_external_pack( int M, int N, int L, float *a, float *b, float *c)
-{
-    int eM = M + (4 - M % 4) % 4;
-    switch(N % 8)
-    {
-    case 1:
-        sgemm_tiny_scale = sgemm_4x1;
-        break;
-    case 2:
-        sgemm_tiny_scale = sgemm_4x2;
-        break;
-    case 3:
-        sgemm_tiny_scale = sgemm_4x3;
-        break;
-    case 4:
-        sgemm_tiny_scale = sgemm_4x4;
-        break;
-    case 5:
-        sgemm_tiny_scale = sgemm_4x5;
-        break;
-    case 6:
-        sgemm_tiny_scale = sgemm_4x6;
-        break;
-    case 7:
-        sgemm_tiny_scale = sgemm_4x7;
-        break;
-    }
-    block_sgemm_pack(eM, N, L, a, L, b, N, c, N);
-}
-
-void block_sgemm( int M, int N, int L, float *a, float *b, float *c)
-{
-    switch(N % 8)
-    {
-    case 1:
-        sgemm_tiny_scale = sgemm_4x1;
-        break;
-    case 2:
-        sgemm_tiny_scale = sgemm_4x2;
-        break;
-    case 3:
-        sgemm_tiny_scale = sgemm_4x3;
-        break;
-    case 4:
-        sgemm_tiny_scale = sgemm_4x4;
-        break;
-    case 5:
-        sgemm_tiny_scale = sgemm_4x5;
-        break;
-    case 6:
-        sgemm_tiny_scale = sgemm_4x6;
-        break;
-    case 7:
-        sgemm_tiny_scale = sgemm_4x7;
-        break;
-    }
-    switch(M % 4)
-    {
-    case 0:
-        internalPackA = internalPackA4;
-        break;
-    case 1:
-        internalPackA = internalPackA1;
-        break;
-    case 2:
-        internalPackA = internalPackA2;
-        break;
-    case 3:
-        internalPackA = internalPackA3;
-        break;
-    }
-    block_sgemm_internal_pack(M, N, L, a, L, b, N, c, N);
-}
-
 void sgemm_4x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int ldc )
 {
     float *aptr = a;
@@ -2430,7 +2345,7 @@ void sgemm_4x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int 
     vst1q_f32(cptr + 4, vc7);
 }
 
-void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB)
+void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB, sgemm_tiny_scale_func sgemm_tiny_scale)
 {
     //Align L to achieve better performance for better cache line alignment.
     int eL = L + (4 - L % 4) % 4;
@@ -2568,7 +2483,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
     vst1q_f32(cptr + 4, vcF);
 }
 
-static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, short* packB)
+static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, short* packB, sgemm_tiny_scale_fix_func sgemm_tiny_scale_fix)
 {
     int eL = L + (4 - L % 4) % 4;
     int remN = N % 8;
@@ -2592,7 +2507,7 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *
     }
 }
 
-static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, short* packB, float int8scale)
+static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, short* packB, float int8scale, sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8)
 {
     int eL = L + (4 - L % 4) % 4;
     int remN = N % 8;
@@ -2612,7 +2527,7 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t
     }
 }
 
-void SGEBP_externalPackA_tiny_scale_8x8( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB)
+void SGEBP_externalPackA_tiny_scale_8x8( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB, sgemm_tiny_scale_func sgemm_tiny_scale)
 {
     //Align L to achieve better performance for better cache line alignment.
     int eL = L + (4 - L % 4) % 4;
@@ -2633,46 +2548,12 @@ void SGEBP_externalPackA_tiny_scale_8x8( int M, int N, int L, float *a, int lda,
     }
 }
 
-void SGEBP_internalPack_tiny_scale( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB)
-{
-    //Align L for better cache line alignment.
-    int eL = L + (4 - L % 4) % 4;
-    int remM = M % 4;
-    int remN = N % 8;
-    int fM = M - remM;
-    int fN = N - remN;
-
-    for(int i=0; i<fM; i+=8 )
-    {
-        internalPackA4(L, packA + i * eL, a + i * lda, lda);
-        for(int j=0; j<fN; j+=8 )
-        {
-            if(i == 0)
-                internalPackB8(L, packB + j * eL, b + j, ldb);
-            sgemm_8x8_pack(L, packA + i * eL, lda, packB + j * eL, 8, c + i * ldc + j, ldc);
-        }
-        if(remN)
-            sgemm_tiny_scale(L, packA + i * eL, lda, b + fN, ldb, c + i * ldc + fN, ldc);
-    }
-    //Compute last row in A
-    if(remM)
-    {
-        internalPackA(L, packA + fM * eL, a + fM * lda, lda);
-        for(int j=0; j<fN; j+=8 )
-        {
-            sgemm_8x8_pack(L, packA + fM * eL, lda, packB + j * eL, 8, c + fM * ldc + j, ldc);
-        }
-        if(remN)
-            sgemm_tiny_scale(L, packA + fM * eL, lda, b + fN, ldb, c + fM * ldc + fN, ldc);
-    }
-}
-
-void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, sgemm_tiny_scale_func sgemm_tiny_scale, void *packB)
 {
     for(int i = 0; i < M; ++i)
         memset(c + ldc * i, 0, sizeof(float) * N);
-    float* packB = (float *)_mm_malloc(sizeof(float) * kc *  N, 16);
-    if (NULL == packB) return;
+    //float* packB = (float *)_mm_malloc(sizeof(float) * kc *  N, 16);
+    //if (NULL == packB) return;
 
     for(int l = 0; l < N; l += nc)
     {
@@ -2684,24 +2565,24 @@ void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb,
             for(int p = 0; p < L; p += kc)
             {
                 int pb = MIN(L - p, kc);
-                SGEBP_externalPackA_tiny_scale(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, packB);
+                SGEBP_externalPackA_tiny_scale(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (float*)packB, sgemm_tiny_scale);
                 packAptr += ib * pb;
             }
         }
     }
-    _mm_free(packB);
+    //_mm_free(packB);
 }
 
 template<typename T>
-static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc, float int8scale)
+static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc, float int8scale, void *pfunc, void *packB)
 {
     for(int i = 0; i < M; ++i)
         memset(c + ldc * i, 0, sizeof(float) * N);
-    void* packB;
+
     if (4 == sizeof(T)) /* float */
     {
-        packB = _mm_malloc(sizeof(T) * kc *  N, 16);
-        if (NULL == packB) return;
+        //packB = _mm_malloc(sizeof(T) * kc *  N, 16);
+        //if (NULL == packB) return;
 
         for(int l = 0; l < N; l += nc)
         {
@@ -2713,7 +2594,7 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
                 for(int p = 0; p < L; p += kc)
                 {
                     int pb = MIN(L - p, kc);
-                    SGEBP_externalPackA_tiny_scale_8x8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (float*)packB);
+                    SGEBP_externalPackA_tiny_scale_8x8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (float*)packB, (sgemm_tiny_scale_func)pfunc);
                     packAptr += ib * pb;
                 }
             }
@@ -2721,8 +2602,8 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
     }
     else if (2 == sizeof(T))  /* short */
     {
-        packB = _mm_malloc(sizeof(T) * kc *  N, 16);
-        if (NULL == packB) return;
+        //packB = _mm_malloc(sizeof(T) * kc *  N, 16);
+        //if (NULL == packB) return;
 
         for(int l = 0; l < N; l += nc)
         {
@@ -2734,7 +2615,7 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
                 for(int p = 0; p < L; p += kc)
                 {
                     int pb = MIN(L - p, kc);
-                    SGEBP_externalPackA_tiny_scale_8x8_fix(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (short*)packB);
+                    SGEBP_externalPackA_tiny_scale_8x8_fix(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (short*)packB, (sgemm_tiny_scale_fix_func)pfunc);
                     packAptr += ib * pb;
                 }
             }
@@ -2742,8 +2623,8 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
     }
     else if (1 == sizeof(T))  /* char */
     {
-        packB = _mm_malloc(sizeof(short) * kc *  N, 16);
-        if (NULL == packB) return;
+        //packB = _mm_malloc(sizeof(short) * kc *  N, 16);
+        //if (NULL == packB) return;
 
         for(int l = 0; l < N; l += nc)
         {
@@ -2755,7 +2636,7 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
                 for(int p = 0; p < L; p += kc)
                 {
                     int pb = MIN(L - p, kc);
-                    SGEBP_externalPackA_tiny_scale_8x8_fix8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (short*)packB, int8scale);
+                    SGEBP_externalPackA_tiny_scale_8x8_fix8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (short*)packB, int8scale, (sgemm_tiny_scale_fix8_func)pfunc);
                     packAptr += ib * pb;
                 }
             }
@@ -2764,46 +2645,13 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
     else
         printf("Wrong tpye, %d\n", sizeof(T));
 
-    _mm_free(packB);
+    //_mm_free(packB);
 }
 
-template void block_sgemm_pack_8x8<float>( int, int, int, float*, int, float*, int, float*, int, float);
-template void block_sgemm_pack_8x8<short>( int, int, int, short*, int, float*, int, float*, int, float);
-template void block_sgemm_pack_8x8<int8_t>( int, int, int, int8_t*, int, float*, int, float*, int, float);
-
-void block_sgemm_internal_pack( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *b, float *c, int num_threads, void *packB)
 {
-    int eM = M + (4 - M % 4) % 4;
-    for(int i = 0; i < M; ++i)
-        memset(c + ldc * i, 0, sizeof(float) * N);
-    float* packA = (float *)_mm_malloc(sizeof(float) * kc * eM, 16);
-    if (NULL == packA) return;
-    float* packB = (float *)_mm_malloc(sizeof(float) * kc *  N, 16);
-    if (NULL == packB)
-    {
-        _mm_free(packA);
-        return;
-    }
+    sgemm_tiny_scale_func sgemm_tiny_scale;
 
-    for(int l = 0; l < N; l += nc)
-    {
-        int lb = MIN(N - l, nc);
-        for(int i = 0; i < M; i += mc)
-        {
-            int ib = MIN(M - i, mc);
-            for(int p = 0; p < L; p += kc)
-            {
-                int pb = MIN(L - p, kc);
-                SGEBP_internalPack_tiny_scale(ib, lb, pb, a + i * lda + p, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, packA, packB);
-            }
-        }
-    }
-    _mm_free(packA);
-    _mm_free(packB);
-}
-
-void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *b, float *c, int num_threads)
-{
     int eM = M + (4 - M % 4) % 4;
     switch(N % 8)
     {
@@ -2834,7 +2682,7 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
     tN = tN + (8 - tN % 8) % 8;
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack(eM, N, L, a, L, b, N, c, N);
+        block_sgemm_pack(eM, N, L, a, L, b, N, c, N, sgemm_tiny_scale, packB);
     }
     else
     {
@@ -2842,13 +2690,15 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
         for(int i = 0; i < num_threads; ++i)
         {
             int sN = (tN < N - i * tN) ? tN : N - i * tN;
-            block_sgemm_pack(eM, sN, L, a, L, b + i * tN, N, c + i * tN, N);
+            block_sgemm_pack(eM, sN, L, a, L, b + i * tN, N, c + i * tN, N, sgemm_tiny_scale, packB);
         }
     }
 }
 
-void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a, float *b, float *c, int num_threads, float int8scale)
+void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a, float *b, float *c, int num_threads, float int8scale, void *packB)
 {
+    sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8;
+
     int eM = M + (8 - M % 8) % 8;
     //printf("-%d-\n", N % 8);
     switch(N % 8)
@@ -2876,7 +2726,7 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
 
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<int8_t>(eM, N, L, a, L, b, N, c, N, int8scale);
+        block_sgemm_pack_8x8<int8_t>(eM, N, L, a, L, b, N, c, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB);
     }
     else
     {
@@ -2886,13 +2736,15 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<int8_t>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, int8scale);
+            block_sgemm_pack_8x8<int8_t>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB);
         }
     }
 }
 
-void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, float *b, float *c, int num_threads)
+void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, float *b, float *c, int num_threads, void *packB)
 {
+    sgemm_tiny_scale_fix_func sgemm_tiny_scale_fix;
+
     int eM = M + (8 - M % 8) % 8;
     //printf("-%d-\n", N%8);
     switch(N % 8)
@@ -2935,7 +2787,7 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
 
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N, 0.0);
+        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N, 0.0, (void*)sgemm_tiny_scale_fix, packB);
     }
     else
     {
@@ -2945,13 +2797,15 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0);
+            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, (void*)sgemm_tiny_scale_fix, packB);
         }
     }
 }
 
-void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, float *b, float *c, int num_threads)
+void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, float *b, float *c, int num_threads, void *packB)
 {
+    sgemm_tiny_scale_func sgemm_tiny_scale;
+
     int eM = M + (8 - M % 8) % 8;
     switch(N % 8)
     {
@@ -2996,7 +2850,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
 
     if (num_threads == 1 || N <= 8 || N - (num_threads * factor - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<float>(eM, N, L, a, L, b, N, c, N, 0.0);
+        block_sgemm_pack_8x8<float>(eM, N, L, a, L, b, N, c, N, 0.0, (void*)sgemm_tiny_scale, packB);
     }
     else
     {
@@ -3006,7 +2860,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<float>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0);
+            block_sgemm_pack_8x8<float>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, (void*)sgemm_tiny_scale, packB);
         }
     }
 }

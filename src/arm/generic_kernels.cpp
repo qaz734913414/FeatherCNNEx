@@ -151,8 +151,7 @@ void scale(const size_t channels, const size_t stride, const float* bias_data, c
     for (int i = 0; i < channels; i++)
     {
         float32x4_t v_scale = vdupq_n_f32(scale_data[i]);
-        float32x4_t v_bias = vdupq_n_f32(0.f);
-        float32x4_t v_zero = vdupq_n_f32(0.f);
+        float32x4_t v_bias;
         if(has_bias)
             v_bias = vdupq_n_f32(bias_data[i]);
         int j = 0;

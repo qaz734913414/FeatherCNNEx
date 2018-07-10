@@ -64,9 +64,17 @@ public:
     void Copy(const Blob<Dtype>* p_blob)
     {
         CopyShape(p_blob);
-        this->Alloc();
         assert(p_blob->data_size() == this->data_size());
-        CopyData(p_blob->data());
+        if (0 == p_blob->globalData)
+        {
+            this->Alloc();
+            CopyData(p_blob->data());
+        }
+        else
+        {
+            this->_data = p_blob->data();
+            this->globalData = 1;
+        }
     }
 
     void FromProto(const void *proto_in);//proto MUST be of type BlobProto*

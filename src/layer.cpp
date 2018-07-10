@@ -26,6 +26,9 @@ Layer::~Layer()
     _weight_blobs_fix.clear();
     _weight_blobs_fix8.clear();
 
+    products.clear();
+    consumers.clear();
+
     _bottom.clear();
     _top.clear();
 
@@ -60,6 +63,9 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     _weight_blobs.clear();
     _weight_blobs_fix.clear();
     _weight_blobs_fix8.clear();
+
+    _top_blobs.clear();
+    _bottom_blobs.clear();
 
     /* Construct weight blobs */
     for(int i = 0; i < blob_num; ++i)
@@ -143,7 +149,7 @@ int Layer::GenerateTopBlobs()
         return -1;
     Blob<float>* p_blob = new Blob<float>();
     p_blob->CopyShape(_bottom_blobs[_bottom[0]]);
-    //p_blob->Alloc(); //no need malloc, use net global input/output memory
+    //p_blob->Alloc(); //no need malloc, use net global ping pang memory
     _top_blobs[_top[0]] = p_blob;
     return 0;
 }

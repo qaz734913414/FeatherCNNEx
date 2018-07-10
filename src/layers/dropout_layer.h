@@ -32,15 +32,24 @@ public:
     int Forward()
     {
         int size = w * h;
-        //printf("[DROPOUT] bottom:%s top:%s c:%d h:%d w:%d [%f %f %f %f]\n", _bottom[0].c_str(), _top[0].c_str(), c,h,w, input[0], input[1], input[2], input[3]);
+        float32x4_t vscale = vdupq_n_f32(scale);
 
-        #pragma omp parallel for
+        #pragma omp parallel for if (c > 4) num_threads(num_threads)
         for (int q=0; q<c; q++)
         {
             const float* inPtr = input + q*size;
             float* outPtr = output + q*size;
-
-            for (int i=0; i<size; i++)
+            int i = 0;
+#ifdef __ARM_NEON
+            for (; i<size-4; i+=4)
+            {
+                float32x4_t vsrc = vld1q_f32(inPtr+i);
+                vsrc = vmulq_f32(vsrc, vscale);
+                vst1q_f32(outPtr + i, vsrc);
+                //outPtr[i] = inPtr[i] * scale;
+            }
+#endif
+            for (; i<size; i++)
             {
                 outPtr[i] = inPtr[i] * scale;
             }

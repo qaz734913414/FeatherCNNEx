@@ -791,7 +791,7 @@ TensorGEMMInnerKernel4x1x4_fp16:
 	vmov VSRC_4S_C3, VSRC_4S_C0
 
 __LOOP1:
-	vld1.16 {VSRC_4H_V0}, [VP]! //q1
+	vld1.16 {VSRC_4H_V0}, [VP:64]! //q1
 	subs L, L, #1
 	vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_V0 //q2
 	vld1.16 {q0, q1}, [UTP:128]!

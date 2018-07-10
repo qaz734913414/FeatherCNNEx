@@ -70,50 +70,44 @@ public:
                 if (0 == this->fractions)
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                                                            (float *)packed_kernel, input, output, (int)num_threads);
+                                                            (float *)packed_kernel, input, output, (int)num_threads, packB);
                 else if (8 == this->fractions)
                     block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                            (int8_t *)packed_kernel, input, output, (int)num_threads, int8scale);
+                            (int8_t *)packed_kernel, input, output, (int)num_threads, int8scale, packB);
                 else
                     block_sgemm_external_pack_threading_8x8Fix((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                            (short *)packed_kernel, input, output, (int)num_threads);
+                            (short *)packed_kernel, input, output, (int)num_threads, packB);
 
             }
             else
             {
                 block_sgemm_external_pack_threading((int)output_channels, (int)output_width * (int)output_height,
                                                     (int)input_channels * (int)kernel_width * (int)kernel_height,
-                                                    (float *)packed_kernel, input, output, (int)num_threads);
+                                                    (float *)packed_kernel, input, output, (int)num_threads, packB);
             }
         }
         else
         {
             MEMPOOL_CHECK_RETURN(common_mempool->GetPtr(&img_buffer));
-#if 0
-            struct timeval beg, end;
-            gettimeofday(&beg, NULL);
-#endif
+
             Im2col();
-#if 0
-            gettimeofday(&end, NULL);
-            printf("im2col time: %ld ms, threads: %d\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, num_threads);
-#endif
+
             int block = (int)input_channels/group * (int)kernel_width * (int)kernel_height;
             if (output_channels % 8 == 0)
             {
                 for(int k=0; k<group; k++)
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels/group * (int)kernel_width * (int)kernel_height,
-                                                            (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads);
+                                                            (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, packB);
             }
             else
             {
                 for(int k=0; k<group; k++)
                     block_sgemm_external_pack_threading((int)output_channels, (int)output_width * (int)output_height,
                                                         (int)input_channels/group * (int)kernel_width * (int)kernel_height,
-                                                        (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads);
+                                                        (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, packB);
             }
         }
 
@@ -143,29 +137,23 @@ public:
     {
         const int output_h = height - kernel_h + 1;
         const int output_w = width  - kernel_w + 1;
-        float* data_im_channel;
-        float* data_im_kh;
-        float* data_im_kw;
-        float* data_col_channel;
-        float* data_col_kh;
-        float* data_col_kw;
 
         #pragma omp parallel for num_threads(num_threads)
         for (int channel = 0; channel < channels; channel++)
         {
-            data_im_channel = (float*)data_im + channel*height*width;
-            data_col_channel = (float*)data_col + channel*kernel_h*kernel_w*output_h*output_w;
+            const float* data_im_channel  = data_im  + channel*height*width;
+            float* data_col_channel = data_col + channel*kernel_h*kernel_w*output_h*output_w;
             for (int kh = 0; kh < kernel_h; kh++)
             {
-                data_im_kh = data_im_channel + kh*width;
-                data_col_kh = data_col_channel + kh*kernel_w*output_h*output_w;
+                const float* data_im_kh = data_im_channel + kh*width;
+                float* data_col_kh = data_col_channel + kh*kernel_w*output_h*output_w;
                 for (int kw = 0; kw < kernel_w; kw++)
                 {
-                    data_im_kw = data_im_kh + kw;
-                    data_col_kw = data_col_kh + kw*output_h*output_w;
+                    const float* data_im_kw = data_im_kh + kw;
+                    float* data_col_kw = data_col_kh + kw*output_h*output_w;
                     for (int i = 0; i < output_h; i++)
                     {
-                        memcpy(data_col_kw+i*output_w, data_im_kw + i*width, output_w*sizeof(*data_im));
+                        memcpy(data_col_kw+i*output_w, data_im_kw + i*width, output_w*sizeof(float));
                     }
                 }
             }
@@ -178,7 +166,7 @@ public:
                 (1 == stride_height) && (1 == stride_width) &&
                 (3 == kernel_height) && (3 == kernel_width))
         {
-#ifndef __aarch64__
+#if 0//ndef __aarch64__
             unsigned int OutChannelSize = output_height*output_width*3*3;
             unsigned int InChannelSize = input_height*input_width;
 
@@ -193,6 +181,17 @@ public:
                               1, 1,
                               img_buffer);
 #endif
+        }
+        else if ((0 == padding_left) && (0 == padding_right) && (0 == padding_top) && (0 == padding_bottom) &&
+                 (1 == stride_height) && (1 == stride_width) &&
+                 (2 == kernel_height) && (2 == kernel_width))
+        {
+            im2col_cpu_reduce(input, input_channels, input_height, input_width,
+                              2, 2,
+                              0, 0,
+                              1, 1,
+                              1, 1,
+                              img_buffer);
         }
         else
         {
@@ -273,14 +272,17 @@ public:
         if (0 == fractions)
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(float) * eM * K));
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB, sizeof(short) * kc * (int)output_width * (int)output_height));
         }
         else if (8 == fractions)
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(char) * eM * K));
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB, sizeof(short) * kc * (int)output_width * (int)output_height));
         }
         else
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(short) * eM * K));
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB, sizeof(float) * kc * (int)output_width * (int)output_height));
         }
         MEMPOOL_CHECK_RETURN(common_mempool->Request(sizeof(float)*(input_channels*kernel_height*kernel_width)*(output_width*output_height),
                              this->name()+" ["+this->type()+"]"));
@@ -317,8 +319,10 @@ public:
         output = _top_blobs[_top[0]]->data();
         return 0;
     }
+
 private:
-    void* packed_kernel;
-    float* img_buffer;
+    void *packed_kernel;
+    void *packB;
+    float *img_buffer;
 };
 };

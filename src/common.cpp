@@ -83,7 +83,7 @@ int makeDir(const char* inpath)
         if('/' == currentPath[i])
         {
             currentPath[i] = '\0';
-            if(access(currentPath, NULL) != 0)
+            if(access(currentPath, 0) != 0)
             {
                 if(mkdir(currentPath, 0755) == -1)
                 {

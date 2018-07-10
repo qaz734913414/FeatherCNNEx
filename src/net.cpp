@@ -54,6 +54,9 @@ Net::~Net()
 
     for(auto loop:layers)
         delete loop;
+
+    blob_map.clear();
+    layer_map.clear();
 }
 
 int Net::ExtractBlob(float* output_ptr, std::string name)

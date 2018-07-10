@@ -23,7 +23,7 @@ void fully_connected_inference_direct(const int input_size, const int output_siz
     #pragma omp parallel for schedule(static) num_threads(num_threads)
     for(int i=0; i<output_size; i++)
     {
-        float sum = 0;
+        float sum = .0f;
         for(int j=0; j<input_size; j++)
             sum += x[j]*y[i*input_size + j];
         z[i] = sum;
@@ -34,45 +34,63 @@ void fully_connected_transpose_inference_neon8(const int input_size, const int o
 {
     assert(input_size %8==0);
     assert(output_size%8==0);
+    uint32x4_t tmp;
+    float32x4_t zero;
+    tmp = veorq_u32(tmp, tmp);
+    zero = vreinterpretq_f32_u32(tmp);
     #pragma omp parallel for schedule(static) num_threads(num_threads)
     for(int k=0; k < output_size / 8; k++)
     {
         const float *yPtr = y + k * 8 * input_size;
-        float32x4_t res = {0.0,0.0,0.0,0.0};
-        float32x4_t res1 = {0.0,0.0,0.0,0.0};
-        float32x4_t va, vb0, vb1, vb2, vb3, vb4, vb5, vb6, vb7;
+        float32x4_t res, res1;
+        res = zero;
+        res1 = zero;
         for(int i=0; i<input_size; i+=4)
         {
-            //          float32x4_t v1, v2;
-            va = vld1q_f32(x + i);
-
-            vb0 = vld1q_f32(yPtr);
-            vb1 = vld1q_f32(yPtr + 4);
-            vb2 = vld1q_f32(yPtr + 8);
-            vb3 = vld1q_f32(yPtr + 12);
-            vb4 = vld1q_f32(yPtr + 16);
-            vb5 = vld1q_f32(yPtr + 20);
-            vb6 = vld1q_f32(yPtr + 24);
-            vb7 = vld1q_f32(yPtr + 28);
+            float32x4_t vb0 = vld1q_f32(yPtr);
+            float32x4_t vb1 = vld1q_f32(yPtr + 4);
+            float32x4_t vb2 = vld1q_f32(yPtr + 8);
+            float32x4_t vb3 = vld1q_f32(yPtr + 12);
+            float32x4_t vb4 = vld1q_f32(yPtr + 16);
+            float32x4_t vb5 = vld1q_f32(yPtr + 20);
+            float32x4_t vb6 = vld1q_f32(yPtr + 24);
+            float32x4_t vb7 = vld1q_f32(yPtr + 28);
 
 #if __aarch64__
-            res = vfmaq_laneq_f32(res, vb0, va, 0);
+            float32x4_t va = vld1q_f32(x + i);
+
+            res  = vfmaq_laneq_f32(res,  vb0, va, 0);
             res1 = vfmaq_laneq_f32(res1, vb1, va, 0);
-            res = vfmaq_laneq_f32(res, vb2, va, 1);
+            res  = vfmaq_laneq_f32(res,  vb2, va, 1);
             res1 = vfmaq_laneq_f32(res1, vb3, va, 1);
-            res = vfmaq_laneq_f32(res, vb4, va, 2);
+            res  = vfmaq_laneq_f32(res,  vb4, va, 2);
             res1 = vfmaq_laneq_f32(res1, vb5, va, 2);
-            res = vfmaq_laneq_f32(res, vb6, va, 3);
+            res  = vfmaq_laneq_f32(res,  vb6, va, 3);
             res1 = vfmaq_laneq_f32(res1, vb7, va, 3);
 #else
-            res = vmlaq_f32(res, vb0, vld1q_dup_f32(x + i + 0));
-            res1 = vmlaq_f32(res1, vb1, vld1q_dup_f32(x + i + 0));
-            res = vmlaq_f32(res, vb2, vld1q_dup_f32(x + i + 1));
-            res1 = vmlaq_f32(res1, vb3, vld1q_dup_f32(x + i + 1));
-            res = vmlaq_f32(res, vb4, vld1q_dup_f32(x + i + 2));
-            res1 = vmlaq_f32(res1, vb5, vld1q_dup_f32(x + i + 2));
-            res = vmlaq_f32(res, vb6, vld1q_dup_f32(x + i + 3));
-            res1 = vmlaq_f32(res1, vb7, vld1q_dup_f32(x + i + 3));
+#if 1
+            float32x4_t va = vld1q_f32(x + i);
+
+            float32x2_t va_0 = vget_low_f32(va);
+            float32x2_t va_1 = vget_high_f32(va);
+            res  = vmlaq_lane_f32(res,  vb0, va_0, 0);
+            res1 = vmlaq_lane_f32(res1, vb1, va_0, 0);
+            res  = vmlaq_lane_f32(res,  vb2, va_0, 1);
+            res1 = vmlaq_lane_f32(res1, vb3, va_0, 1);
+            res  = vmlaq_lane_f32(res,  vb4, va_1, 0);
+            res1 = vmlaq_lane_f32(res1, vb5, va_1, 0);
+            res  = vmlaq_lane_f32(res,  vb6, va_1, 1);
+            res1 = vmlaq_lane_f32(res1, vb7, va_1, 1);
+#else
+            res  = vmlaq_n_f32(res,  vb0, *(x + i + 0));
+            res1 = vmlaq_n_f32(res1, vb1, *(x + i + 0));
+            res  = vmlaq_n_f32(res,  vb2, *(x + i + 1));
+            res1 = vmlaq_n_f32(res1, vb3, *(x + i + 1));
+            res  = vmlaq_n_f32(res,  vb4, *(x + i + 2));
+            res1 = vmlaq_n_f32(res1, vb5, *(x + i + 2));
+            res  = vmlaq_n_f32(res,  vb6, *(x + i + 3));
+            res1 = vmlaq_n_f32(res1, vb7, *(x + i + 3));
+#endif
 #endif
 
             yPtr += 32;

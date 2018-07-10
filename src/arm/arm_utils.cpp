@@ -63,14 +63,23 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
     float* ptr2 = ptr1 + size;
 
     int nn = size >> 3;
+    int i = 0;
     int remain = size - (nn << 3);
 
     float32x4_t mean32x4  = vdupq_n_f32(mean);
     float32x4_t scale32x4 = vdupq_n_f32(scale);
 
-    for (; nn>0; nn--)
+    //for (; nn>0; nn--)
+    #pragma omp parallel for num_threads(2)
+    for ( i = 0; i < nn; i++)
     {
-        uint8x8x3_t _rgb = vld3_u8(rgb);
+        float *pdst0, *pdst1, *pdst2;
+
+        pdst0 = ptr0 + 8*i;
+        pdst1 = ptr1 + 8*i;
+        pdst2 = ptr2 + 8*i;
+
+        uint8x8x3_t _rgb = vld3_u8(rgb + 3*8*i);
         uint16x8_t _r16 = vmovl_u8(_rgb.val[0]);
         uint16x8_t _g16 = vmovl_u8(_rgb.val[1]);
         uint16x8_t _b16 = vmovl_u8(_rgb.val[2]);
@@ -98,28 +107,28 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
 
         if (bgr)
         {
-            vst1q_f32(ptr0, _blow);
-            vst1q_f32(ptr0+4, _bhigh);
-            vst1q_f32(ptr1, _glow);
-            vst1q_f32(ptr1+4, _ghigh);
-            vst1q_f32(ptr2, _rlow);
-            vst1q_f32(ptr2+4, _rhigh);
+            vst1q_f32(pdst0, _blow);
+            vst1q_f32(pdst0+4, _bhigh);
+            vst1q_f32(pdst1, _glow);
+            vst1q_f32(pdst1+4, _ghigh);
+            vst1q_f32(pdst2, _rlow);
+            vst1q_f32(pdst2+4, _rhigh);
         }
         else
         {
-            vst1q_f32(ptr0, _rlow);
-            vst1q_f32(ptr0+4, _rhigh);
-            vst1q_f32(ptr1, _glow);
-            vst1q_f32(ptr1+4, _ghigh);
-            vst1q_f32(ptr2, _blow);
-            vst1q_f32(ptr2+4, _bhigh);
+            vst1q_f32(pdst0, _rlow);
+            vst1q_f32(pdst0+4, _rhigh);
+            vst1q_f32(pdst1, _glow);
+            vst1q_f32(pdst1+4, _ghigh);
+            vst1q_f32(pdst2, _blow);
+            vst1q_f32(pdst2+4, _bhigh);
         }
-
-        rgb += 3*8;
-        ptr0 += 8;
-        ptr1 += 8;
-        ptr2 += 8;
     }
+
+    rgb += 3*8*i;
+    ptr0 += 8*i;
+    ptr1 += 8*i;
+    ptr2 += 8*i;
 
     for (; remain>0; remain--)
     {
@@ -145,55 +154,3 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
     return;
 }
 
-int NE_pnetSoftmax(float* src, int cols, int rows, int sstep, float *dst)
-{
-    float *c0 = src;
-    float *c1 = src + cols*rows;
-
-    for (int y = 0; y < rows; y++)
-    {
-        float* ptr0 = c0 + y*sstep;
-        float* ptr1 = c1 + y*sstep;
-        float *dst0 = dst + y*cols;
-        float *dst1 = dst + y*cols;
-
-        int x = 0;
-        for( ; x <= cols - 4; x += 4 )
-        {
-            float32x4_t vsrc0f32x4 = vld1q_f32(&ptr0[x]);
-            float32x4_t vsrc1f32x4 = vld1q_f32(&ptr1[x]);
-            float32x4_t vmaxf32x4  = vmaxq_f32(vsrc0f32x4, vsrc1f32x4);
-
-            vsrc0f32x4 = vsubq_f32(vsrc0f32x4, vmaxf32x4);
-            vsrc0f32x4 = exp_ps(vsrc0f32x4);
-
-            vsrc1f32x4 = vsubq_f32(vsrc1f32x4, vmaxf32x4);
-            vsrc1f32x4 = exp_ps(vsrc1f32x4);
-
-            float32x4_t vsumf32x4 = vaddq_f32(vsrc0f32x4, vsrc1f32x4);
-
-            float32x4_t reciprocal = vrecpeq_f32(vsumf32x4);
-            reciprocal = vmulq_f32(vrecpsq_f32(vsumf32x4, reciprocal), reciprocal);
-
-            vsrc0f32x4 = vmulq_f32(vsrc0f32x4, reciprocal);
-            vsrc1f32x4 = vmulq_f32(vsrc1f32x4, reciprocal);
-
-            vst1q_f32(&dst0[x], vsrc0f32x4);
-            vst1q_f32(&dst1[x], vsrc1f32x4);
-        }
-
-        for( ; x < cols; x++ )
-        {
-            float maxv = MAX(ptr0[x], ptr1[x]);
-
-            ptr0[x] = exp(ptr0[x] - maxv);
-            ptr1[x] = exp(ptr1[x] - maxv);
-
-            float sum = ptr0[x] + ptr1[x];
-
-            dst0[x] /= sum;
-            dst1[x] /= sum;
-        }
-    }
-    return 0;
-}

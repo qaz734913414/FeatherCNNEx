@@ -59,4 +59,3 @@ static inline void vst1q_f16_f32(void* address, float32x4_t vector)
 
 void fill(float * ptr, int size, float _v);
 void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, float scale, int bgr);
-int NE_pnetSoftmax(float* src, int cols, int rows, int sstep, float *dst);

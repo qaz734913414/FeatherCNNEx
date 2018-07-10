@@ -56,6 +56,7 @@ void max_pool_inner_kernel(float* out, const float* in, const size_t ldin, const
 
 static void pooling2x2s2_max_neon(float *input, int w, int h, int inch, float *output, int outw, int outh, int num_threads)
 {
+    #pragma omp parallel for num_threads(num_threads)
     for (int q=0; q<inch; q++)
     {
         const float* img0 = input + q*w*h;
@@ -207,6 +208,7 @@ static void pooling2x2s2_max_neon(float *input, int w, int h, int inch, float *o
 
 static void pooling3x3s2_max_neon(float *input, int w, int h, int inch, float *output, int outw, int outh, int num_threads)
 {
+    #pragma omp parallel for num_threads(num_threads)
     for (int q=0; q<inch; q++)
     {
         const float* img0 = input + q*w*h;
