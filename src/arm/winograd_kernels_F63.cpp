@@ -1218,7 +1218,7 @@ static inline void winograd_f6k3_output_transform_inplace(
 }
 
 template<bool HAS_RELU, bool HAS_BIAS>
-static void winogradOutputTransformF63(float *output, int outputh, int outputw, int ldout, float *WT, int outChannels, int nRowBlocks, int nColBlocks, float* biasArr, int num_threads)
+static void winogradOutputTransformF63(float *output, int outputh, int outputw, int ldout, float *WT, int outChannels, int nRowBlocks, int nColBlocks, float* biasArr, int num_threads, float *preluData, bool sharedPrelu, WinogradOutType outType)
 {
     const float32x4_t vZero = vdupq_n_f32(0.f);
     int nBlocks = nRowBlocks * nColBlocks;
@@ -1285,6 +1285,7 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
                 neon_transpose4x4_inplace_f32_cpp(r4, r5, r6, r7);
                 winograd_f6k3_output_transform_inplace(l0, l1, l2, l3, r0, r1, r2, r3);
                 winograd_f6k3_output_transform_inplace(l4, l5, l6, l7, r4, r5, r6, r7);
+
                 if(HAS_BIAS)
                 {
                     float32x4_t vBias = vdupq_n_f32(biasArr[oc]);
@@ -1304,18 +1305,75 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
 
                 if(HAS_RELU)
                 {
-                    l0 = vmaxq_f32(l0, vZero);
-                    l1 = vmaxq_f32(l1, vZero);
-                    l2 = vmaxq_f32(l2, vZero);
-                    l3 = vmaxq_f32(l3, vZero);
-                    l4 = vmaxq_f32(l4, vZero);
-                    l5 = vmaxq_f32(l5, vZero);
-                    l6 = vmaxq_f32(l6, vZero);
-                    l7 = vmaxq_f32(l7, vZero);
-                    r0 = vmaxq_f32(r0, vZero);
-                    r1 = vmaxq_f32(r1, vZero);
-                    r4 = vmaxq_f32(r4, vZero);
-                    r5 = vmaxq_f32(r5, vZero);
+                    if ((BiasPReLU == outType) || (PReLU == outType))
+                    {
+                        float slope = sharedPrelu ? preluData[0]:preluData[oc];
+
+                        float32x4_t vslopef32x4 = vdupq_n_f32(slope);
+
+                        uint32x4_t vmasku32x4 = vcleq_f32(l0, vZero);
+                        float32x4_t vmulf32x4 = vmulq_f32(l0, vslopef32x4);
+                        l0 = vbslq_f32(vmasku32x4, vmulf32x4, l0);
+
+                        vmasku32x4 = vcleq_f32(l1, vZero);
+                        vmulf32x4 = vmulq_f32(l1, vslopef32x4);
+                        l1 = vbslq_f32(vmasku32x4, vmulf32x4, l1);
+
+                        vmasku32x4 = vcleq_f32(l2, vZero);
+                        vmulf32x4 = vmulq_f32(l2, vslopef32x4);
+                        l2 = vbslq_f32(vmasku32x4, vmulf32x4, l2);
+
+                        vmasku32x4 = vcleq_f32(l3, vZero);
+                        vmulf32x4 = vmulq_f32(l3, vslopef32x4);
+                        l3 = vbslq_f32(vmasku32x4, vmulf32x4, l3);
+
+                        vmasku32x4 = vcleq_f32(l4, vZero);
+                        vmulf32x4 = vmulq_f32(l4, vslopef32x4);
+                        l4 = vbslq_f32(vmasku32x4, vmulf32x4, l4);
+
+                        vmasku32x4 = vcleq_f32(l5, vZero);
+                        vmulf32x4 = vmulq_f32(l5, vslopef32x4);
+                        l5 = vbslq_f32(vmasku32x4, vmulf32x4, l5);
+
+                        vmasku32x4 = vcleq_f32(l6, vZero);
+                        vmulf32x4 = vmulq_f32(l6, vslopef32x4);
+                        l6 = vbslq_f32(vmasku32x4, vmulf32x4, l6);
+
+                        vmasku32x4 = vcleq_f32(l7, vZero);
+                        vmulf32x4 = vmulq_f32(l7, vslopef32x4);
+                        l7 = vbslq_f32(vmasku32x4, vmulf32x4, l7);
+
+                        vmasku32x4 = vcleq_f32(r0, vZero);
+                        vmulf32x4 = vmulq_f32(r0, vslopef32x4);
+                        r0 = vbslq_f32(vmasku32x4, vmulf32x4, r0);
+
+                        vmasku32x4 = vcleq_f32(r1, vZero);
+                        vmulf32x4 = vmulq_f32(r1, vslopef32x4);
+                        r1 = vbslq_f32(vmasku32x4, vmulf32x4, r1);
+
+                        vmasku32x4 = vcleq_f32(r4, vZero);
+                        vmulf32x4 = vmulq_f32(r4, vslopef32x4);
+                        r4 = vbslq_f32(vmasku32x4, vmulf32x4, r4);
+
+                        vmasku32x4 = vcleq_f32(r5, vZero);
+                        vmulf32x4 = vmulq_f32(r5, vslopef32x4);
+                        r5 = vbslq_f32(vmasku32x4, vmulf32x4, r5);
+                    }
+                    else
+                    {
+                        l0 = vmaxq_f32(l0, vZero);
+                        l1 = vmaxq_f32(l1, vZero);
+                        l2 = vmaxq_f32(l2, vZero);
+                        l3 = vmaxq_f32(l3, vZero);
+                        l4 = vmaxq_f32(l4, vZero);
+                        l5 = vmaxq_f32(l5, vZero);
+                        l6 = vmaxq_f32(l6, vZero);
+                        l7 = vmaxq_f32(l7, vZero);
+                        r0 = vmaxq_f32(r0, vZero);
+                        r1 = vmaxq_f32(r1, vZero);
+                        r4 = vmaxq_f32(r4, vZero);
+                        r5 = vmaxq_f32(r5, vZero);
+                    }
                 }
 
                 float *outFrame = output + oc * outputw * outputh + j * outputw * 6 + i * 6;
@@ -1374,7 +1432,7 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
 }
 
 template<typename T>
-void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float *VT, T *UT, int inChannels, int outChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads)
+void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float *VT, T *UT, int inChannels, int outChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads, float *preluData, bool sharedPrelu)
 {
     int nBlocks = nRowBlocks * nColBlocks;
 //#define TIME_PROFILE
@@ -1410,16 +1468,18 @@ void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float 
     switch (outType)
     {
     case None:
-        winogradOutputTransformF63<false, false>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
+        winogradOutputTransformF63<false, false>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads, preluData, sharedPrelu, outType);
         break;
     case ReLU:
-        winogradOutputTransformF63<true, false>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
+    case PReLU:
+        winogradOutputTransformF63<true, false>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads, preluData, sharedPrelu, outType);
         break;
     case Bias:
-        winogradOutputTransformF63<false, true>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
+        winogradOutputTransformF63<false, true>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads, preluData, sharedPrelu, outType);
         break;
     case BiasReLU:
-        winogradOutputTransformF63<true, true>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
+    case BiasPReLU:
+        winogradOutputTransformF63<true, true>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads, preluData, sharedPrelu, outType);
         break;
     }
 #ifdef TIME_PROFILE
@@ -1427,19 +1487,19 @@ void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float 
 #endif
 }
 
-template void winogradNonFusedTransform_inner<fix16_t>(float *output, int ldout, float *WT, float *VT, fix16_t *UT, int inChannels, int outChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads);
-template void winogradNonFusedTransform_inner<float>(float *output, int ldout, float *WT, float *VT, float *UT, int inChannels, int outChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads);
+template void winogradNonFusedTransform_inner<fix16_t>(float *output, int ldout, float *WT, float *VT, fix16_t *UT, int inChannels, int outChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads, float *preluData, bool sharedPrelu);
+template void winogradNonFusedTransform_inner<float>(float *output, int ldout, float *WT, float *VT, float *UT, int inChannels, int outChannels, float *input, int inputh, int inputw, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads, float *preluData, bool sharedPrelu);
 
 template<typename T>
-void winogradNonFusedTransform_F6x6_3x3(float *output, int outChannels, float *WT, float *VT, T *UT, float *input, int inChannels, int inputh, int inputw, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads)
+void winogradNonFusedTransform_F6x6_3x3(float *output, int outChannels, float *WT, float *VT, T *UT, float *input, int inChannels, int inputh, int inputw, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads, float *preluData, bool sharedPrelu)
 {
     const int inputFrameStride = inputw * inputh;
     const int nRowBlocks = (inputw + 3) / 6;
     const int nColBlocks = (inputh + 3) / 6;
     const int ldout = inputw - 2;
-    winogradNonFusedTransform_inner(output, ldout, WT, VT, UT, inChannels, outChannels, input, inputh, inputw, inputFrameStride, inputw, nRowBlocks, nColBlocks, outType, biasArr, pack_array, num_threads);
+    winogradNonFusedTransform_inner(output, ldout, WT, VT, UT, inChannels, outChannels, input, inputh, inputw, inputFrameStride, inputw, nRowBlocks, nColBlocks, outType, biasArr, pack_array, num_threads, preluData, sharedPrelu);
 }
 
-template void winogradNonFusedTransform_F6x6_3x3<fix16_t>(float *output, int outChannels, float *WT, float *VT, fix16_t *UT, float *input, int inChannels, int inputh, int inputw, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads);
-template void winogradNonFusedTransform_F6x6_3x3<float>(float *output, int outChannels, float *WT, float *VT, float *UT, float *input, int inChannels, int inputh, int inputw, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads);
+template void winogradNonFusedTransform_F6x6_3x3<fix16_t>(float *output, int outChannels, float *WT, float *VT, fix16_t *UT, float *input, int inChannels, int inputh, int inputw, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads, float *preluData, bool sharedPrelu);
+template void winogradNonFusedTransform_F6x6_3x3<float>(float *output, int outChannels, float *WT, float *VT, float *UT, float *input, int inChannels, int inputh, int inputw, WinogradOutType outType, float *biasArr, float* pack_array, int num_threads, float *preluData, bool sharedPrelu);
 

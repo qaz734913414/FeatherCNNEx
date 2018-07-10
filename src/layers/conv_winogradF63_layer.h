@@ -33,6 +33,7 @@ public:
         : ConvLayer(layer_param, rt_param)
     {
         fuse_relu = false;
+        fuse_prelu = false;
         _fusible = true;
         packInputSize = 0;
     }
@@ -56,10 +57,21 @@ public:
         else
             padded_input = input;
 #ifdef WINOGRAD_FP16_ENABLE
-        winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT_FIX, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, packInput, num_threads);
+        winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT_FIX, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, packInput, num_threads, slopeDataPrelu, sharedPrelu);
 #else
-        winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, packInput, num_threads);
+        winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, packInput, num_threads, slopeDataPrelu, sharedPrelu);
 #endif
+
+        if ((fuse_prelu) && (consumersNum > 1))
+        {
+            unsigned outSize = output_channels*output_width*output_height;
+            for (int i = 0; i < consumersNum; i++)
+            {
+                unsigned consumerBranchId = pNet->layer_map[consumers[i]]->branchId;
+                memcpy(pNet->pingpang[consumerBranchId][0], output, outSize*sizeof(float));
+            }
+        }
+
         return 0;
     }
 
@@ -68,6 +80,22 @@ public:
         if(next_layer->type().compare("ReLU") == 0)
         {
             fuse_relu = true;
+            return 1;
+        }
+        else if(next_layer->type().compare("PReLU") == 0)
+        {
+            fusedWeightBlobId = _weight_blobs.size();
+            Blob<float>* p_blob = new Blob<float>();
+            p_blob->Copy(next_layer->weight_blob(0));
+            _weight_blobs.push_back(p_blob);
+
+            consumers.clear();
+            consumers.assign(next_layer->consumers.begin(), next_layer->consumers.end());
+            consumersNum = next_layer->consumersNum;
+            fuse_prelu = true;
+            sharedPrelu = _weight_blobs[fusedWeightBlobId]->data_size() > 1 ? false : true;
+            slopeDataPrelu = _weight_blobs[fusedWeightBlobId]->data();
+
             return 1;
         }
         else
@@ -100,10 +128,14 @@ public:
 #endif
         if(bias_term && fuse_relu)
             winograd_out_type = BiasReLU;
+        else if(bias_term && fuse_prelu)
+            winograd_out_type = BiasPReLU;
         else if(bias_term)
             winograd_out_type = Bias;
         else if(fuse_relu)
             winograd_out_type = ReLU;
+        else if(fuse_prelu)
+            winograd_out_type = PReLU;
         else
             winograd_out_type = None;
 
@@ -125,5 +157,9 @@ private:
     size_t packInputSize;
     bool fuse_relu;
     WinogradOutType winograd_out_type;
+    unsigned fusedWeightBlobId;
+    bool fuse_prelu;
+    bool sharedPrelu;
+    float *slopeDataPrelu;
 };
 };

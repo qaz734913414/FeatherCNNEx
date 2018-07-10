@@ -84,7 +84,7 @@ public:
             }
         }
         else
-            printf("pls fix me, %s %d\n", __func__, __LINE__);
+            printf("pls fix me, %s %d\n", __FILE__, __LINE__);
 
         if (consumersNum > 1)
         {
@@ -158,10 +158,10 @@ public:
     }
 private:
     unsigned fusedWeightBlobId;
+    bool fuse_prelu;
     unsigned padInChannel;
     unsigned padOutChannel;
     float* align_input;
     float* align_output;
-    bool fuse_prelu;
 };
 };

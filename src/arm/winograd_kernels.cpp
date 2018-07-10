@@ -1052,6 +1052,10 @@ static void winogradNonFusedTransform_inner(float *output, int ldout, float* WT,
     case BiasReLU:
         winogradOutputTransformBiasReLU(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, 1);
         break;
+    case PReLU:
+    case BiasPReLU:
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+        break;
     }
 }
 
@@ -1108,6 +1112,10 @@ static void winogradNonFusedTransformMT_inner(float *output, int ldout, float* W
         break;
     case BiasReLU:
         winogradOutputTransformBiasReLU(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
+        break;
+    case PReLU:
+    case BiasPReLU:
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
         break;
     }
 }
