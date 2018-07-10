@@ -46,13 +46,22 @@ public:
 
     int Forward()
     {
-        if (output_size%8==0 && input_size%8==0)
-            fully_connected_transpose_inference_neon8((int)input_size, (int)output_size, input, kernel_data, output, num_threads);
-        else
-            fully_connected_inference_direct((int)input_size, (int)output_size, input, kernel_data, output, num_threads);
         if(bias_term)
-            for(int i=0; i<output_size; i++)
-                output[i] += bias_data[i];
+        {
+            if (output_size%8==0 && input_size%8==0)
+                fully_connected_transpose_inference_neon8_BiasReLU((int)input_size, (int)output_size, input, kernel_data, output, bias_data, num_threads);
+            else
+                fully_connected_inference_direct_BiasReLU((int)input_size, (int)output_size, input, kernel_data, output, bias_data, num_threads);
+        }
+        else
+        {
+            if (output_size%8==0 && input_size%8==0)
+                fully_connected_transpose_inference_neon8((int)input_size, (int)output_size, input, kernel_data, output, num_threads);
+            else
+                fully_connected_inference_direct((int)input_size, (int)output_size, input, kernel_data, output, num_threads);
+
+        }
+
         return 0;
     }
 

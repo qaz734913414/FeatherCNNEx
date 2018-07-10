@@ -24,7 +24,23 @@ void fully_connected_inference_direct(const int input_size, const int output_siz
     for(int i=0; i<output_size; i++)
     {
         float sum = .0f;
-        for(int j=0; j<input_size; j++)
+        int j=0;
+#ifdef __ARM_NEON
+        const float *pY = y+i*input_size;
+        float32x4_t vsum = vdupq_n_f32(0.f);;
+        for(; j<(input_size-4); j+=4)
+        {
+            //sum += x[j]*y[i*input_size + j];
+            float32x4_t vsrcx = vld1q_f32(x+j);
+            float32x4_t vsrcy = vld1q_f32(pY+j);
+            vsum = vmlaq_f32(vsum, vsrcx, vsrcy);
+        }
+        sum += vsum[0];
+        sum += vsum[1];
+        sum += vsum[2];
+        sum += vsum[3];
+#endif
+        for(; j<input_size; j++)
             sum += x[j]*y[i*input_size + j];
         z[i] = sum;
     }
@@ -105,12 +121,27 @@ void fully_connected_inference_direct_BiasReLU(int input_size, int output_size, 
     #pragma omp parallel for schedule(static) num_threads(num_threads)
     for(int i=0; i<output_size; i++)
     {
-        float sum = 0.f;
-        for(int j=0; j<input_size; j++)
+        float sum = biasArr[i];
+        int j=0;
+#ifdef __ARM_NEON
+        const float *pY = y+i*input_size;
+        float32x4_t vsum = vdupq_n_f32(0.f);;
+        for(; j<(input_size-4); j+=4)
+        {
+            //sum += x[j]*y[i*input_size + j];
+            float32x4_t vsrcx = vld1q_f32(x+j);
+            float32x4_t vsrcy = vld1q_f32(pY+j);
+            vsum = vmlaq_f32(vsum, vsrcx, vsrcy);
+        }
+        sum += vsum[0];
+        sum += vsum[1];
+        sum += vsum[2];
+        sum += vsum[3];
+#endif
+        for(; j<input_size; j++)
             sum += x[j]*y[i*input_size + j];
 
-        sum += biasArr[i];
-        if(sum < 0.f) sum = 0.f;
+        //if(sum < 0.f) sum = 0.f;
         z[i] = sum;
     }
 }
@@ -123,7 +154,7 @@ void fully_connected_transpose_inference_neon8_BiasReLU(int input_size, int outp
     for(int k=0; k < output_size / 8; k++)
     {
         float *yPtr = y + k * 8 * input_size;
-        const float32x4_t vzero = vdupq_n_f32(0.f);
+        //const float32x4_t vzero = vdupq_n_f32(0.f);
 
         float32x4_t res  = vld1q_f32(biasArr + k * 8);
         float32x4_t res1 = vld1q_f32(biasArr + k * 8 + 4);
@@ -167,60 +198,13 @@ void fully_connected_transpose_inference_neon8_BiasReLU(int input_size, int outp
         //res  = vaddq_f32(res, vBias);
         //res1 = vaddq_f32(res, vBias1);
 
-        res  = vmaxq_f32(res, vzero);
-        res1 = vmaxq_f32(res1, vzero);
+        //res  = vmaxq_f32(res, vzero);
+        //res1 = vmaxq_f32(res1, vzero);
 
         vst1q_f32((float32_t *) (z+8*k), res);
         vst1q_f32((float32_t *) (z+8*k + 4), res1);
     }
 }
-/*
-void fully_connected_transpose_inference_neon(int input_size, int output_size, float *x, float *y, float *z)
-{
-    assert(input_size %4==0);
-    assert(output_size%4==0);
-//#pragma omp parallel for num_threads(32) schedule(static)
-    for(int k=0; k<output_size/4; k++)
-    {
-        float *yPtr = y + k*4*input_size;
-        float32x4_t res = {0.0,0.0,0.0,0.0};
-
-        for(int i=0; i<input_size; i+=4)
-        {
-            float32x4_t v1, v2;
-            v2 = vld1q_f32(x + i);
-
-#if __aarch64__
-            v1 = vld1q_f32(yPtr);
-            res = vfmaq_laneq_f32(res, v1, v2, 0);
-
-            v1 = vld1q_f32(yPtr + 4);
-            res = vfmaq_laneq_f32(res, v1, v2, 1);
-
-            v1 = vld1q_f32(yPtr + 8);
-            res = vfmaq_laneq_f32(res, v1, v2, 2);
-
-            v1 = vld1q_f32(yPtr + 12);
-            res = vfmaq_laneq_f32(res, v1, v2, 3);
-#else
-            v1 = vld1q_f32(yPtr);
-            res = vmlaq_f32(res, v1, vld1q_dup_f32(x + i + 0));
-
-            v1 = vld1q_f32(yPtr + 4);
-            res = vmlaq_f32(res, v1, vld1q_dup_f32(x + i + 1));
-
-            v1 = vld1q_f32(yPtr + 8);
-            res = vmlaq_f32(res, v1, vld1q_dup_f32(x + i + 2));
-
-            v1 = vld1q_f32(yPtr + 12);
-            res = vmlaq_f32(res, v1, vld1q_dup_f32(x + i + 3));
-#endif
-            yPtr += 16;
-        }
-        vst1q_f32((float32_t *) (z+4*k), res);
-    }
-}
-*/
 
 void matrixTranspose(float* array, size_t m, size_t n, float *buffer)//  A[m][n] -> A[n][m]
 {
