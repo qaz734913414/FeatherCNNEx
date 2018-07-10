@@ -717,41 +717,41 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
             if (nn > 0)
             {
                 asm volatile(
-                    "pld        [%7, #128]              \n"
+                    "pld        [%7, #64]               \n"
                     "vld1.f32   {d24-d25}, [%7 :128]!   \n"// q12 = r0
 
-                    "pld        [%1, #128]              \n"
+                    "pld        [%1, #64]               \n"
                     "vld1.f32   {d12-d13}, [%1 :128]    \n"// q6 = outptr0
 
-                    "pld        [%2, #128]              \n"
+                    "pld        [%2, #64]               \n"
                     "vld1.f32   {d14-d15}, [%2 :128]    \n"// q7 = outptr1
 
                     "vmla.f32   q6, q12, %e22[0]        \n"
 
                     "0:                                 \n"
 
-                    "pld        [%3, #128]              \n"
+                    "pld        [%3, #64]               \n"
                     "vld1.f32   {d16-d17}, [%3 :128]    \n"// q8 = outptr2
 
                     "vmla.f32   q7, q12, %e23[0]        \n"
 
-                    "pld        [%4, #128]              \n"
+                    "pld        [%4, #64]               \n"
                     "vld1.f32   {d18-d19}, [%4 :128]    \n"// q9 = outptr3
 
                     "vmla.f32   q8, q12, %e24[0]        \n"
 
-                    "pld        [%8, #128]              \n"
+                    "pld        [%8, #64]               \n"
                     "vld1.f32   {d26-d27}, [%8 :128]!   \n"// q13 = r1
 
                     "vmla.f32   q9, q12, %e25[0]        \n"
 
-                    "pld        [%5, #128]              \n"
+                    "pld        [%5, #64]               \n"
                     "vld1.f32   {d20-d21}, [%5 :128]    \n"// q10 = outptr4
 
                     "vmla.f32   q6, q13, %e22[1]        \n"
                     "vmla.f32   q7, q13, %e23[1]        \n"
 
-                    "pld        [%6, #128]              \n"
+                    "pld        [%6, #64]               \n"
                     "vld1.f32   {d22-d23}, [%6 :128]    \n"// q11 = outptr5
 
                     "vmla.f32   q10, q12, %e26[0]       \n"
@@ -760,10 +760,11 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "vmla.f32   q8, q13, %e24[1]        \n"
                     "vmla.f32   q9, q13, %e25[1]        \n"
 
-                    "pld        [%9, #128]              \n"
+                    "pld        [%9, #64]               \n"
                     "vld1.f32   {d28-d29}, [%9 :128]!   \n"// q14 = r2
 
                     "vmla.f32   q10, q13, %e26[1]       \n"
+                    "pld        [%10, #64]              \n"
                     "vmla.f32   q11, q13, %e27[1]       \n"
 
                     "vmla.f32   q6, q14, %f22[0]        \n"
@@ -771,10 +772,10 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "vmla.f32   q8, q14, %f24[0]        \n"
                     "vmla.f32   q9, q14, %f25[0]        \n"
 
-                    "pld        [%10, #128]             \n"
                     "vld1.f32   {d30-d31}, [%10 :128]!  \n"// q15 = r3
 
                     "vmla.f32   q10, q14, %f26[0]       \n"
+                    "pld        [%7, #64]               \n"
                     "vmla.f32   q11, q14, %f27[0]       \n"
 
                     "vmla.f32   q6, q15, %f22[1]        \n"
@@ -782,7 +783,6 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "vmla.f32   q8, q15, %f24[1]        \n"
                     "vmla.f32   q9, q15, %f25[1]        \n"
 
-                    "pld        [%7, #128]              \n"
                     "vld1.f32   {d24-d25}, [%7 :128]!   \n"// q12 = r0
 
                     "vmla.f32   q10, q15, %f26[1]       \n"
@@ -791,7 +791,7 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "vst1.f32   {d12-d13}, [%1 :128]!   \n"
                     "vst1.f32   {d14-d15}, [%2 :128]!   \n"
 
-                    "pld        [%1, #128]              \n"
+                    "pld        [%1, #64]               \n"
                     "vld1.f32   {d12-d13}, [%1 :128]    \n"// q6 = outptr0
 
                     "vst1.f32   {d16-d17}, [%3 :128]!   \n"
@@ -799,12 +799,11 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
 
                     "vmla.f32   q6, q12, %e22[0]        \n"
 
-                    "pld        [%2, #128]              \n"
+                    "pld        [%2, #64]               \n"
                     "vld1.f32   {d14-d15}, [%2 :128]    \n"// q7 = outptr1
 
-                    "subs       %0, #1                  \n"
-
                     "vst1.f32   {d20-d21}, [%5 :128]!   \n"
+                    "subs       %0, #1                  \n"
                     "vst1.f32   {d22-d23}, [%6 :128]!   \n"
 
                     "bne        0b                      \n"
@@ -921,47 +920,47 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
             if (nn > 0)
             {
                 asm volatile(
-                    "pld        [%7, #128]              \n"
+                    "pld        [%7, #64]               \n"
                     "vld1.f32   {d24-d25}, [%7 :128]!   \n"// q12 = r0
 
-                    "pld        [%1, #128]              \n"
+                    "pld        [%1, #64]               \n"
                     "vld1.f32   {d12-d13}, [%1 :128]    \n"// q6 = outptr0
 
                     "0:                                 \n"
 
-                    "pld        [%2, #128]              \n"
+                    "pld        [%2, #64]               \n"
                     "vld1.f32   {d14-d15}, [%2 :128]    \n"// q7 = outptr1
 
                     "vmla.f32   q6, q12, %q16           \n"
 
-                    "pld        [%3, #128]              \n"
+                    "pld        [%3, #64]               \n"
                     "vld1.f32   {d16-d17}, [%3 :128]    \n"// q8 = outptr2
 
                     "vmla.f32   q7, q12, %q17           \n"
 
-                    "pld        [%4, #128]              \n"
+                    "pld        [%4, #64]               \n"
                     "vld1.f32   {d18-d19}, [%4 :128]    \n"// q9 = outptr3
 
                     "vmla.f32   q8, q12, %q18           \n"
 
-                    "pld        [%5, #128]              \n"
+                    "pld        [%5, #64]               \n"
                     "vld1.f32   {d20-d21}, [%5 :128]    \n"// q10 = outptr4
 
                     "vmla.f32   q9, q12, %q19           \n"
 
-                    "pld        [%6, #128]              \n"
+                    "pld        [%6, #64]               \n"
                     "vld1.f32   {d22-d23}, [%6 :128]    \n"// q11 = outptr5
 
                     "vmla.f32   q10, q12, %q20          \n"
                     "vmla.f32   q11, q12, %q21          \n"
 
-                    "pld        [%7, #128]              \n"
+                    "pld        [%7, #64]               \n"
                     "vld1.f32   {d24-d25}, [%7 :128]!   \n"// q12 = r0
 
                     "vst1.f32   {d12-d13}, [%1 :128]!   \n"
                     "vst1.f32   {d14-d15}, [%2 :128]!   \n"
 
-                    "pld        [%1, #128]              \n"
+                    "pld        [%1, #64]               \n"
                     "vld1.f32   {d12-d13}, [%1 :128]    \n"// q6 = outptr0
 
                     "vst1.f32   {d16-d17}, [%3 :128]!   \n"
@@ -1229,26 +1228,27 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
 
                     "vmla.f32   q8, q6, %e18[0]         \n"
 
-                    "pld        [%2, #256]              \n"
+                    "pld        [%2, #64]               \n"
                     "vld1.f32   {d20-d23}, [%2 :128]    \n"
                     "vmla.f32   q9, q7, %e18[0]         \n"
 
                     "vmla.f32   q10, q6, %e19[0]        \n"
 
-                    "pld        [%3, #256]              \n"
+                    "pld        [%3, #64]               \n"
                     "vld1.f32   {d24-d27}, [%3 :128]    \n"
                     "vmla.f32   q11, q7, %e19[0]        \n"
 
                     "vmla.f32   q12, q6, %e20[0]        \n"
 
-                    "pld        [%4, #256]              \n"
+                    "pld        [%4, #64]               \n"
                     "vld1.f32   {d28-d31}, [%4 :128]    \n"
                     "vmla.f32   q13, q7, %e20[0]        \n"
 
-                    "pld        [%6, #256]              \n"
+                    "pld        [%6, #64]               \n"
                     "vld1.f32   {d8-d11}, [%6 :128]!    \n"
 
                     "vmla.f32   q14, q6, %e21[0]        \n"
+                    "pld        [%7, #64]               \n"
                     "vmla.f32   q15, q7, %e21[0]        \n"
 
                     "vmla.f32   q8, q4, %e18[1]         \n"
@@ -1260,10 +1260,10 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "vmla.f32   q12, q4, %e20[1]        \n"
                     "vmla.f32   q13, q5, %e20[1]        \n"
 
-                    "pld        [%7, #256]              \n"
                     "vld1.f32   {d12-d15}, [%7 :128]!   \n"
 
                     "vmla.f32   q14, q4, %e21[1]        \n"
+                    "pld        [%8, #64]               \n"
                     "vmla.f32   q15, q5, %e21[1]        \n"
 
                     "vmla.f32   q8, q6, %f18[0]         \n"
@@ -1275,7 +1275,6 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "vmla.f32   q12, q6, %f20[0]        \n"
                     "vmla.f32   q13, q7, %f20[0]        \n"
 
-                    "pld        [%8, #256]              \n"
                     "vld1.f32   {d8-d11}, [%8 :128]!    \n"
 
                     "vmla.f32   q14, q6, %f21[0]        \n"
@@ -1295,14 +1294,14 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "vst1.f32   {d20-d23}, [%2 :128]!   \n"
 
                     "vmla.f32   q14, q4, %f21[1]        \n"
-                    "pld        [%5, #256]              \n"
+                    "pld        [%5, #64]               \n"
                     "vld1.f32   {d12-d15}, [%5 :128]!   \n"
 
                     "vmla.f32   q15, q5, %f21[1]        \n"
 
                     "vst1.f32   {d24-d27}, [%3 :128]!   \n"
 
-                    "pld        [%1, #256]              \n"
+                    "pld        [%1, #64]               \n"
                     "vld1.f32   {d16-d19}, [%1 :128]    \n"
 
                     "subs       %0, #1                  \n"
@@ -1461,33 +1460,33 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "pld        [%5, #256]              \n"
                     "vld1.f32   {d12-d15}, [%5 :128]!   \n"
                     "0:                                 \n"
-                    "pld        [%1, #256]              \n"
+                    "pld        [%1, #64]               \n"
                     "vld1.f32   {d16-d19}, [%1 :128]    \n"
                     "vmla.f32   q8, q6, %q12            \n"
                     "vmla.f32   q9, q7, %q12            \n"
 
-                    "pld        [%2, #256]              \n"
+                    "pld        [%2, #64]               \n"
                     "vld1.f32   {d20-d23}, [%2 :128]    \n"
                     "vmla.f32   q10, q6, %q13           \n"
                     "vmla.f32   q11, q7, %q13           \n"
 
                     "vst1.f32   {d16-d19}, [%1 :128]!   \n"
 
-                    "pld        [%3, #256]              \n"
+                    "pld        [%3, #64]               \n"
                     "vld1.f32   {d24-d27}, [%3 :128]    \n"
                     "vmla.f32   q12, q6, %q14           \n"
                     "vmla.f32   q13, q7, %q14           \n"
 
                     "vst1.f32   {d20-d23}, [%2 :128]!   \n"
 
-                    "pld        [%4, #256]              \n"
+                    "pld        [%4, #64]               \n"
                     "vld1.f32   {d28-d31}, [%4 :128]    \n"
                     "vmla.f32   q14, q6, %q15           \n"
                     "vmla.f32   q15, q7, %q15           \n"
 
                     "vst1.f32   {d24-d27}, [%3 :128]!   \n"
 
-                    "pld        [%5, #256]              \n"
+                    "pld        [%5, #64]               \n"
                     "vld1.f32   {d12-d15}, [%5 :128]!   \n"
                     "subs       %0, #1                  \n"
                     "vst1.f32   {d28-d31}, [%4 :128]!   \n"
@@ -1642,23 +1641,23 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "pld        [%2, #256]          \n"
                     "vld1.f32   {d4-d7}, [%2 :128]! \n"
                     "0:                             \n"
-                    "pld        [%1, #256]          \n"
+                    "pld        [%1, #64]           \n"
                     "vld1.f32   {d0-d3}, [%1 :128]  \n"
                     "vmla.f32   q0, q2, %q12        \n"
                     "vmla.f32   q1, q3, %q12        \n"
-                    "pld        [%3, #256]          \n"
+                    "pld        [%3, #64]           \n"
                     "vld1.f32   {d4-d7}, [%3 :128]! \n"
                     "vmla.f32   q0, q2, %q13        \n"
                     "vmla.f32   q1, q3, %q13        \n"
-                    "pld        [%4, #256]          \n"
+                    "pld        [%4, #64]           \n"
                     "vld1.f32   {d4-d7}, [%4 :128]! \n"
                     "vmla.f32   q0, q2, %q14        \n"
                     "vmla.f32   q1, q3, %q14        \n"
-                    "pld        [%5, #256]          \n"
+                    "pld        [%5, #64]           \n"
                     "vld1.f32   {d4-d7}, [%5 :128]! \n"
                     "vmla.f32   q0, q2, %q15        \n"
                     "vmla.f32   q1, q3, %q15        \n"
-                    "pld        [%2, #256]          \n"
+                    "pld        [%2, #64]           \n"
                     "vld1.f32   {d4-d7}, [%2 :128]! \n"
                     "subs       %0, #1              \n"
                     "vst1.f32   {d0-d3}, [%1 :128]! \n"
@@ -1759,11 +1758,11 @@ void conv1x1s1_neon(float *input, int inch, int h, int w, int inChannelSize, flo
                     "pld        [%2, #256]          \n"
                     "vld1.f32   {d4-d7}, [%2 :128]! \n"
                     "0:                             \n"
-                    "pld        [%1, #256]          \n"
+                    "pld        [%1, #64]           \n"
                     "vld1.f32   {d0-d3}, [%1 :128]  \n"
                     "vmla.f32   q0, q2, %q6         \n"
                     "vmla.f32   q1, q3, %q6         \n"
-                    "pld        [%2, #256]          \n"
+                    "pld        [%2, #64]           \n"
                     "vld1.f32   {d4-d7}, [%2 :128]! \n"
                     "subs       %0, #1              \n"
                     "vst1.f32   {d0-d3}, [%1 :128]! \n"

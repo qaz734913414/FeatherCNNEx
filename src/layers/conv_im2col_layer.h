@@ -32,21 +32,6 @@ namespace feather
 extern "C" int im2col_acc(void *pSrc, void *pDst, unsigned int width, unsigned int height);
 #endif
 
-void naive_sgemm(int M, int N, int L, float* A, float* B, float* C)
-{
-    for(int i = 0; i < M; ++i) //loop over rows in C
-    {
-        for(int j = 0; j < N; ++j) //loop over columns in C
-        {
-            float sigma = 0;
-            for(int k = 0; k < L; ++k)
-            {
-                sigma += A[i * L + k] * B[k * N + j];
-            }
-            C[i * N + j] = sigma;
-        }
-    }
-}
 class ConvIm2colLayer : public ConvLayer
 {
 public:
