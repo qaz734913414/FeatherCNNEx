@@ -958,7 +958,6 @@ void TensorGEMM_fix16
             dispatch_apply(outChannels / 4, dispatch_get_global_queue(0, 0), ^(size_t dispatch_i)
             {
                 int oc = dispatch_i * 4;
-
 #else
 #ifdef _OPENMP
             #pragma omp for
@@ -1220,7 +1219,6 @@ static inline void winograd_f6k3_output_transform_inplace(
 template<bool HAS_RELU, bool HAS_BIAS>
 static void winogradOutputTransformF63(float *output, int outputh, int outputw, int ldout, float *WT, int outChannels, int nRowBlocks, int nColBlocks, float* biasArr, int num_threads, float *preluData, bool sharedPrelu, WinogradOutType outType)
 {
-    const float32x4_t vZero = vdupq_n_f32(0.f);
     int nBlocks = nRowBlocks * nColBlocks;
     int nBlocksAligned = nBlocks & 0xFFFFFFFC;
     int rem = nBlocks & 0x3;
@@ -1231,6 +1229,8 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
     for (int oc = 0; oc < outChannels; ++oc)
 #endif
     {
+        const float32x4_t vZero = vdupq_n_f32(0.f);
+
         for (int j = 0; j < nColBlocks; ++j)
         {
             for(int i = 0; i < nRowBlocks; ++i)
@@ -1309,55 +1309,55 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
                     {
                         float slope = sharedPrelu ? preluData[0]:preluData[oc];
 
-                        float32x4_t vslopef32x4 = vdupq_n_f32(slope);
+                        r2 = vdupq_n_f32(slope); //r2 is vslopef32x4
 
-                        uint32x4_t vmasku32x4 = vcleq_f32(l0, vZero);
-                        float32x4_t vmulf32x4 = vmulq_f32(l0, vslopef32x4);
-                        l0 = vbslq_f32(vmasku32x4, vmulf32x4, l0);
+                        r3 = vcleq_f32(l0, vZero); // r3 is vmasku32x4
+                        r6 = vmulq_f32(l0, r2); //r6 is vmulf32x4
+                        l0 = vbslq_f32(r3, r6, l0);
 
-                        vmasku32x4 = vcleq_f32(l1, vZero);
-                        vmulf32x4 = vmulq_f32(l1, vslopef32x4);
-                        l1 = vbslq_f32(vmasku32x4, vmulf32x4, l1);
+                        r3 = vcleq_f32(l1, vZero);
+                        r6 = vmulq_f32(l1, r2);
+                        l1 = vbslq_f32(r3, r6, l1);
 
-                        vmasku32x4 = vcleq_f32(l2, vZero);
-                        vmulf32x4 = vmulq_f32(l2, vslopef32x4);
-                        l2 = vbslq_f32(vmasku32x4, vmulf32x4, l2);
+                        r3 = vcleq_f32(l2, vZero);
+                        r6 = vmulq_f32(l2, r2);
+                        l2 = vbslq_f32(r3, r6, l2);
 
-                        vmasku32x4 = vcleq_f32(l3, vZero);
-                        vmulf32x4 = vmulq_f32(l3, vslopef32x4);
-                        l3 = vbslq_f32(vmasku32x4, vmulf32x4, l3);
+                        r3 = vcleq_f32(l3, vZero);
+                        r6 = vmulq_f32(l3, r2);
+                        l3 = vbslq_f32(r3, r6, l3);
 
-                        vmasku32x4 = vcleq_f32(l4, vZero);
-                        vmulf32x4 = vmulq_f32(l4, vslopef32x4);
-                        l4 = vbslq_f32(vmasku32x4, vmulf32x4, l4);
+                        r3 = vcleq_f32(l4, vZero);
+                        r6 = vmulq_f32(l4, r2);
+                        l4 = vbslq_f32(r3, r6, l4);
 
-                        vmasku32x4 = vcleq_f32(l5, vZero);
-                        vmulf32x4 = vmulq_f32(l5, vslopef32x4);
-                        l5 = vbslq_f32(vmasku32x4, vmulf32x4, l5);
+                        r3 = vcleq_f32(l5, vZero);
+                        r6 = vmulq_f32(l5, r2);
+                        l5 = vbslq_f32(r3, r6, l5);
 
-                        vmasku32x4 = vcleq_f32(l6, vZero);
-                        vmulf32x4 = vmulq_f32(l6, vslopef32x4);
-                        l6 = vbslq_f32(vmasku32x4, vmulf32x4, l6);
+                        r3 = vcleq_f32(l6, vZero);
+                        r6 = vmulq_f32(l6, r2);
+                        l6 = vbslq_f32(r3, r6, l6);
 
-                        vmasku32x4 = vcleq_f32(l7, vZero);
-                        vmulf32x4 = vmulq_f32(l7, vslopef32x4);
-                        l7 = vbslq_f32(vmasku32x4, vmulf32x4, l7);
+                        r3 = vcleq_f32(l7, vZero);
+                        r6 = vmulq_f32(l7, r2);
+                        l7 = vbslq_f32(r3, r6, l7);
 
-                        vmasku32x4 = vcleq_f32(r0, vZero);
-                        vmulf32x4 = vmulq_f32(r0, vslopef32x4);
-                        r0 = vbslq_f32(vmasku32x4, vmulf32x4, r0);
+                        r3 = vcleq_f32(r0, vZero);
+                        r6 = vmulq_f32(r0, r2);
+                        r0 = vbslq_f32(r3, r6, r0);
 
-                        vmasku32x4 = vcleq_f32(r1, vZero);
-                        vmulf32x4 = vmulq_f32(r1, vslopef32x4);
-                        r1 = vbslq_f32(vmasku32x4, vmulf32x4, r1);
+                        r3 = vcleq_f32(r1, vZero);
+                        r6 = vmulq_f32(r1, r2);
+                        r1 = vbslq_f32(r3, r6, r1);
 
-                        vmasku32x4 = vcleq_f32(r4, vZero);
-                        vmulf32x4 = vmulq_f32(r4, vslopef32x4);
-                        r4 = vbslq_f32(vmasku32x4, vmulf32x4, r4);
+                        r3 = vcleq_f32(r4, vZero);
+                        r6 = vmulq_f32(r4, r2);
+                        r4 = vbslq_f32(r3, r6, r4);
 
-                        vmasku32x4 = vcleq_f32(r5, vZero);
-                        vmulf32x4 = vmulq_f32(r5, vslopef32x4);
-                        r5 = vbslq_f32(vmasku32x4, vmulf32x4, r5);
+                        r3 = vcleq_f32(r5, vZero);
+                        r6 = vmulq_f32(r5, r2);
+                        r5 = vbslq_f32(r3, r6, r5);
                     }
                     else
                     {

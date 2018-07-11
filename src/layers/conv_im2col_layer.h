@@ -39,6 +39,10 @@ public:
         : img_buffer(NULL), ConvLayer(layer_param, rt_param)
     {
         alignWidth = alignHeight = 8;
+        fuse_prelu = false;
+        _fusible = true;
+        sharedPrelu = false;
+        slopeDataPrelu = NULL;
     }
 
     int Forward()
@@ -55,22 +59,26 @@ public:
                 if (0 == this->fractions)
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                                                            (float *)packed_kernel, input, output, (int)num_threads, packB);
+                                                            (float *)packed_kernel, input, output, (int)num_threads, packB,
+                                                            bias_data, slopeDataPrelu, sharedPrelu);
                 else if (8 == this->fractions)
                     block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                            (int8_t *)packed_kernel, input, output, (int)num_threads, int8scale, packB);
+                            (int8_t *)packed_kernel, input, output, (int)num_threads, int8scale, packB,
+                            bias_data, slopeDataPrelu, sharedPrelu);
                 else
                     block_sgemm_external_pack_threading_8x8Fix((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                            (short *)packed_kernel, input, output, (int)num_threads, packB);
+                            (short *)packed_kernel, input, output, (int)num_threads, packB,
+                            bias_data, slopeDataPrelu, sharedPrelu);
 
             }
             else
             {
                 block_sgemm_external_pack_threading((int)output_channels, (int)output_width * (int)output_height,
                                                     (int)input_channels * (int)kernel_width * (int)kernel_height,
-                                                    (float *)packed_kernel, input, output, (int)num_threads, packB);
+                                                    (float *)packed_kernel, input, output, (int)num_threads, packB,
+                                                    bias_data, slopeDataPrelu, sharedPrelu);
             }
         }
         else
@@ -85,17 +93,19 @@ public:
                 for(int k=0; k<group; k++)
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels/group * (int)kernel_width * (int)kernel_height,
-                                                            (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, packB);
+                                                            (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, packB,
+                                                            bias_data, slopeDataPrelu, sharedPrelu);
             }
             else
             {
                 for(int k=0; k<group; k++)
                     block_sgemm_external_pack_threading((int)output_channels, (int)output_width * (int)output_height,
                                                         (int)input_channels/group * (int)kernel_width * (int)kernel_height,
-                                                        (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, packB);
+                                                        (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, packB,
+                                                        bias_data, slopeDataPrelu, sharedPrelu);
             }
         }
-
+#if 0
         if(bias_term)
         {
             size_t out_stride = output_width * output_height;
@@ -108,7 +118,17 @@ public:
                 }
             }
         }
-
+#else
+        if ((fuse_prelu) && (consumersNum > 1))
+        {
+            unsigned outSize = output_channels*output_width*output_height;
+            for (int i = 0; i < consumersNum; i++)
+            {
+                unsigned consumerBranchId = pNet->layer_map[consumers[i]]->branchId;
+                memcpy(pNet->pingpang[consumerBranchId][0], output, outSize*sizeof(float));
+            }
+        }
+#endif
         return 0;
     }
 
@@ -248,6 +268,28 @@ public:
         return true;
     }
 
+    int Fuse(Layer *next_layer)
+    {
+        if(next_layer->type().compare("PReLU") == 0)
+        {
+            fusedWeightBlobId = _weight_blobs.size();
+            Blob<float>* p_blob = new Blob<float>();
+            p_blob->Copy(next_layer->weight_blob(0));
+            _weight_blobs.push_back(p_blob);
+
+            consumers.clear();
+            consumers.assign(next_layer->consumers.begin(), next_layer->consumers.end());
+            consumersNum = next_layer->consumersNum;
+            fuse_prelu = true;
+            sharedPrelu = _weight_blobs[fusedWeightBlobId]->data_size() > 1 ? false : true;
+            slopeDataPrelu = _weight_blobs[fusedWeightBlobId]->data();
+
+            return 1;
+        }
+        else
+            return 0;
+    }
+
     int Init(float *ginput, float *goutput)
     {
         int M = (int)output_channels;
@@ -309,5 +351,9 @@ private:
     void *packed_kernel;
     void *packB;
     float *img_buffer;
+    unsigned fusedWeightBlobId;
+    bool fuse_prelu;
+    bool sharedPrelu;
+    float *slopeDataPrelu;
 };
 };

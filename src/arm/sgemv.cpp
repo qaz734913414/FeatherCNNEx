@@ -141,7 +141,7 @@ void fully_connected_inference_direct_BiasReLU(int input_size, int output_size, 
         for(; j<input_size; j++)
             sum += x[j]*y[i*input_size + j];
 
-        //if(sum < 0.f) sum = 0.f;
+        //if(sum < 0.f) sum = 0.f; // if with relu pls uncommont this line
         z[i] = sum;
     }
 }
@@ -154,7 +154,7 @@ void fully_connected_transpose_inference_neon8_BiasReLU(int input_size, int outp
     for(int k=0; k < output_size / 8; k++)
     {
         float *yPtr = y + k * 8 * input_size;
-        //const float32x4_t vzero = vdupq_n_f32(0.f);
+        //const float32x4_t vzero = vdupq_n_f32(0.f); // if with relu pls uncommont this line
 
         float32x4_t res  = vld1q_f32(biasArr + k * 8);
         float32x4_t res1 = vld1q_f32(biasArr + k * 8 + 4);
@@ -183,6 +183,17 @@ void fully_connected_transpose_inference_neon8_BiasReLU(int input_size, int outp
             res = vfmaq_laneq_f32(res, vb6, va, 3);
             res1 = vfmaq_laneq_f32(res1, vb7, va, 3);
 #else
+
+#if 1
+            res  = vmlaq_n_f32(res,  vb0, va[0]);
+            res1 = vmlaq_n_f32(res1, vb1, va[0]);
+            res  = vmlaq_n_f32(res,  vb2, va[1]);
+            res1 = vmlaq_n_f32(res1, vb3, va[1]);
+            res  = vmlaq_n_f32(res,  vb4, va[2]);
+            res1 = vmlaq_n_f32(res1, vb5, va[2]);
+            res  = vmlaq_n_f32(res,  vb6, va[3]);
+            res1 = vmlaq_n_f32(res1, vb7, va[3]);
+#else
             res = vmlaq_f32(res, vb0, vld1q_dup_f32(x + i + 0));
             res1 = vmlaq_f32(res1, vb1, vld1q_dup_f32(x + i + 0));
             res = vmlaq_f32(res, vb2, vld1q_dup_f32(x + i + 1));
@@ -192,14 +203,16 @@ void fully_connected_transpose_inference_neon8_BiasReLU(int input_size, int outp
             res = vmlaq_f32(res, vb6, vld1q_dup_f32(x + i + 3));
             res1 = vmlaq_f32(res1, vb7, vld1q_dup_f32(x + i + 3));
 #endif
+
+#endif
             yPtr += 32;
         }
 
         //res  = vaddq_f32(res, vBias);
         //res1 = vaddq_f32(res, vBias1);
 
-        //res  = vmaxq_f32(res, vzero);
-        //res1 = vmaxq_f32(res1, vzero);
+        //res  = vmaxq_f32(res, vzero);  // if with relu pls uncommont this line
+        //res1 = vmaxq_f32(res1, vzero); // if with relu pls uncommont this line
 
         vst1q_f32((float32_t *) (z+8*k), res);
         vst1q_f32((float32_t *) (z+8*k + 4), res1);

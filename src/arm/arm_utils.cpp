@@ -36,7 +36,7 @@ void fill(float * ptr, int size, float _v)
         asm volatile(
             "0:                             \n"
             "subs       %0, #1              \n"
-            "vst1.f32   {%e4-%f4}, [%1 :128]!\n"
+            "vst1.f32   {%e4-%f4}, [%1]!\n"
             "bne        0b                  \n"
             : "=r"(nn),     // %0
             "=r"(ptr)     // %1

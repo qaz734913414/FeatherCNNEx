@@ -122,8 +122,8 @@ static void pooling2x2s2_max_neon(float *input, int w, int h, int inch, float *o
                     "vmax.f32   q0, q0, q2          \n"
                     "vmax.f32   q1, q1, q3          \n"
                     "vpmax.f32  d4, d0, d1          \n"
-                    "vpmax.f32  d5, d2, d3          \n"
                     "subs       %0, #1              \n"
+                    "vpmax.f32  d5, d2, d3          \n"
                     "vst1.f32   {d4-d5}, [%3]!      \n"
                     "bne        0b                  \n"
                     : "=r"(nn),     // %0
@@ -316,15 +316,15 @@ static void pooling3x3s2_max_neon(float *input, int w, int h, int inch, float *o
                     "vld2.f32   {d12-d15}, [%1]!    \n"// q6 = 8 10 12 14  q7 = 9 11 13 15
 
                     "vmax.f32   q12, q0, q1         \n"
+                    "pld        [%2, #256]          \n"
                     "vmax.f32   q13, q2, q3         \n"
 
-                    "pld        [%2, #256]          \n"
                     "vld2.f32   {d16-d19}, [%2]!    \n"
 
                     "vmax.f32   q14, q4, q5         \n"
+                    "pld        [%3, #256]          \n"
                     "vext.32    q0, q0, q6, #1      \n"
 
-                    "pld        [%3, #256]          \n"
                     "vld2.f32   {d20-d23}, [%3]!    \n"
 
                     "vext.32    q2, q2, q8, #1      \n"

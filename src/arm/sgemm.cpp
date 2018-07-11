@@ -16,6 +16,7 @@
 #include <pthread.h>
 #include <arm_neon.h>
 #include <omp.h>
+#include "utils.h"
 #include "common.h"
 #include "sgemm.h"
 
@@ -198,7 +199,7 @@ static void internalPackB8(int L, float* packB, float* B, int ldb)
 
 extern "C" void internalPackB8Fix(int L, short* packB, float* B, int ldb);
 
-void sgemm_4x1(int L, float *a, int lda, float* b, int ldb, float *c, int ldc)
+static inline void sgemm_4x1(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float barr[1];
     float *cptr = c;
@@ -239,7 +240,7 @@ void sgemm_4x1(int L, float *a, int lda, float* b, int ldb, float *c, int ldc)
     vst1q_lane_f32(cptr,     vc[0], 3);
 }
 
-void sgemm_4x2(int L, float *a, int lda, float* b, int ldb, float *c, int ldc)
+static inline void sgemm_4x2(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float barr[2];
     float *cptr = c;
@@ -292,7 +293,7 @@ void sgemm_4x2(int L, float *a, int lda, float* b, int ldb, float *c, int ldc)
     vst1q_lane_f32(cptr + 1, vc[1], 3);
 }
 
-void sgemm_4x3(int L, float *a, int lda, float* b, int ldb, float *c, int ldc)
+static inline void sgemm_4x3(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float barr[3];
     float *cptr = c;
@@ -356,7 +357,7 @@ void sgemm_4x3(int L, float *a, int lda, float* b, int ldb, float *c, int ldc)
     vst1q_lane_f32(cptr + 2, vc[2], 3);
 }
 
-inline void sgemm_4x4(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static inline void sgemm_4x4(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
@@ -405,7 +406,7 @@ inline void sgemm_4x4(int L, float *a, int lda, float *b, int ldb, float *c, int
     vst1q_f32(cptr, vc3);
 }
 
-inline void sgemm_4x5(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static inline void sgemm_4x5(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
@@ -476,7 +477,7 @@ inline void sgemm_4x5(int L, float *a, int lda, float *b, int ldb, float *c, int
     vst1q_lane_f32(cptr + 4, vc4, 3);
 }
 
-inline void sgemm_4x6(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static inline void sgemm_4x6(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
@@ -559,7 +560,7 @@ inline void sgemm_4x6(int L, float *a, int lda, float *b, int ldb, float *c, int
     vst1q_lane_f32(cptr + 5, vc5, 3);
 }
 
-inline void sgemm_4x7(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static inline void sgemm_4x7(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
@@ -782,36 +783,53 @@ static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     *cptr = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
 }
 
-static void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
     float *cptr = c;
     float b4;
-    float32x4_t vzero = vdupq_n_f32(0.0f);
-    float32x4_t vb;
-    float32x4_t va0, va1;
-    float32x4_t vc4;
-    //next 4 rows
-    float32x4_t vcE;
-    //vc 4 5 6 and E F G hold column values.
-    vc4 = vcE = vzero;
-    vc4 =  vld1q_lane_f32(cptr, vc4, 0);
-    cptr += ldc;
-    vc4 =  vld1q_lane_f32(cptr, vc4, 1);
-    cptr += ldc;
-    vc4 =  vld1q_lane_f32(cptr, vc4, 2);
-    cptr += ldc;
-    vc4 =  vld1q_lane_f32(cptr, vc4, 3);
-    cptr += ldc;
 
-    vcE =  vld1q_lane_f32(cptr, vcE, 0);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr, vcE, 1);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr, vcE, 2);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr, vcE, 3);
+    float32x4_t vb, va0, va1, vc4, vcE;
+
+    if (NULL != bias_data)
+    {
+        vc4[0] = *cptr + bias_data[ch];
+        cptr += ldc;
+        vc4[1] = *cptr + bias_data[ch+1];
+        cptr += ldc;
+        vc4[2] = *cptr + bias_data[ch+2];
+        cptr += ldc;
+        vc4[3] = *cptr + bias_data[ch+3];
+        cptr += ldc;
+
+        vcE[0] = *cptr + bias_data[ch+4];
+        cptr += ldc;
+        vcE[1] = *cptr + bias_data[ch+5];
+        cptr += ldc;
+        vcE[2] = *cptr + bias_data[ch+6];
+        cptr += ldc;
+        vcE[3] = *cptr + bias_data[ch+7];
+    }
+    else
+    {
+        vc4[0] = *cptr;
+        cptr += ldc;
+        vc4[1] = *cptr;
+        cptr += ldc;
+        vc4[2] = *cptr;
+        cptr += ldc;
+        vc4[3] = *cptr;
+        cptr += ldc;
+
+        vcE[0] = *cptr;
+        cptr += ldc;
+        vcE[1] = *cptr;
+        cptr += ldc;
+        vcE[2] = *cptr;
+        cptr += ldc;
+        vcE[3] = *cptr;
+    }
 
     for(int p = 0; p < L; ++p)
     {
@@ -834,21 +852,60 @@ static void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
 
     cptr = c;
-    vst1q_lane_f32(cptr, vc4, 0);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr, vc4, 1);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr, vc4, 2);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr, vc4, 3);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr, vcE, 0);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr, vcE, 1);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr, vcE, 2);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr, vcE, 3);
+
+    if (NULL != slopeDataPrelu)
+    {
+        if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
+
+        *cptr = vc4[0];
+        if (*cptr < 0) *cptr *= slopeDataPrelu[ch];
+        cptr+=ldc;
+
+        *cptr = vc4[1];
+        if (*cptr < 0) *cptr *= slopeDataPrelu[ch+1];
+        cptr+=ldc;
+
+        *cptr = vc4[2];
+        if (*cptr < 0) *cptr *= slopeDataPrelu[ch+2];
+        cptr+=ldc;
+
+        *cptr = vc4[3];
+        if (*cptr < 0) *cptr *= slopeDataPrelu[ch+3];
+        cptr+=ldc;
+
+        *cptr = vcE[0];
+        if (*cptr < 0) *cptr *= slopeDataPrelu[ch+4];
+        cptr+=ldc;
+
+        *cptr = vcE[1];
+        if (*cptr < 0) *cptr *= slopeDataPrelu[ch+5];;
+        cptr+=ldc;
+
+        *cptr = vcE[2];
+        if (*cptr < 0) *cptr *= slopeDataPrelu[ch+6];
+        cptr+=ldc;
+
+        *cptr = vcE[3];
+        if (*cptr < 0) *cptr *= slopeDataPrelu[ch+7];
+    }
+    else
+    {
+        *cptr = vc4[0];
+        cptr+=ldc;
+        *cptr = vc4[1];
+        cptr+=ldc;
+        *cptr = vc4[2];
+        cptr+=ldc;
+        *cptr = vc4[3];
+        cptr+=ldc;
+        *cptr = vcE[0];
+        cptr+=ldc;
+        *cptr = vcE[1];
+        cptr+=ldc;
+        *cptr = vcE[2];
+        cptr+=ldc;
+        *cptr = vcE[3];
+    }
 }
 
 static void sgemm_8x2_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scale)
@@ -1025,43 +1082,47 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     *(cptr+1) = FIX2FLOAT(FRACTIONBX2, vcF_I[3]);
 }
 
-static void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
     float *cptr = c;
     float b4, b5;
     float32x4_t vzero = vdupq_n_f32(0.0f);
-    float32x4_t va0, va1;
-    float32x4_t vc4, vc5;
-    //next 4 rows
-    float32x4_t vcE, vcF;
-    vc4 = vc5 = vcE = vcF = vzero;
-    //vc 4 5 6 and E F G hold column values.
-    vc4 =  vld1q_lane_f32(cptr + 0, vc4, 0);
-    vc5 =  vld1q_lane_f32(cptr + 1, vc5, 0);
-    cptr += ldc;
-    vc4 =  vld1q_lane_f32(cptr + 0, vc4, 1);
-    vc5 =  vld1q_lane_f32(cptr + 1, vc5, 1);
-    cptr += ldc;
-    vc4 =  vld1q_lane_f32(cptr + 0, vc4, 2);
-    vc5 =  vld1q_lane_f32(cptr + 1, vc5, 2);
-    cptr += ldc;
-    vc4 =  vld1q_lane_f32(cptr + 0, vc4, 3);
-    vc5 =  vld1q_lane_f32(cptr + 1, vc5, 3);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr + 0, vcE, 0);
-    vcF =  vld1q_lane_f32(cptr + 1, vcF, 0);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr + 0, vcE, 1);
-    vcF =  vld1q_lane_f32(cptr + 1, vcF, 1);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr + 0, vcE, 2);
-    vcF =  vld1q_lane_f32(cptr + 1, vcF, 2);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr + 0, vcE, 3);
-    vcF =  vld1q_lane_f32(cptr + 1, vcF, 3);
+    float32x4_t va0, va1, vc4, vc5, vcE, vcF;
 
+    if (NULL != bias_data)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vc4 = vc5 = vcE = vcF = vzero;
+        //vc 4 5 6 and E F G hold column values.
+        vc4 =  vld1q_lane_f32(cptr + 0, vc4, 0);
+        vc5 =  vld1q_lane_f32(cptr + 1, vc5, 0);
+        cptr += ldc;
+        vc4 =  vld1q_lane_f32(cptr + 0, vc4, 1);
+        vc5 =  vld1q_lane_f32(cptr + 1, vc5, 1);
+        cptr += ldc;
+        vc4 =  vld1q_lane_f32(cptr + 0, vc4, 2);
+        vc5 =  vld1q_lane_f32(cptr + 1, vc5, 2);
+        cptr += ldc;
+        vc4 =  vld1q_lane_f32(cptr + 0, vc4, 3);
+        vc5 =  vld1q_lane_f32(cptr + 1, vc5, 3);
+        cptr += ldc;
+        vcE =  vld1q_lane_f32(cptr + 0, vcE, 0);
+        vcF =  vld1q_lane_f32(cptr + 1, vcF, 0);
+        cptr += ldc;
+        vcE =  vld1q_lane_f32(cptr + 0, vcE, 1);
+        vcF =  vld1q_lane_f32(cptr + 1, vcF, 1);
+        cptr += ldc;
+        vcE =  vld1q_lane_f32(cptr + 0, vcE, 2);
+        vcF =  vld1q_lane_f32(cptr + 1, vcF, 2);
+        cptr += ldc;
+        vcE =  vld1q_lane_f32(cptr + 0, vcE, 3);
+        vcF =  vld1q_lane_f32(cptr + 1, vcF, 3);
+    }
     for(int p = 0; p < L; ++p)
     {
         b4  = *(bptr    );
@@ -1089,29 +1150,36 @@ static void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
 
     cptr = c;
-    vst1q_lane_f32(cptr + 0, vc4, 0);
-    vst1q_lane_f32(cptr + 1, vc5, 0);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vc4, 1);
-    vst1q_lane_f32(cptr + 1, vc5, 1);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vc4, 2);
-    vst1q_lane_f32(cptr + 1, vc5, 2);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vc4, 3);
-    vst1q_lane_f32(cptr + 1, vc5, 3);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vcE, 0);
-    vst1q_lane_f32(cptr + 1, vcF, 0);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vcE, 1);
-    vst1q_lane_f32(cptr + 1, vcF, 1);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vcE, 2);
-    vst1q_lane_f32(cptr + 1, vcF, 2);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vcE, 3);
-    vst1q_lane_f32(cptr + 1, vcF, 3);
+    if (NULL != slopeDataPrelu)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vst1q_lane_f32(cptr + 0, vc4, 0);
+        vst1q_lane_f32(cptr + 1, vc5, 0);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vc4, 1);
+        vst1q_lane_f32(cptr + 1, vc5, 1);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vc4, 2);
+        vst1q_lane_f32(cptr + 1, vc5, 2);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vc4, 3);
+        vst1q_lane_f32(cptr + 1, vc5, 3);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vcE, 0);
+        vst1q_lane_f32(cptr + 1, vcF, 0);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vcE, 1);
+        vst1q_lane_f32(cptr + 1, vcF, 1);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vcE, 2);
+        vst1q_lane_f32(cptr + 1, vcF, 2);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vcE, 3);
+        vst1q_lane_f32(cptr + 1, vcF, 3);
+    }
 }
 
 static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -1217,50 +1285,56 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     *(cptr+2) = FIX2FLOAT(FRACTIONBX2, vcG_I[3]);
 }
 
-static void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
     float *cptr = c;
     float b4, b5, b6;
-    float32x4_t va0, va1;
-    float32x4_t vc4, vc5, vc6;
-    //next 4 rows
-    float32x4_t vcE, vcF, vcG;
-    float32x4_t vzero = vdupq_n_f32(0.0f);
-    vc4 = vc5 = vc6 = vcE = vcF = vcG = vzero;
-    //vc 4 5 6 and E F G hold column values.
-    vc4 =  vld1q_lane_f32(cptr + 0, vc4, 0);
-    vc5 =  vld1q_lane_f32(cptr + 1, vc5, 0);
-    vc6 =  vld1q_lane_f32(cptr + 2, vc6, 0);
-    cptr += ldc;
-    vc4 =  vld1q_lane_f32(cptr + 0, vc4, 1);
-    vc5 =  vld1q_lane_f32(cptr + 1, vc5, 1);
-    vc6 =  vld1q_lane_f32(cptr + 2, vc6, 1);
-    cptr += ldc;
-    vc4 =  vld1q_lane_f32(cptr + 0, vc4, 2);
-    vc5 =  vld1q_lane_f32(cptr + 1, vc5, 2);
-    vc6 =  vld1q_lane_f32(cptr + 2, vc6, 2);
-    cptr += ldc;
-    vc4 =  vld1q_lane_f32(cptr + 0, vc4, 3);
-    vc5 =  vld1q_lane_f32(cptr + 1, vc5, 3);
-    vc6 =  vld1q_lane_f32(cptr + 2, vc6, 3);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr + 0, vcE, 0);
-    vcF =  vld1q_lane_f32(cptr + 1, vcF, 0);
-    vcG =  vld1q_lane_f32(cptr + 2, vcG, 0);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr + 0, vcE, 1);
-    vcF =  vld1q_lane_f32(cptr + 1, vcF, 1);
-    vcG =  vld1q_lane_f32(cptr + 2, vcG, 1);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr + 0, vcE, 2);
-    vcF =  vld1q_lane_f32(cptr + 1, vcF, 2);
-    vcG =  vld1q_lane_f32(cptr + 2, vcG, 2);
-    cptr += ldc;
-    vcE =  vld1q_lane_f32(cptr + 0, vcE, 3);
-    vcF =  vld1q_lane_f32(cptr + 1, vcF, 3);
-    vcG =  vld1q_lane_f32(cptr + 2, vcG, 3);
+    float32x4_t va0, va1, vc4, vc5, vc6, vcE, vcF, vcG;
+
+    if (NULL != bias_data)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        float32x4_t vzero = vdupq_n_f32(0.0f);
+
+        vc4 = vc5 = vc6 = vcE = vcF = vcG = vzero;
+        //vc 4 5 6 and E F G hold column values.
+        vc4 =  vld1q_lane_f32(cptr + 0, vc4, 0);
+        vc5 =  vld1q_lane_f32(cptr + 1, vc5, 0);
+        vc6 =  vld1q_lane_f32(cptr + 2, vc6, 0);
+        cptr += ldc;
+        vc4 =  vld1q_lane_f32(cptr + 0, vc4, 1);
+        vc5 =  vld1q_lane_f32(cptr + 1, vc5, 1);
+        vc6 =  vld1q_lane_f32(cptr + 2, vc6, 1);
+        cptr += ldc;
+        vc4 =  vld1q_lane_f32(cptr + 0, vc4, 2);
+        vc5 =  vld1q_lane_f32(cptr + 1, vc5, 2);
+        vc6 =  vld1q_lane_f32(cptr + 2, vc6, 2);
+        cptr += ldc;
+        vc4 =  vld1q_lane_f32(cptr + 0, vc4, 3);
+        vc5 =  vld1q_lane_f32(cptr + 1, vc5, 3);
+        vc6 =  vld1q_lane_f32(cptr + 2, vc6, 3);
+        cptr += ldc;
+        vcE =  vld1q_lane_f32(cptr + 0, vcE, 0);
+        vcF =  vld1q_lane_f32(cptr + 1, vcF, 0);
+        vcG =  vld1q_lane_f32(cptr + 2, vcG, 0);
+        cptr += ldc;
+        vcE =  vld1q_lane_f32(cptr + 0, vcE, 1);
+        vcF =  vld1q_lane_f32(cptr + 1, vcF, 1);
+        vcG =  vld1q_lane_f32(cptr + 2, vcG, 1);
+        cptr += ldc;
+        vcE =  vld1q_lane_f32(cptr + 0, vcE, 2);
+        vcF =  vld1q_lane_f32(cptr + 1, vcF, 2);
+        vcG =  vld1q_lane_f32(cptr + 2, vcG, 2);
+        cptr += ldc;
+        vcE =  vld1q_lane_f32(cptr + 0, vcE, 3);
+        vcF =  vld1q_lane_f32(cptr + 1, vcF, 3);
+        vcG =  vld1q_lane_f32(cptr + 2, vcG, 3);
+    }
 
     for(int p = 0; p < L; ++p)
     {
@@ -1294,37 +1368,44 @@ static void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
 
     cptr = c;
-    vst1q_lane_f32(cptr + 0, vc4, 0);
-    vst1q_lane_f32(cptr + 1, vc5, 0);
-    vst1q_lane_f32(cptr + 2, vc6, 0);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vc4, 1);
-    vst1q_lane_f32(cptr + 1, vc5, 1);
-    vst1q_lane_f32(cptr + 2, vc6, 1);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vc4, 2);
-    vst1q_lane_f32(cptr + 1, vc5, 2);
-    vst1q_lane_f32(cptr + 2, vc6, 2);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vc4, 3);
-    vst1q_lane_f32(cptr + 1, vc5, 3);
-    vst1q_lane_f32(cptr + 2, vc6, 3);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vcE, 0);
-    vst1q_lane_f32(cptr + 1, vcF, 0);
-    vst1q_lane_f32(cptr + 2, vcG, 0);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vcE, 1);
-    vst1q_lane_f32(cptr + 1, vcF, 1);
-    vst1q_lane_f32(cptr + 2, vcG, 1);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vcE, 2);
-    vst1q_lane_f32(cptr + 1, vcF, 2);
-    vst1q_lane_f32(cptr + 2, vcG, 2);
-    cptr+=ldc;
-    vst1q_lane_f32(cptr + 0, vcE, 3);
-    vst1q_lane_f32(cptr + 1, vcF, 3);
-    vst1q_lane_f32(cptr + 2, vcG, 3);
+    if (NULL != slopeDataPrelu)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vst1q_lane_f32(cptr + 0, vc4, 0);
+        vst1q_lane_f32(cptr + 1, vc5, 0);
+        vst1q_lane_f32(cptr + 2, vc6, 0);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vc4, 1);
+        vst1q_lane_f32(cptr + 1, vc5, 1);
+        vst1q_lane_f32(cptr + 2, vc6, 1);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vc4, 2);
+        vst1q_lane_f32(cptr + 1, vc5, 2);
+        vst1q_lane_f32(cptr + 2, vc6, 2);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vc4, 3);
+        vst1q_lane_f32(cptr + 1, vc5, 3);
+        vst1q_lane_f32(cptr + 2, vc6, 3);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vcE, 0);
+        vst1q_lane_f32(cptr + 1, vcF, 0);
+        vst1q_lane_f32(cptr + 2, vcG, 0);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vcE, 1);
+        vst1q_lane_f32(cptr + 1, vcF, 1);
+        vst1q_lane_f32(cptr + 2, vcG, 1);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vcE, 2);
+        vst1q_lane_f32(cptr + 1, vcF, 2);
+        vst1q_lane_f32(cptr + 2, vcG, 2);
+        cptr+=ldc;
+        vst1q_lane_f32(cptr + 0, vcE, 3);
+        vst1q_lane_f32(cptr + 1, vcF, 3);
+        vst1q_lane_f32(cptr + 2, vcG, 3);
+    }
 }
 
 static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -1416,35 +1497,37 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     vst1q_f32(cptr, vcD);
 }
 
-static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
     float *cptr = c;
 
+    float32x4_t vb, va0, va1, vc0, vc1, vc2, vc3, vcA, vcB, vcC, vcD;
 
-    float32x4_t vb;
-    float32x4_t va0, va1;
-    float32x4_t vc0, vc1, vc2, vc3;
-    //next 4 rows
-    float32x4_t vcA, vcB, vcC, vcD;
-
-    //vc0 1 2 3 and A B C D hold row values.
-    vc0 = vld1q_f32(cptr);
-    cptr += ldc;
-    vc1 = vld1q_f32(cptr);
-    cptr += ldc;
-    vc2 = vld1q_f32(cptr);
-    cptr += ldc;
-    vc3 = vld1q_f32(cptr);
-    cptr += ldc;
-    vcA = vld1q_f32(cptr);
-    cptr += ldc;
-    vcB = vld1q_f32(cptr);
-    cptr += ldc;
-    vcC = vld1q_f32(cptr);
-    cptr += ldc;
-    vcD = vld1q_f32(cptr);
+    if (NULL != bias_data)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        //vc0 1 2 3 and A B C D hold row values.
+        vc0 = vld1q_f32(cptr);
+        cptr += ldc;
+        vc1 = vld1q_f32(cptr);
+        cptr += ldc;
+        vc2 = vld1q_f32(cptr);
+        cptr += ldc;
+        vc3 = vld1q_f32(cptr);
+        cptr += ldc;
+        vcA = vld1q_f32(cptr);
+        cptr += ldc;
+        vcB = vld1q_f32(cptr);
+        cptr += ldc;
+        vcC = vld1q_f32(cptr);
+        cptr += ldc;
+        vcD = vld1q_f32(cptr);
+    }
 
     for(int p = 0; p < L; ++p)
     {
@@ -1479,21 +1562,28 @@ static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
 
     cptr = c;
-    vst1q_f32(cptr, vc0);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc1);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc2);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc3);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcA);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcB);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcC);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcD);
+    if (NULL != slopeDataPrelu)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vst1q_f32(cptr, vc0);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc1);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc2);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc3);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcA);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcB);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcC);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcD);
+    }
 }
 
 static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -1513,15 +1603,15 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr += ldc;
     vc1 = vld1q_f32(cptr);
     vc1_I = vcvtq_n_s32_f32(vc1, FRACTIONBX2);
-    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
     cptr += ldc;
     vc2 = vld1q_f32(cptr);
     vc2_I = vcvtq_n_s32_f32(vc2, FRACTIONBX2);
-    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
     cptr += ldc;
     vc3 = vld1q_f32(cptr);
     vc3_I = vcvtq_n_s32_f32(vc3, FRACTIONBX2);
-    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
     cptr += ldc;
     vcA = vld1q_f32(cptr);
     vcA_I = vcvtq_n_s32_f32(vcA, FRACTIONBX2);
@@ -1529,15 +1619,15 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr += ldc;
     vcB = vld1q_f32(cptr);
     vcB_I = vcvtq_n_s32_f32(vcB, FRACTIONBX2);
-    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
     cptr += ldc;
     vcC = vld1q_f32(cptr);
     vcC_I = vcvtq_n_s32_f32(vcC, FRACTIONBX2);
-    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
     cptr += ldc;
     vcD = vld1q_f32(cptr);
     vcD_I = vcvtq_n_s32_f32(vcD, FRACTIONBX2);
-    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
 
     for(int p = 0; p < L; ++p)
     {
@@ -1606,46 +1696,49 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     *(cptr + 4 + 3) = FIX2FLOAT(FRACTIONBX2, vcE_I[3]);
 }
 
-static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
     float *cptr = c;
 
     float b4;
-
-    float32x4_t vb;
-    float32x4_t va0, va1;
-    float32x4_t vc0, vc1, vc2, vc3, vc4;
-    //next 4 rows
-    float32x4_t vcA, vcB, vcC, vcD, vcE;
+    float32x4_t vb, va0, va1, vc0, vc1, vc2, vc3, vc4, vcA, vcB, vcC, vcD, vcE;
     float32x4_t vzero = vdupq_n_f32(0.0f);
-    vc4 = vcE = vzero;
-    //vc0 1 2 3 and A B C D hold row values.
-    vc0 = vld1q_f32(cptr);
-    //vc 4 5 6 and E F G hold column values.
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 0);
-    cptr += ldc;
-    vc1 = vld1q_f32(cptr);
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 1);
-    cptr += ldc;
-    vc2 = vld1q_f32(cptr);
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 2);
-    cptr += ldc;
-    vc3 = vld1q_f32(cptr);
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 3);
-    cptr += ldc;
-    vcA = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 0);
-    cptr += ldc;
-    vcB = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 1);
-    cptr += ldc;
-    vcC = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 2);
-    cptr += ldc;
-    vcD = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 3);
+
+    if (NULL != bias_data)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vc4 = vcE = vzero;
+        //vc0 1 2 3 and A B C D hold row values.
+        vc0 = vld1q_f32(cptr);
+        //vc 4 5 6 and E F G hold column values.
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 0);
+        cptr += ldc;
+        vc1 = vld1q_f32(cptr);
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 1);
+        cptr += ldc;
+        vc2 = vld1q_f32(cptr);
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 2);
+        cptr += ldc;
+        vc3 = vld1q_f32(cptr);
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 3);
+        cptr += ldc;
+        vcA = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 0);
+        cptr += ldc;
+        vcB = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 1);
+        cptr += ldc;
+        vcC = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 2);
+        cptr += ldc;
+        vcD = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 3);
+    }
 
     for(int p = 0; p < L; ++p)
     {
@@ -1691,29 +1784,36 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
 
     cptr = c;
-    vst1q_f32(cptr, vc0);
-    vst1q_lane_f32(cptr + 4, vc4, 0);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc1);
-    vst1q_lane_f32(cptr + 4, vc4, 1);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc2);
-    vst1q_lane_f32(cptr + 4, vc4, 2);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc3);
-    vst1q_lane_f32(cptr + 4, vc4, 3);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcA);
-    vst1q_lane_f32(cptr + 4, vcE, 0);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcB);
-    vst1q_lane_f32(cptr + 4, vcE, 1);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcC);
-    vst1q_lane_f32(cptr + 4, vcE, 2);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcD);
-    vst1q_lane_f32(cptr + 4, vcE, 3);
+    if (NULL != slopeDataPrelu)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vst1q_f32(cptr, vc0);
+        vst1q_lane_f32(cptr + 4, vc4, 0);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc1);
+        vst1q_lane_f32(cptr + 4, vc4, 1);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc2);
+        vst1q_lane_f32(cptr + 4, vc4, 2);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc3);
+        vst1q_lane_f32(cptr + 4, vc4, 3);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcA);
+        vst1q_lane_f32(cptr + 4, vcE, 0);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcB);
+        vst1q_lane_f32(cptr + 4, vcE, 1);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcC);
+        vst1q_lane_f32(cptr + 4, vcE, 2);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcD);
+        vst1q_lane_f32(cptr + 4, vcE, 3);
+    }
 }
 
 static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -1734,18 +1834,18 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr += ldc;
     vc1 = vld1q_f32(cptr);
     vc1_I = vcvtq_n_s32_f32(vc1, FRACTIONBX2);
-    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
-    vc5_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 1));
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vc5_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
     cptr += ldc;
     vc2 = vld1q_f32(cptr);
     vc2_I = vcvtq_n_s32_f32(vc2, FRACTIONBX2);
-    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
-    vc5_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 2));
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vc5_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
     cptr += ldc;
     vc3 = vld1q_f32(cptr);
     vc3_I = vcvtq_n_s32_f32(vc3, FRACTIONBX2);
-    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
-    vc5_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 3));
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vc5_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
     cptr += ldc;
     vcA = vld1q_f32(cptr);
     vcA_I = vcvtq_n_s32_f32(vcA, FRACTIONBX2);
@@ -1754,18 +1854,18 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr += ldc;
     vcB = vld1q_f32(cptr);
     vcB_I = vcvtq_n_s32_f32(vcB, FRACTIONBX2);
-    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
-    vcF_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 1));
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vcF_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
     cptr += ldc;
     vcC = vld1q_f32(cptr);
     vcC_I = vcvtq_n_s32_f32(vcC, FRACTIONBX2);
-    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
-    vcF_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 2));
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vcF_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
     cptr += ldc;
     vcD = vld1q_f32(cptr);
     vcD_I = vcvtq_n_s32_f32(vcD, FRACTIONBX2);
-    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
-    vcF_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 3));
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vcF_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
 
     for(int p = 0; p < L; ++p)
     {
@@ -1846,54 +1946,57 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     *(cptr + 5 + 3) = FIX2FLOAT(FRACTIONBX2, vcF_I[3]);
 }
 
-static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
     float *cptr = c;
 
     float b4, b5;
-    float32x4_t vb;
-    float32x4_t va0, va1;
-    float32x4_t vc0, vc1, vc2, vc3, vc4, vc5;
-    //next 4 rows
-    float32x4_t vcA, vcB, vcC, vcD, vcE, vcF;
+    float32x4_t vb, va0, va1, vc0, vc1, vc2, vc3, vc4, vc5, vcA, vcB, vcC, vcD, vcE, vcF;
     float32x4_t vzero = vdupq_n_f32(0.0f);
-    vc4 = vc5 = vcE = vcF = vzero;
-    //vc0 1 2 3 and A B C D hold row values.
-    vc0 = vld1q_f32(cptr);
-    //vc 4 5 6 and E F G hold column values.
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 0);
-    vc5 =  vld1q_lane_f32(cptr + 5, vc5, 0);
-    cptr += ldc;
-    vc1 = vld1q_f32(cptr);
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 1);
-    vc5 =  vld1q_lane_f32(cptr + 5, vc5, 1);
-    cptr += ldc;
-    vc2 = vld1q_f32(cptr);
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 2);
-    vc5 =  vld1q_lane_f32(cptr + 5, vc5, 2);
-    cptr += ldc;
-    vc3 = vld1q_f32(cptr);
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 3);
-    vc5 =  vld1q_lane_f32(cptr + 5, vc5, 3);
-    cptr += ldc;
-    vcA = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 0);
-    vcF =  vld1q_lane_f32(cptr + 5, vcF, 0);
-    cptr += ldc;
-    vcB = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 1);
-    vcF =  vld1q_lane_f32(cptr + 5, vcF, 1);
-    cptr += ldc;
-    vcC = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 2);
-    vcF =  vld1q_lane_f32(cptr + 5, vcF, 2);
-    cptr += ldc;
-    vcD = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 3);
-    vcF =  vld1q_lane_f32(cptr + 5, vcF, 3);
 
+    if (NULL != bias_data)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vc4 = vc5 = vcE = vcF = vzero;
+        //vc0 1 2 3 and A B C D hold row values.
+        vc0 = vld1q_f32(cptr);
+        //vc 4 5 6 and E F G hold column values.
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 0);
+        vc5 =  vld1q_lane_f32(cptr + 5, vc5, 0);
+        cptr += ldc;
+        vc1 = vld1q_f32(cptr);
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 1);
+        vc5 =  vld1q_lane_f32(cptr + 5, vc5, 1);
+        cptr += ldc;
+        vc2 = vld1q_f32(cptr);
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 2);
+        vc5 =  vld1q_lane_f32(cptr + 5, vc5, 2);
+        cptr += ldc;
+        vc3 = vld1q_f32(cptr);
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 3);
+        vc5 =  vld1q_lane_f32(cptr + 5, vc5, 3);
+        cptr += ldc;
+        vcA = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 0);
+        vcF =  vld1q_lane_f32(cptr + 5, vcF, 0);
+        cptr += ldc;
+        vcB = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 1);
+        vcF =  vld1q_lane_f32(cptr + 5, vcF, 1);
+        cptr += ldc;
+        vcC = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 2);
+        vcF =  vld1q_lane_f32(cptr + 5, vcF, 2);
+        cptr += ldc;
+        vcD = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 3);
+        vcF =  vld1q_lane_f32(cptr + 5, vcF, 3);
+    }
 
     for(int p = 0; p < L; ++p)
     {
@@ -1942,38 +2045,46 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         bptr += ldb;
         aptr += 8;
     }
+
     cptr = c;
-    vst1q_f32(cptr, vc0);
-    vst1q_lane_f32(cptr + 4, vc4, 0);
-    vst1q_lane_f32(cptr + 5, vc5, 0);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc1);
-    vst1q_lane_f32(cptr + 4, vc4, 1);
-    vst1q_lane_f32(cptr + 5, vc5, 1);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc2);
-    vst1q_lane_f32(cptr + 4, vc4, 2);
-    vst1q_lane_f32(cptr + 5, vc5, 2);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc3);
-    vst1q_lane_f32(cptr + 4, vc4, 3);
-    vst1q_lane_f32(cptr + 5, vc5, 3);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcA);
-    vst1q_lane_f32(cptr + 4, vcE, 0);
-    vst1q_lane_f32(cptr + 5, vcF, 0);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcB);
-    vst1q_lane_f32(cptr + 4, vcE, 1);
-    vst1q_lane_f32(cptr + 5, vcF, 1);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcC);
-    vst1q_lane_f32(cptr + 4, vcE, 2);
-    vst1q_lane_f32(cptr + 5, vcF, 2);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcD);
-    vst1q_lane_f32(cptr + 4, vcE, 3);
-    vst1q_lane_f32(cptr + 5, vcF, 3);
+    if (NULL != slopeDataPrelu)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vst1q_f32(cptr, vc0);
+        vst1q_lane_f32(cptr + 4, vc4, 0);
+        vst1q_lane_f32(cptr + 5, vc5, 0);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc1);
+        vst1q_lane_f32(cptr + 4, vc4, 1);
+        vst1q_lane_f32(cptr + 5, vc5, 1);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc2);
+        vst1q_lane_f32(cptr + 4, vc4, 2);
+        vst1q_lane_f32(cptr + 5, vc5, 2);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc3);
+        vst1q_lane_f32(cptr + 4, vc4, 3);
+        vst1q_lane_f32(cptr + 5, vc5, 3);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcA);
+        vst1q_lane_f32(cptr + 4, vcE, 0);
+        vst1q_lane_f32(cptr + 5, vcF, 0);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcB);
+        vst1q_lane_f32(cptr + 4, vcE, 1);
+        vst1q_lane_f32(cptr + 5, vcF, 1);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcC);
+        vst1q_lane_f32(cptr + 4, vcE, 2);
+        vst1q_lane_f32(cptr + 5, vcF, 2);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcD);
+        vst1q_lane_f32(cptr + 4, vcE, 3);
+        vst1q_lane_f32(cptr + 5, vcF, 3);
+    }
 }
 
 static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c, int ldc)
@@ -1995,21 +2106,21 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr += ldc;
     vc1 = vld1q_f32(cptr);
     vc1_I = vcvtq_n_s32_f32(vc1, FRACTIONBX2);
-    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
-    vc5_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 1));
-    vc6_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 1));
+    vc4_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vc5_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
+    vc6_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 0));
     cptr += ldc;
     vc2 = vld1q_f32(cptr);
     vc2_I = vcvtq_n_s32_f32(vc2, FRACTIONBX2);
-    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
-    vc5_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 2));
-    vc6_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 2));
+    vc4_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vc5_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
+    vc6_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 0));
     cptr += ldc;
     vc3 = vld1q_f32(cptr);
     vc3_I = vcvtq_n_s32_f32(vc3, FRACTIONBX2);
-    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
-    vc5_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 3));
-    vc6_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 3));
+    vc4_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vc5_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
+    vc6_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 0));
     cptr += ldc;
     vcA = vld1q_f32(cptr);
     vcA_I = vcvtq_n_s32_f32(vcA, FRACTIONBX2);
@@ -2019,21 +2130,21 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr += ldc;
     vcB = vld1q_f32(cptr);
     vcB_I = vcvtq_n_s32_f32(vcB, FRACTIONBX2);
-    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 1));
-    vcF_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 1));
-    vcG_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 1));
+    vcE_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vcF_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
+    vcG_I[1] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 0));
     cptr += ldc;
     vcC = vld1q_f32(cptr);
     vcC_I = vcvtq_n_s32_f32(vcC, FRACTIONBX2);
-    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 2));
-    vcF_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 2));
-    vcG_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 2));
+    vcE_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vcF_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
+    vcG_I[2] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 0));
     cptr += ldc;
     vcD = vld1q_f32(cptr);
     vcD_I = vcvtq_n_s32_f32(vcD, FRACTIONBX2);
-    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 3));
-    vcF_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 3));
-    vcG_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 3));
+    vcE_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 4 + 0));
+    vcF_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 5 + 0));
+    vcG_I[3] = FLOAT2FIX(int32_t, FRACTIONBX2, *(cptr + 6 + 0));
 
     for(int p = 0; p < L; ++p)
     {
@@ -2125,61 +2236,65 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     *(cptr + 6 + 3) = FIX2FLOAT(FRACTIONBX2, vcG_I[3]);
 }
 
-static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int ldc)
+static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     float *aptr = a;
     float *bptr = b;
     float *cptr = c;
 
     float b4, b5, b6;
-    float32x4_t vb;
-    float32x4_t va0, va1;
-    float32x4_t vc0, vc1, vc2, vc3, vc4, vc5, vc6;
-    //next 4 rows
-    float32x4_t vcA, vcB, vcC, vcD, vcE, vcF, vcG;
+    float32x4_t vb, va0, va1, vc0, vc1, vc2, vc3, vc4, vc5, vc6, vcA, vcB, vcC, vcD, vcE, vcF, vcG;
     float32x4_t vzero = vdupq_n_f32(0.0f);
-    vc4 = vc5 = vc6 = vcE = vcF = vcG = vzero;
-    //vc0 1 2 3 and A B C D hold row values.
-    vc0 = vld1q_f32(cptr);
-    //vc 4 5 6 and E F G hold column values.
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 0);
-    vc5 =  vld1q_lane_f32(cptr + 5, vc5, 0);
-    vc6 =  vld1q_lane_f32(cptr + 6, vc6, 0);
-    cptr += ldc;
-    vc1 = vld1q_f32(cptr);
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 1);
-    vc5 =  vld1q_lane_f32(cptr + 5, vc5, 1);
-    vc6 =  vld1q_lane_f32(cptr + 6, vc6, 1);
-    cptr += ldc;
-    vc2 = vld1q_f32(cptr);
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 2);
-    vc5 =  vld1q_lane_f32(cptr + 5, vc5, 2);
-    vc6 =  vld1q_lane_f32(cptr + 6, vc6, 2);
-    cptr += ldc;
-    vc3 = vld1q_f32(cptr);
-    vc4 =  vld1q_lane_f32(cptr + 4, vc4, 3);
-    vc5 =  vld1q_lane_f32(cptr + 5, vc5, 3);
-    vc6 =  vld1q_lane_f32(cptr + 6, vc6, 3);
-    cptr += ldc;
-    vcA = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 0);
-    vcF =  vld1q_lane_f32(cptr + 5, vcF, 0);
-    vcG =  vld1q_lane_f32(cptr + 6, vcG, 0);
-    cptr += ldc;
-    vcB = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 1);
-    vcF =  vld1q_lane_f32(cptr + 5, vcF, 1);
-    vcG =  vld1q_lane_f32(cptr + 6, vcG, 1);
-    cptr += ldc;
-    vcC = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 2);
-    vcF =  vld1q_lane_f32(cptr + 5, vcF, 2);
-    vcG =  vld1q_lane_f32(cptr + 6, vcG, 2);
-    cptr += ldc;
-    vcD = vld1q_f32(cptr);
-    vcE =  vld1q_lane_f32(cptr + 4, vcE, 3);
-    vcF =  vld1q_lane_f32(cptr + 5, vcF, 3);
-    vcG =  vld1q_lane_f32(cptr + 6, vcG, 3);
+
+    if (NULL != bias_data)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vc4 = vc5 = vc6 = vcE = vcF = vcG = vzero;
+        //vc0 1 2 3 and A B C D hold row values.
+        vc0 = vld1q_f32(cptr);
+        //vc 4 5 6 and E F G hold column values.
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 0);
+        vc5 =  vld1q_lane_f32(cptr + 5, vc5, 0);
+        vc6 =  vld1q_lane_f32(cptr + 6, vc6, 0);
+        cptr += ldc;
+        vc1 = vld1q_f32(cptr);
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 1);
+        vc5 =  vld1q_lane_f32(cptr + 5, vc5, 1);
+        vc6 =  vld1q_lane_f32(cptr + 6, vc6, 1);
+        cptr += ldc;
+        vc2 = vld1q_f32(cptr);
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 2);
+        vc5 =  vld1q_lane_f32(cptr + 5, vc5, 2);
+        vc6 =  vld1q_lane_f32(cptr + 6, vc6, 2);
+        cptr += ldc;
+        vc3 = vld1q_f32(cptr);
+        vc4 =  vld1q_lane_f32(cptr + 4, vc4, 3);
+        vc5 =  vld1q_lane_f32(cptr + 5, vc5, 3);
+        vc6 =  vld1q_lane_f32(cptr + 6, vc6, 3);
+        cptr += ldc;
+        vcA = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 0);
+        vcF =  vld1q_lane_f32(cptr + 5, vcF, 0);
+        vcG =  vld1q_lane_f32(cptr + 6, vcG, 0);
+        cptr += ldc;
+        vcB = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 1);
+        vcF =  vld1q_lane_f32(cptr + 5, vcF, 1);
+        vcG =  vld1q_lane_f32(cptr + 6, vcG, 1);
+        cptr += ldc;
+        vcC = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 2);
+        vcF =  vld1q_lane_f32(cptr + 5, vcF, 2);
+        vcG =  vld1q_lane_f32(cptr + 6, vcG, 2);
+        cptr += ldc;
+        vcD = vld1q_f32(cptr);
+        vcE =  vld1q_lane_f32(cptr + 4, vcE, 3);
+        vcF =  vld1q_lane_f32(cptr + 5, vcF, 3);
+        vcG =  vld1q_lane_f32(cptr + 6, vcG, 3);
+    }
 
     for(int p = 0; p < L; ++p)
     {
@@ -2234,45 +2349,52 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         aptr += 8;
     }
     cptr = c;
-    vst1q_f32(cptr, vc0);
-    vst1q_lane_f32(cptr + 4, vc4, 0);
-    vst1q_lane_f32(cptr + 5, vc5, 0);
-    vst1q_lane_f32(cptr + 6, vc6, 0);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc1);
-    vst1q_lane_f32(cptr + 4, vc4, 1);
-    vst1q_lane_f32(cptr + 5, vc5, 1);
-    vst1q_lane_f32(cptr + 6, vc6, 1);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc2);
-    vst1q_lane_f32(cptr + 4, vc4, 2);
-    vst1q_lane_f32(cptr + 5, vc5, 2);
-    vst1q_lane_f32(cptr + 6, vc6, 2);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc3);
-    vst1q_lane_f32(cptr + 4, vc4, 3);
-    vst1q_lane_f32(cptr + 5, vc5, 3);
-    vst1q_lane_f32(cptr + 6, vc6, 3);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcA);
-    vst1q_lane_f32(cptr + 4, vcE, 0);
-    vst1q_lane_f32(cptr + 5, vcF, 0);
-    vst1q_lane_f32(cptr + 6, vcG, 0);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcB);
-    vst1q_lane_f32(cptr + 4, vcE, 1);
-    vst1q_lane_f32(cptr + 5, vcF, 1);
-    vst1q_lane_f32(cptr + 6, vcG, 1);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcC);
-    vst1q_lane_f32(cptr + 4, vcE, 2);
-    vst1q_lane_f32(cptr + 5, vcF, 2);
-    vst1q_lane_f32(cptr + 6, vcG, 2);
-    cptr+=ldc;
-    vst1q_f32(cptr, vcD);
-    vst1q_lane_f32(cptr + 4, vcE, 3);
-    vst1q_lane_f32(cptr + 5, vcF, 3);
-    vst1q_lane_f32(cptr + 6, vcG, 3);
+    if (NULL != slopeDataPrelu)
+    {
+        printf("pls fix me, %s %d\n", __FILE__, __LINE__);
+    }
+    else
+    {
+        vst1q_f32(cptr, vc0);
+        vst1q_lane_f32(cptr + 4, vc4, 0);
+        vst1q_lane_f32(cptr + 5, vc5, 0);
+        vst1q_lane_f32(cptr + 6, vc6, 0);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc1);
+        vst1q_lane_f32(cptr + 4, vc4, 1);
+        vst1q_lane_f32(cptr + 5, vc5, 1);
+        vst1q_lane_f32(cptr + 6, vc6, 1);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc2);
+        vst1q_lane_f32(cptr + 4, vc4, 2);
+        vst1q_lane_f32(cptr + 5, vc5, 2);
+        vst1q_lane_f32(cptr + 6, vc6, 2);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc3);
+        vst1q_lane_f32(cptr + 4, vc4, 3);
+        vst1q_lane_f32(cptr + 5, vc5, 3);
+        vst1q_lane_f32(cptr + 6, vc6, 3);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcA);
+        vst1q_lane_f32(cptr + 4, vcE, 0);
+        vst1q_lane_f32(cptr + 5, vcF, 0);
+        vst1q_lane_f32(cptr + 6, vcG, 0);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcB);
+        vst1q_lane_f32(cptr + 4, vcE, 1);
+        vst1q_lane_f32(cptr + 5, vcF, 1);
+        vst1q_lane_f32(cptr + 6, vcG, 1);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcC);
+        vst1q_lane_f32(cptr + 4, vcE, 2);
+        vst1q_lane_f32(cptr + 5, vcF, 2);
+        vst1q_lane_f32(cptr + 6, vcG, 2);
+        cptr+=ldc;
+        vst1q_f32(cptr, vcD);
+        vst1q_lane_f32(cptr + 4, vcE, 3);
+        vst1q_lane_f32(cptr + 5, vcF, 3);
+        vst1q_lane_f32(cptr + 6, vcG, 3);
+    }
 }
 
 void sgemm_4x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int ldc )
@@ -2345,7 +2467,7 @@ void sgemm_4x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int 
     vst1q_f32(cptr + 4, vc7);
 }
 
-void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB, sgemm_tiny_scale_func sgemm_tiny_scale)
+static void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB, sgemm_tiny_scale_func sgemm_tiny_scale)
 {
     //Align L to achieve better performance for better cache line alignment.
     int eL = L + (4 - L % 4) % 4;
@@ -2361,7 +2483,7 @@ void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int lda, flo
             sgemm_4x8_pack(L, a + i * L, lda, packB + j * eL, 8, c + i * ldc + j, ldc);
         }
         if(remN)
-            sgemm_tiny_scale(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc);
+            sgemm_tiny_scale(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc, i, NULL, NULL,false);
     }
 }
 
@@ -2372,37 +2494,98 @@ extern "C" void sgemm_8x8_pack_fix( int L, short *a, int lda, short *b, int ldb,
 extern "C" void sgemm_8x8_pack_fix( int L, short *a, short *b, float *c, int ldc );
 #endif
 
-inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int ldc )
+inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu )
 {
     float *aptr = a;
     float *bptr = b;
     float *cptr = c;
-    float32x4_t vb0, vb1;
-    float32x4_t va0, va1;
+    float32x4_t vb0, vb1, va0, va1;
+    float32x4_t vc0, vc8, vc1, vc9, vc2, vcA, vc3, vcB, vc4, vcC, vc5, vcD, vc6, vcE, vc7, vcF;
 
-    float32x4_t vc0 = vld1q_f32(cptr);
-    float32x4_t vc8 = vld1q_f32(cptr + 4);
-    cptr += ldc;
-    float32x4_t vc1 = vld1q_f32(cptr);
-    float32x4_t vc9 = vld1q_f32(cptr + 4);
-    cptr += ldc;
-    float32x4_t vc2 = vld1q_f32(cptr);
-    float32x4_t vcA = vld1q_f32(cptr + 4);
-    cptr += ldc;
-    float32x4_t vc3 = vld1q_f32(cptr);
-    float32x4_t vcB = vld1q_f32(cptr + 4);
-    cptr += ldc;
-    float32x4_t vc4 = vld1q_f32(cptr);
-    float32x4_t vcC = vld1q_f32(cptr + 4);
-    cptr += ldc;
-    float32x4_t vc5 = vld1q_f32(cptr);
-    float32x4_t vcD = vld1q_f32(cptr + 4);
-    cptr += ldc;
-    float32x4_t vc6 = vld1q_f32(cptr);
-    float32x4_t vcE = vld1q_f32(cptr + 4);
-    cptr += ldc;
-    float32x4_t vc7 = vld1q_f32(cptr);
-    float32x4_t vcF = vld1q_f32(cptr + 4);
+    if (NULL != bias_data)
+    {
+        float32x4_t vbasis = vld1q_dup_f32(bias_data + ch);
+
+        vc0 = vld1q_f32(cptr);
+        vc8 = vld1q_f32(cptr + 4);
+        vc0 = vaddq_f32(vc0, vbasis);
+        vc8 = vaddq_f32(vc8, vbasis);
+        cptr += ldc;
+        vbasis = vld1q_dup_f32(bias_data + ch + 1);
+
+        vc1 = vld1q_f32(cptr);
+        vc9 = vld1q_f32(cptr + 4);
+        vc1 = vaddq_f32(vc1, vbasis);
+        vc9 = vaddq_f32(vc9, vbasis);
+        cptr += ldc;
+        vbasis = vld1q_dup_f32(bias_data + ch + 2);
+
+        vc2 = vld1q_f32(cptr);
+        vcA = vld1q_f32(cptr + 4);
+        vc2 = vaddq_f32(vc2, vbasis);
+        vcA = vaddq_f32(vcA, vbasis);
+        cptr += ldc;
+        vbasis = vld1q_dup_f32(bias_data + ch + 3);
+
+        vc3 = vld1q_f32(cptr);
+        vcB = vld1q_f32(cptr + 4);
+        vc3 = vaddq_f32(vc3, vbasis);
+        vcB = vaddq_f32(vcB, vbasis);
+        cptr += ldc;
+        vbasis = vld1q_dup_f32(bias_data + ch + 4);
+
+        vc4 = vld1q_f32(cptr);
+        vcC = vld1q_f32(cptr + 4);
+        vc4 = vaddq_f32(vc4, vbasis);
+        vcC = vaddq_f32(vcC, vbasis);
+        cptr += ldc;
+        vbasis = vld1q_dup_f32(bias_data + ch + 5);
+
+        vc5 = vld1q_f32(cptr);
+        vcD = vld1q_f32(cptr + 4);
+        vc5 = vaddq_f32(vc5, vbasis);
+        vcD = vaddq_f32(vcD, vbasis);
+        cptr += ldc;
+        vbasis = vld1q_dup_f32(bias_data + ch + 6);
+
+        vc6 = vld1q_f32(cptr);
+        vcE = vld1q_f32(cptr + 4);
+        vc6 = vaddq_f32(vc6, vbasis);
+        vcE = vaddq_f32(vcE, vbasis);
+        cptr += ldc;
+        vbasis = vld1q_dup_f32(bias_data + ch + 7);
+
+        vc7 = vld1q_f32(cptr);
+        vcF = vld1q_f32(cptr + 4);
+        vc7 = vaddq_f32(vc7, vbasis);
+        vcF = vaddq_f32(vcF, vbasis);
+    }
+    else
+    {
+        vc0 = vld1q_f32(cptr);
+        vc8 = vld1q_f32(cptr + 4);
+        cptr += ldc;
+        vc1 = vld1q_f32(cptr);
+        vc9 = vld1q_f32(cptr + 4);
+        cptr += ldc;
+        vc2 = vld1q_f32(cptr);
+        vcA = vld1q_f32(cptr + 4);
+        cptr += ldc;
+        vc3 = vld1q_f32(cptr);
+        vcB = vld1q_f32(cptr + 4);
+        cptr += ldc;
+        vc4 = vld1q_f32(cptr);
+        vcC = vld1q_f32(cptr + 4);
+        cptr += ldc;
+        vc5 = vld1q_f32(cptr);
+        vcD = vld1q_f32(cptr + 4);
+        cptr += ldc;
+        vc6 = vld1q_f32(cptr);
+        vcE = vld1q_f32(cptr + 4);
+        cptr += ldc;
+        vc7 = vld1q_f32(cptr);
+        vcF = vld1q_f32(cptr + 4);
+    }
 
     for(int p = 0; p < L; ++p)
     {
@@ -2433,6 +2616,27 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vcE = vfmaq_laneq_f32(vcE, vb1, va1, 2);
         vcF = vfmaq_laneq_f32(vcF, vb1, va1, 3);
 #else
+#if 1
+        vc0 = vmlaq_n_f32(vc0, vb0, aptr[0]);
+        vc1 = vmlaq_n_f32(vc1, vb0, aptr[1]);
+        vc2 = vmlaq_n_f32(vc2, vb0, aptr[2]);
+        vc3 = vmlaq_n_f32(vc3, vb0, aptr[3]);
+
+        vc4 = vmlaq_n_f32(vc4, vb0, aptr[4]);
+        vc5 = vmlaq_n_f32(vc5, vb0, aptr[5]);
+        vc6 = vmlaq_n_f32(vc6, vb0, aptr[6]);
+        vc7 = vmlaq_n_f32(vc7, vb0, aptr[7]);
+
+        vc8 = vmlaq_n_f32(vc8, vb1, aptr[0]);
+        vc9 = vmlaq_n_f32(vc9, vb1, aptr[1]);
+        vcA = vmlaq_n_f32(vcA, vb1, aptr[2]);
+        vcB = vmlaq_n_f32(vcB, vb1, aptr[3]);
+
+        vcC = vmlaq_n_f32(vcC, vb1, aptr[4]);
+        vcD = vmlaq_n_f32(vcD, vb1, aptr[5]);
+        vcE = vmlaq_n_f32(vcE, vb1, aptr[6]);
+        vcF = vmlaq_n_f32(vcF, vb1, aptr[7]);
+#else
         vc0 = vmlaq_f32(vc0, vb0, vld1q_dup_f32(aptr + 0));
         vc1 = vmlaq_f32(vc1, vb0, vld1q_dup_f32(aptr + 1));
         vc2 = vmlaq_f32(vc2, vb0, vld1q_dup_f32(aptr + 2));
@@ -2452,35 +2656,142 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vcD = vmlaq_f32(vcD, vb1, vld1q_dup_f32(aptr + 5));
         vcE = vmlaq_f32(vcE, vb1, vld1q_dup_f32(aptr + 6));
         vcF = vmlaq_f32(vcF, vb1, vld1q_dup_f32(aptr + 7));
+#endif
 #endif // __aarch64__
 
         bptr += 8;
         aptr += 8;
     }
+
     cptr = c;
-    vst1q_f32(cptr, vc0);
-    vst1q_f32(cptr + 4, vc8);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc1);
-    vst1q_f32(cptr + 4, vc9);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc2);
-    vst1q_f32(cptr + 4, vcA);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc3);
-    vst1q_f32(cptr + 4, vcB);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc4);
-    vst1q_f32(cptr + 4, vcC);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc5);
-    vst1q_f32(cptr + 4, vcD);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc6);
-    vst1q_f32(cptr + 4, vcE);
-    cptr+=ldc;
-    vst1q_f32(cptr, vc7);
-    vst1q_f32(cptr + 4, vcF);
+
+    if (NULL != slopeDataPrelu)
+    {
+        if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
+
+        vb1 = vdupq_n_f32(.0f);
+
+        va1 = vcleq_f32(vc0, vb1);
+        vb0 = vmulq_n_f32(vc0, slopeDataPrelu[ch]);
+        vc0 = vbslq_f32(va1, vb0, vc0);
+
+        va1 = vcleq_f32(vc8, vb1);
+        vb0 = vmulq_n_f32(vc8, slopeDataPrelu[ch]);
+        vc8 = vbslq_f32(va1, vb0, vc8);
+
+        vst1q_f32(cptr, vc0);
+        vst1q_f32(cptr + 4, vc8);
+        cptr+=ldc;
+
+        va1 = vcleq_f32(vc1, vb1);
+        vb0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
+        vc1 = vbslq_f32(va1, vb0, vc1);
+
+        va1 = vcleq_f32(vc9, vb1);
+        vb0 = vmulq_n_f32(vc9, slopeDataPrelu[ch+1]);
+        vc9 = vbslq_f32(va1, vb0, vc9);
+
+        vst1q_f32(cptr, vc1);
+        vst1q_f32(cptr + 4, vc9);
+        cptr+=ldc;
+
+        va1 = vcleq_f32(vc2, vb1);
+        vb0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
+        vc2 = vbslq_f32(va1, vb0, vc2);
+
+        va1 = vcleq_f32(vcA, vb1);
+        vb0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+2]);
+        vcA = vbslq_f32(va1, vb0, vcA);
+
+        vst1q_f32(cptr, vc2);
+        vst1q_f32(cptr + 4, vcA);
+        cptr+=ldc;
+
+        va1 = vcleq_f32(vc3, vb1);
+        vb0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
+        vc3 = vbslq_f32(va1, vb0, vc3);
+
+        va1 = vcleq_f32(vcB, vb1);
+        vb0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+3]);
+        vcB = vbslq_f32(va1, vb0, vcB);
+
+        vst1q_f32(cptr, vc3);
+        vst1q_f32(cptr + 4, vcB);
+        cptr+=ldc;
+
+        va1 = vcleq_f32(vc4, vb1);
+        vb0 = vmulq_n_f32(vc4, slopeDataPrelu[ch+4]);
+        vc4 = vbslq_f32(va1, vb0, vc4);
+
+        va1 = vcleq_f32(vcC, vb1);
+        vb0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+4]);
+        vcC = vbslq_f32(va1, vb0, vcC);
+
+        vst1q_f32(cptr, vc4);
+        vst1q_f32(cptr + 4, vcC);
+        cptr+=ldc;
+
+        va1 = vcleq_f32(vc5, vb1);
+        vb0 = vmulq_n_f32(vc5, slopeDataPrelu[ch+5]);
+        vc5 = vbslq_f32(va1, vb0, vc5);
+
+        va1 = vcleq_f32(vcD, vb1);
+        vb0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+5]);
+        vcD = vbslq_f32(va1, vb0, vcD);
+
+        vst1q_f32(cptr, vc5);
+        vst1q_f32(cptr + 4, vcD);
+        cptr+=ldc;
+
+        va1 = vcleq_f32(vc6, vb1);
+        vb0 = vmulq_n_f32(vc6, slopeDataPrelu[ch+6]);
+        vc6 = vbslq_f32(va1, vb0, vc6);
+
+        va1 = vcleq_f32(vcE, vb1);
+        vb0 = vmulq_n_f32(vcE, slopeDataPrelu[ch+6]);
+        vcE = vbslq_f32(va1, vb0, vcE);
+
+        vst1q_f32(cptr, vc6);
+        vst1q_f32(cptr + 4, vcE);
+        cptr+=ldc;
+
+        va1 = vcleq_f32(vc7, vb1);
+        vb0 = vmulq_n_f32(vc7, slopeDataPrelu[ch+7]);
+        vc7 = vbslq_f32(va1, vb0, vc7);
+
+        va1 = vcleq_f32(vcF, vb1);
+        vb0 = vmulq_n_f32(vcF, slopeDataPrelu[ch+7]);
+        vcF = vbslq_f32(va1, vb0, vcF);
+
+        vst1q_f32(cptr, vc7);
+        vst1q_f32(cptr + 4, vcF);
+    }
+    else
+    {
+        vst1q_f32(cptr, vc0);
+        vst1q_f32(cptr + 4, vc8);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc1);
+        vst1q_f32(cptr + 4, vc9);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc2);
+        vst1q_f32(cptr + 4, vcA);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc3);
+        vst1q_f32(cptr + 4, vcB);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc4);
+        vst1q_f32(cptr + 4, vcC);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc5);
+        vst1q_f32(cptr + 4, vcD);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc6);
+        vst1q_f32(cptr + 4, vcE);
+        cptr+=ldc;
+        vst1q_f32(cptr, vc7);
+        vst1q_f32(cptr + 4, vcF);
+    }
 }
 
 static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, short* packB, sgemm_tiny_scale_fix_func sgemm_tiny_scale_fix)
@@ -2527,9 +2838,8 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t
     }
 }
 
-void SGEBP_externalPackA_tiny_scale_8x8( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB, sgemm_tiny_scale_func sgemm_tiny_scale)
+void SGEBP_externalPackA_tiny_scale_8x8( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB, sgemm_tiny_scale_func sgemm_tiny_scale, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
-    //Align L to achieve better performance for better cache line alignment.
     int eL = L + (4 - L % 4) % 4;
     int remN = N % 8;
     int fN = N - remN;
@@ -2541,10 +2851,10 @@ void SGEBP_externalPackA_tiny_scale_8x8( int M, int N, int L, float *a, int lda,
         {
             if(i == 0)
                 internalPackB8(L, packB + j * eL, b + j, ldb);
-            sgemm_8x8_pack(L, a + i * L, lda, packB + j * eL, 8, c + i * ldc + j, ldc);
+            sgemm_8x8_pack(L, a + i * L, lda, packB + j * eL, 8, c + i * ldc + j, ldc, i, bias_data, slopeDataPrelu, sharedPrelu);
         }
         if(remN)
-            sgemm_tiny_scale(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc);
+            sgemm_tiny_scale(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc, i, bias_data, slopeDataPrelu, sharedPrelu);
     }
 }
 
@@ -2552,8 +2862,6 @@ void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb,
 {
     for(int i = 0; i < M; ++i)
         memset(c + ldc * i, 0, sizeof(float) * N);
-    //float* packB = (float *)_mm_malloc(sizeof(float) * kc *  N, 16);
-    //if (NULL == packB) return;
 
     for(int l = 0; l < N; l += nc)
     {
@@ -2570,20 +2878,20 @@ void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb,
             }
         }
     }
-    //_mm_free(packB);
 }
 
 template<typename T>
-static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc, float int8scale, void *pfunc, void *packB)
+static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc, float int8scale, void *pfunc, void *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
-    for(int i = 0; i < M; ++i)
-        memset(c + ldc * i, 0, sizeof(float) * N);
+    if (NULL != bias_data)
+        for(int i = 0; i < M; ++i)
+            fill(c + ldc * i, N, bias_data[i]);
+    else
+        for(int i = 0; i < M; ++i)
+            memset(c + ldc * i, 0, sizeof(float) * N);
 
     if (4 == sizeof(T)) /* float */
     {
-        //packB = _mm_malloc(sizeof(T) * kc *  N, 16);
-        //if (NULL == packB) return;
-
         for(int l = 0; l < N; l += nc)
         {
             float* packAptr = (float*)a;
@@ -2594,7 +2902,7 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
                 for(int p = 0; p < L; p += kc)
                 {
                     int pb = MIN(L - p, kc);
-                    SGEBP_externalPackA_tiny_scale_8x8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (float*)packB, (sgemm_tiny_scale_func)pfunc);
+                    SGEBP_externalPackA_tiny_scale_8x8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (float*)packB, (sgemm_tiny_scale_func)pfunc, NULL, slopeDataPrelu, sharedPrelu);
                     packAptr += ib * pb;
                 }
             }
@@ -2602,9 +2910,6 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
     }
     else if (2 == sizeof(T))  /* short */
     {
-        //packB = _mm_malloc(sizeof(T) * kc *  N, 16);
-        //if (NULL == packB) return;
-
         for(int l = 0; l < N; l += nc)
         {
             short* packAptr = (short*)a;
@@ -2623,9 +2928,6 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
     }
     else if (1 == sizeof(T))  /* char */
     {
-        //packB = _mm_malloc(sizeof(short) * kc *  N, 16);
-        //if (NULL == packB) return;
-
         for(int l = 0; l < N; l += nc)
         {
             int8_t* packAptr = (int8_t*)a;
@@ -2644,11 +2946,9 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
     }
     else
         printf("Wrong tpye, %d\n", sizeof(T));
-
-    //_mm_free(packB);
 }
 
-void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *b, float *c, int num_threads, void *packB)
+void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *b, float *c, int num_threads, void *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     sgemm_tiny_scale_func sgemm_tiny_scale;
 
@@ -2695,7 +2995,7 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
     }
 }
 
-void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a, float *b, float *c, int num_threads, float int8scale, void *packB)
+void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a, float *b, float *c, int num_threads, float int8scale, void *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8;
 
@@ -2726,7 +3026,7 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
 
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<int8_t>(eM, N, L, a, L, b, N, c, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB);
+        block_sgemm_pack_8x8<int8_t>(eM, N, L, a, L, b, N, c, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB, bias_data, slopeDataPrelu, sharedPrelu);
     }
     else
     {
@@ -2736,12 +3036,12 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<int8_t>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB);
+            block_sgemm_pack_8x8<int8_t>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB, bias_data, slopeDataPrelu, sharedPrelu);
         }
     }
 }
 
-void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, float *b, float *c, int num_threads, void *packB)
+void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, float *b, float *c, int num_threads, void *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     sgemm_tiny_scale_fix_func sgemm_tiny_scale_fix;
 
@@ -2787,7 +3087,7 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
 
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N, 0.0, (void*)sgemm_tiny_scale_fix, packB);
+        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N, 0.0, (void*)sgemm_tiny_scale_fix, packB, bias_data, slopeDataPrelu, sharedPrelu);
     }
     else
     {
@@ -2797,16 +3097,17 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, (void*)sgemm_tiny_scale_fix, packB);
+            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, (void*)sgemm_tiny_scale_fix, packB, bias_data, slopeDataPrelu, sharedPrelu);
         }
     }
 }
 
-void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, float *b, float *c, int num_threads, void *packB)
+void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, float *b, float *c, int num_threads, void *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     sgemm_tiny_scale_func sgemm_tiny_scale;
 
     int eM = M + (8 - M % 8) % 8;
+    //printf("-%d (%d %d)-\n", N % 8, M, eM);
     switch(N % 8)
     {
     case 1:
@@ -2845,12 +3146,10 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
         lastSN = N - (num_threads * factor - 1) * tN;
     }
     num_threads = (num_threads <= 0) ? 1 : num_threads;
-    //num_threads change to 1 -> SN and tN will not be used.
-    //otherwise, num_threads is left unchanged and lastSN is still effective.
 
     if (num_threads == 1 || N <= 8 || N - (num_threads * factor - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<float>(eM, N, L, a, L, b, N, c, N, 0.0, (void*)sgemm_tiny_scale, packB);
+        block_sgemm_pack_8x8<float>(eM, N, L, a, L, b, N, c, N, 0.0, (void*)sgemm_tiny_scale, packB, bias_data, slopeDataPrelu, sharedPrelu);
     }
     else
     {
@@ -2860,7 +3159,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<float>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, (void*)sgemm_tiny_scale, packB);
+            block_sgemm_pack_8x8<float>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, (void*)sgemm_tiny_scale, packB, bias_data, slopeDataPrelu, sharedPrelu);
         }
     }
 }

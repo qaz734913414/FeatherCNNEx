@@ -32,7 +32,7 @@ public:
         //From proto
         const ConvolutionParameter *conv_param = layer_param->convolution_param();
         bias_term = conv_param->bias_term();
-
+        bias_data = NULL;
         group = conv_param->group();
         kernel_height = conv_param->kernel_h();
         kernel_width = conv_param->kernel_w();

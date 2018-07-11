@@ -17,6 +17,7 @@
 #include "../feather_simple_generated.h"
 #include "../layer.h"
 #include "arm/sgemv.h"
+#include "arm/helper.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -46,6 +47,13 @@ public:
 
     int Forward()
     {
+        //printf("%s %d %d\n", bias_term?"basis":"no basis", output_size, input_size);
+//#define TIME_PROFILE
+#ifdef TIME_PROFILE
+        Timer t;
+        t.startBench();
+#endif
+
         if(bias_term)
         {
             if (output_size%8==0 && input_size%8==0)
@@ -61,6 +69,9 @@ public:
                 fully_connected_inference_direct((int)input_size, (int)output_size, input, kernel_data, output, num_threads);
 
         }
+#ifdef TIME_PROFILE
+        t.endBench("inner");
+#endif
 
         return 0;
     }
