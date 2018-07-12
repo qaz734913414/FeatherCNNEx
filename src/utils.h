@@ -59,3 +59,4 @@ static inline void vst1q_f16_f32(void* address, float32x4_t vector)
 
 void fill(float * ptr, int size, float _v);
 void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, float scale, int bgr);
+void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned stride, unsigned roiX, unsigned roiY, unsigned roiW, unsigned roiH, unsigned char* pDst, unsigned bgrFlag, unsigned num_threads);

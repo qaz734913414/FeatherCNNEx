@@ -154,3 +154,467 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
     return;
 }
 
+/*
+|R|   | 298    0     409 | | Y - 16  |
+|G| = | 298  -100   -208 | | U - 128 |
+|B|   | 298   516     0  | | V - 128 |
+R = (298*(Y-16)+409*(V-128)+128)>>8
+G = (298*(Y-16)-100*(U-128)-208*(V-128)+128)>>8
+B = (298*(Y-16)+516*(U-128)+128)>>8
+Y = (( 66 * R + 129 * G +  25 * B + 128) >> 8) +  16
+U = ((-38 * R -  74 * G + 112 * B + 128) >> 8) + 128
+V = ((112 * R -  94 * G -  18 * B + 128) >> 8) + 128
+*/
+void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned stride, unsigned roiX, unsigned roiY, unsigned roiW, unsigned roiH, unsigned char* pDst, unsigned bgrFlag, unsigned num_threads)
+{
+    /*
+        super fast api
+        copyright @ tianylijun@163.com 2018
+    */
+    unsigned j = 0;
+    unsigned roiWDiv16, roiWHas8, roiWLeft;
+    unsigned offsetH = 0, offsetW = 0;
+
+    const unsigned char * y  = yuv + roiX + roiY*stride;
+    const unsigned char * uv = yuv + stride * h + (roiY>>1)*stride + ((roiX>>1)<<1);
+
+    if (0 != (roiY&1)) offsetH = 1;
+    if (0 != (roiX&1)) offsetW = 1;
+
+    roiWDiv16 = (roiW - offsetW)>>4;
+    roiWHas8  = (roiW - offsetW)&8;
+    roiWLeft  = (roiW - offsetW)&7;
+
+    int16x8_t vsrc16x8_16  = vdupq_n_s16(16);
+    int16x8_t vsrc16x8_128 = vdupq_n_s16(128);
+    int32x4_t vsrc32x4_128 = vdupq_n_s32(128);
+    int16x8_t vsrc16x8_0   = vdupq_n_s16(0);
+    int16x8_t vsrc16x8_255 = vdupq_n_s16(255);
+
+    #pragma omp parallel for num_threads(num_threads)
+    for( j = 0; j < roiH; j++)
+    {
+        const unsigned char *pCurY  = y + j*stride;
+        const unsigned char *pCurUV = uv + ((j+offsetH)/2)*stride;
+        unsigned char *pDstCur      = pDst + j*roiW*3;
+        unsigned i;
+
+        if (offsetW) //odd point process separate
+        {
+            int Y, U, V, R, G, B, Y298;
+            Y = ((int32_t)*pCurY) - 16;
+            U = ((int32_t)*pCurUV) - 128;
+            V = ((int32_t)*(pCurUV+1)) - 128;
+
+            Y298 = 298*Y+128;
+            R = (Y298 + 409*(V))>>8;
+            G = (Y298 - 100*(U) - 208*(V))>>8;
+            B = (Y298 + 516*(U))>>8;
+
+            if (R < 0) R = 0;
+            else if (R > 255) R = 255;
+            if (G < 0) G = 0;
+            else if (G > 255) G = 255;
+            if (B < 0) B = 0;
+            else if (B > 255) B = 255;
+
+            if (bgrFlag)
+            {
+                *pDstCur++ = (unsigned char)B;
+                *pDstCur++ = (unsigned char)G;
+                *pDstCur++ = (unsigned char)R;
+            }
+            else
+            {
+                *pDstCur++ = (unsigned char)R;
+                *pDstCur++ = (unsigned char)G;
+                *pDstCur++ = (unsigned char)B;
+            }
+
+            pCurY++;
+            pCurUV += 2;
+        }
+
+        for( i = 0; i < roiWDiv16; i++)
+        {
+            int32x4x3_t vsrc32x4x3_0; // LOW  RGB
+            int32x4x3_t vsrc32x4x3_1; // HIGH RGB
+
+            vsrc32x4x3_0.val[0] = vsrc32x4_128; //R
+            vsrc32x4x3_1.val[0] = vsrc32x4_128; //R
+
+            uint8x8_t  vsrc8x8_y    = vld1_u8(pCurY); // [y0y1y2y3y4y5y6u7]
+            uint16x8_t vsrc16x8_y_u = vmovl_u8(vsrc8x8_y);
+            int16x8_t  vsrc16x8_y   = vreinterpretq_s16_u16(vsrc16x8_y_u);
+            vsrc16x8_y = vsubq_s16(vsrc16x8_y, vsrc16x8_16);
+
+            uint8x8x2_t vsrc8x8x2_uv = vld2_u8(pCurUV); // [u0u1u2u3u4u5u6u7] [v0v1v2v3v4v5v6v7]
+            uint8x8x2_t vsrc8x8x2_u  = vzip_u8(vsrc8x8x2_uv.val[0], vsrc8x8x2_uv.val[0]); //[u0u0u1u1u2u2u3u3] [u4u4u5u5u6u6u7u7]
+            uint8x8x2_t vsrc8x8x2_v  = vzip_u8(vsrc8x8x2_uv.val[1], vsrc8x8x2_uv.val[1]); //[v0v0v1v1v2v2v3v3] [v4v4v5v5v6v6v7v7]
+            uint16x8_t  vsrc16x8_u_u = vmovl_u8(vsrc8x8x2_u.val[0]); //[u0u0u1u1u2u2u3u3]
+            uint16x8_t  vsrc16x8_v_u = vmovl_u8(vsrc8x8x2_v.val[0]); //[v0v0v1v1v2v2v3v3]
+            int16x8_t   vsrc16x8_u   = vreinterpretq_s16_u16(vsrc16x8_u_u);
+            int16x8_t   vsrc16x8_v   = vreinterpretq_s16_u16(vsrc16x8_v_u);
+            vsrc16x8_u = vsubq_s16(vsrc16x8_u, vsrc16x8_128);
+            vsrc16x8_v = vsubq_s16(vsrc16x8_v, vsrc16x8_128);
+
+            //R   R = (298*(Y-16)+409*(V-128)+128)>>8
+            vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_y),  298);
+            vsrc32x4x3_1.val[0] = vmlal_n_s16(vsrc32x4x3_1.val[0], vget_high_s16(vsrc16x8_y), 298);
+
+            vsrc32x4x3_0.val[1] = vsrc32x4x3_0.val[0]; //vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_y),  298);
+            vsrc32x4x3_1.val[1] = vsrc32x4x3_1.val[0]; //vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_y), 298);
+
+            vsrc32x4x3_0.val[2] = vsrc32x4x3_0.val[0]; //vmlal_n_s16(vsrc32x4x3_0.val[2], vget_low_s16(vsrc16x8_y),  298);
+            vsrc32x4x3_1.val[2] = vsrc32x4x3_1.val[0]; //vmlal_n_s16(vsrc32x4x3_1.val[2], vget_high_s16(vsrc16x8_y), 298);
+
+            vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_v),  409);
+            vsrc32x4x3_1.val[0] = vmlal_n_s16(vsrc32x4x3_1.val[0], vget_high_s16(vsrc16x8_v), 409);
+            //G G = (298*(Y-16)-100*(U-128)-208*(V-128)+128)>>8
+
+            vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_u),  -100);
+            vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_u), -100);
+
+            vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_v),  -208);
+            vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_v), -208);
+            //B B = (298*(Y-16)+516*(U-128)+128)>>8s
+
+            vsrc32x4x3_0.val[2] = vmlal_n_s16(vsrc32x4x3_0.val[2], vget_low_s16(vsrc16x8_u),  516);
+            vsrc32x4x3_1.val[2] = vmlal_n_s16(vsrc32x4x3_1.val[2], vget_high_s16(vsrc16x8_u), 516);
+
+            //shift right
+            vsrc32x4x3_0.val[0] = vshrq_n_s32(vsrc32x4x3_0.val[0], 8);
+            vsrc32x4x3_1.val[0] = vshrq_n_s32(vsrc32x4x3_1.val[0], 8);
+
+            vsrc32x4x3_0.val[1] = vshrq_n_s32(vsrc32x4x3_0.val[1], 8);
+            vsrc32x4x3_1.val[1] = vshrq_n_s32(vsrc32x4x3_1.val[1], 8);
+
+            vsrc32x4x3_0.val[2] = vshrq_n_s32(vsrc32x4x3_0.val[2], 8);
+            vsrc32x4x3_1.val[2] = vshrq_n_s32(vsrc32x4x3_1.val[2], 8);
+
+            int16x4_t vTmp16x4_0 = vmovn_s32(vsrc32x4x3_0.val[0]);
+            int16x4_t vTmp16x4_1 = vmovn_s32(vsrc32x4x3_1.val[0]);
+            int16x8_t vR16x8 = vcombine_s16(vTmp16x4_0, vTmp16x4_1);
+
+            vTmp16x4_0 = vmovn_s32(vsrc32x4x3_0.val[1]);
+            vTmp16x4_1 = vmovn_s32(vsrc32x4x3_1.val[1]);
+            int16x8_t vG16x8 = vcombine_s16(vTmp16x4_0, vTmp16x4_1);
+
+            vTmp16x4_0 = vmovn_s32(vsrc32x4x3_0.val[2]);
+            vTmp16x4_1 = vmovn_s32(vsrc32x4x3_1.val[2]);
+            int16x8_t vB16x8 = vcombine_s16(vTmp16x4_0, vTmp16x4_1);
+
+            uint16x8_t mask;
+
+            mask = vcltq_s16(vR16x8, vsrc16x8_255);
+            vR16x8  = vbslq_s16(mask, vR16x8, vsrc16x8_255);
+
+            mask = vcltq_s16(vG16x8, vsrc16x8_255);
+            vG16x8  = vbslq_s16(mask, vG16x8, vsrc16x8_255);
+
+            mask = vcltq_s16(vB16x8, vsrc16x8_255);
+            vB16x8  = vbslq_s16(mask, vB16x8, vsrc16x8_255);
+
+            mask = vcgtq_s16(vR16x8, vsrc16x8_0);
+            vR16x8  = vbslq_s16(mask, vR16x8, vsrc16x8_0);
+
+            mask = vcgtq_s16(vG16x8, vsrc16x8_0);
+            vG16x8  = vbslq_s16(mask, vG16x8, vsrc16x8_0);
+
+            mask = vcgtq_s16(vB16x8, vsrc16x8_0);
+            vB16x8  = vbslq_s16(mask, vB16x8, vsrc16x8_0);
+
+            //narrow 32 to 8
+            uint8x8x3_t vRet8x8x3;
+            uint16x8x3_t vsrc16x8x3;
+            vsrc16x8x3.val[0] = vreinterpretq_u16_s16(vR16x8);
+            vsrc16x8x3.val[1] = vreinterpretq_u16_s16(vG16x8);
+            vsrc16x8x3.val[2] = vreinterpretq_u16_s16(vB16x8);
+
+            //R
+            if (bgrFlag)
+                vRet8x8x3.val[2] = vmovn_u16(vsrc16x8x3.val[0]);
+            else
+                vRet8x8x3.val[0] = vmovn_u16(vsrc16x8x3.val[0]);
+
+            //G
+            vRet8x8x3.val[1]    = vmovn_u16(vsrc16x8x3.val[1]);
+
+            //B
+            if (bgrFlag)
+                vRet8x8x3.val[0] = vmovn_u16(vsrc16x8x3.val[2]);
+            else
+                vRet8x8x3.val[2] = vmovn_u16(vsrc16x8x3.val[2]);
+
+            vst3_u8(pDstCur, vRet8x8x3);
+            pDstCur += 24;
+            pCurY += 8;
+
+            //next 8 elements
+            vsrc32x4x3_0.val[0] = vsrc32x4_128; //R
+
+            vsrc32x4x3_1.val[0] = vsrc32x4_128; //R
+
+            vsrc8x8_y    = vld1_u8(pCurY); // [y8y9y10y11y12y13y14u15]
+            vsrc16x8_y_u = vmovl_u8(vsrc8x8_y);
+            vsrc16x8_y   = vreinterpretq_s16_u16(vsrc16x8_y_u);
+            vsrc16x8_y   = vsubq_s16(vsrc16x8_y, vsrc16x8_16);
+
+            vsrc16x8_u_u = vmovl_u8(vsrc8x8x2_u.val[1]); //[u4u4u5u5u6u6u7u7]
+            vsrc16x8_v_u = vmovl_u8(vsrc8x8x2_v.val[1]); //[v4v4v5v5v6v6v7v7]
+            vsrc16x8_u   = vreinterpretq_s16_u16(vsrc16x8_u_u);
+            vsrc16x8_v   = vreinterpretq_s16_u16(vsrc16x8_v_u);
+            vsrc16x8_u   = vsubq_s16(vsrc16x8_u, vsrc16x8_128);
+            vsrc16x8_v   = vsubq_s16(vsrc16x8_v, vsrc16x8_128);
+
+            //R
+            vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_y),  298);
+            vsrc32x4x3_1.val[0] = vmlal_n_s16(vsrc32x4x3_1.val[0], vget_high_s16(vsrc16x8_y), 298);
+
+            vsrc32x4x3_0.val[1] = vsrc32x4x3_0.val[0]; //vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_y),  298);
+            vsrc32x4x3_1.val[1] = vsrc32x4x3_1.val[0]; //vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_y), 298);
+
+            vsrc32x4x3_0.val[2] = vsrc32x4x3_0.val[0]; //vmlal_n_s16(vsrc32x4x3_0.val[2], vget_low_s16(vsrc16x8_y),  298);
+            vsrc32x4x3_1.val[2] = vsrc32x4x3_1.val[0]; //vmlal_n_s16(vsrc32x4x3_1.val[2], vget_high_s16(vsrc16x8_y), 298);
+
+
+            vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_v),  409);
+            vsrc32x4x3_1.val[0] = vmlal_n_s16(vsrc32x4x3_1.val[0], vget_high_s16(vsrc16x8_v), 409);
+            //G
+
+            vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_u),  -100);
+            vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_u), -100);
+
+            vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_v),  -208);
+            vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_v), -208);
+            //B
+
+            vsrc32x4x3_0.val[2] = vmlal_n_s16(vsrc32x4x3_0.val[2], vget_low_s16(vsrc16x8_u),  516);
+            vsrc32x4x3_1.val[2] = vmlal_n_s16(vsrc32x4x3_1.val[2], vget_high_s16(vsrc16x8_u), 516);
+
+            //shift right
+            vsrc32x4x3_0.val[0] = vshrq_n_s32(vsrc32x4x3_0.val[0], 8);
+            vsrc32x4x3_1.val[0] = vshrq_n_s32(vsrc32x4x3_1.val[0], 8);
+
+            vsrc32x4x3_0.val[1] = vshrq_n_s32(vsrc32x4x3_0.val[1], 8);
+            vsrc32x4x3_1.val[1] = vshrq_n_s32(vsrc32x4x3_1.val[1], 8);
+
+            vsrc32x4x3_0.val[2] = vshrq_n_s32(vsrc32x4x3_0.val[2], 8);
+            vsrc32x4x3_1.val[2] = vshrq_n_s32(vsrc32x4x3_1.val[2], 8);
+
+            vTmp16x4_0 = vmovn_s32(vsrc32x4x3_0.val[0]);
+            vTmp16x4_1 = vmovn_s32(vsrc32x4x3_1.val[0]);
+            vR16x8 = vcombine_s16(vTmp16x4_0, vTmp16x4_1);
+
+            vTmp16x4_0 = vmovn_s32(vsrc32x4x3_0.val[1]);
+            vTmp16x4_1 = vmovn_s32(vsrc32x4x3_1.val[1]);
+            vG16x8 = vcombine_s16(vTmp16x4_0, vTmp16x4_1);
+
+            vTmp16x4_0 = vmovn_s32(vsrc32x4x3_0.val[2]);
+            vTmp16x4_1 = vmovn_s32(vsrc32x4x3_1.val[2]);
+            vB16x8 = vcombine_s16(vTmp16x4_0, vTmp16x4_1);
+
+            mask = vcltq_s16(vR16x8, vsrc16x8_255);
+            vR16x8  = vbslq_s16(mask, vR16x8, vsrc16x8_255);
+
+            mask = vcltq_s16(vG16x8, vsrc16x8_255);
+            vG16x8  = vbslq_s16(mask, vG16x8, vsrc16x8_255);
+
+            mask = vcltq_s16(vB16x8, vsrc16x8_255);
+            vB16x8  = vbslq_s16(mask, vB16x8, vsrc16x8_255);
+
+            mask = vcgtq_s16(vR16x8, vsrc16x8_0);
+            vR16x8  = vbslq_s16(mask, vR16x8, vsrc16x8_0);
+
+            mask = vcgtq_s16(vG16x8, vsrc16x8_0);
+            vG16x8  = vbslq_s16(mask, vG16x8, vsrc16x8_0);
+
+            mask = vcgtq_s16(vB16x8, vsrc16x8_0);
+            vB16x8  = vbslq_s16(mask, vB16x8, vsrc16x8_0);
+
+            //narrow 32 to 8
+            vsrc16x8x3.val[0] = vreinterpretq_u16_s16(vR16x8);
+            vsrc16x8x3.val[1] = vreinterpretq_u16_s16(vG16x8);
+            vsrc16x8x3.val[2] = vreinterpretq_u16_s16(vB16x8);
+
+            //R
+            if (bgrFlag)
+                vRet8x8x3.val[2] = vmovn_u16(vsrc16x8x3.val[0]);
+            else
+                vRet8x8x3.val[0] = vmovn_u16(vsrc16x8x3.val[0]);
+
+            //G
+            vRet8x8x3.val[1]    = vmovn_u16(vsrc16x8x3.val[1]);
+
+            //B
+            if (bgrFlag)
+                vRet8x8x3.val[0] = vmovn_u16(vsrc16x8x3.val[2]);
+            else
+                vRet8x8x3.val[2] = vmovn_u16(vsrc16x8x3.val[2]);
+
+            vst3_u8(pDstCur, vRet8x8x3);
+
+            pDstCur += 24;
+            pCurY += 8;
+            pCurUV += 16;
+        }
+
+        if (roiWHas8)
+        {
+            int32x4x3_t vsrc32x4x3_0; // LOW  RGB
+            int32x4x3_t vsrc32x4x3_1; // HIGH RGB
+
+            vsrc32x4x3_0.val[0] = vsrc32x4_128; //R
+
+            vsrc32x4x3_1.val[0] = vsrc32x4_128; //R
+
+            uint8x8_t  vsrc8x8_y    = vld1_u8(pCurY); // [y0y1y2y3y4y5y6u7]
+            uint16x8_t vsrc16x8_y_u = vmovl_u8(vsrc8x8_y);
+            int16x8_t  vsrc16x8_y   = vreinterpretq_s16_u16(vsrc16x8_y_u);
+            vsrc16x8_y = vsubq_s16(vsrc16x8_y, vsrc16x8_16);
+
+            uint8x8x2_t vsrc8x8x2_uv = vld2_u8(pCurUV); // [u0u1u2u3u4u5u6u7] [v0v1v2v3v4v5v6v7]
+            uint8x8x2_t vsrc8x8x2_u  = vzip_u8(vsrc8x8x2_uv.val[0], vsrc8x8x2_uv.val[0]); //[u0u0u1u1u2u2u3u3] [u4u4u5u5u6u6u7u7]
+            uint8x8x2_t vsrc8x8x2_v  = vzip_u8(vsrc8x8x2_uv.val[1], vsrc8x8x2_uv.val[1]); //[v0v0v1v1v2v2v3v3] [v4v4v5v5v6v6v7v7]
+            uint16x8_t  vsrc16x8_u_u = vmovl_u8(vsrc8x8x2_u.val[0]); //[u0u0u1u1u2u2u3u3]
+            uint16x8_t  vsrc16x8_v_u = vmovl_u8(vsrc8x8x2_v.val[0]); //[v0v0v1v1v2v2v3v3]
+            int16x8_t   vsrc16x8_u   = vreinterpretq_s16_u16(vsrc16x8_u_u);
+            int16x8_t   vsrc16x8_v   = vreinterpretq_s16_u16(vsrc16x8_v_u);
+            vsrc16x8_u = vsubq_s16(vsrc16x8_u, vsrc16x8_128);
+            vsrc16x8_v = vsubq_s16(vsrc16x8_v, vsrc16x8_128);
+
+            //R   R = (298*(Y-16)+409*(V-128)+128)>>8
+            vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_y),  298);
+            vsrc32x4x3_1.val[0] = vmlal_n_s16(vsrc32x4x3_1.val[0], vget_high_s16(vsrc16x8_y), 298);
+
+            vsrc32x4x3_0.val[1] = vsrc32x4x3_0.val[0]; //vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_y),  298);
+            vsrc32x4x3_1.val[1] = vsrc32x4x3_1.val[0]; //vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_y), 298);
+
+            vsrc32x4x3_0.val[2] = vsrc32x4x3_0.val[0]; //vmlal_n_s16(vsrc32x4x3_0.val[2], vget_low_s16(vsrc16x8_y),  298);
+            vsrc32x4x3_1.val[2] = vsrc32x4x3_1.val[0]; //vmlal_n_s16(vsrc32x4x3_1.val[2], vget_high_s16(vsrc16x8_y), 298);
+
+            vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_v),  409);
+            vsrc32x4x3_1.val[0] = vmlal_n_s16(vsrc32x4x3_1.val[0], vget_high_s16(vsrc16x8_v), 409);
+
+            vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_u),  -100);
+            vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_u), -100);
+
+            vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_v),  -208);
+            vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_v), -208);
+
+            vsrc32x4x3_0.val[2] = vmlal_n_s16(vsrc32x4x3_0.val[2], vget_low_s16(vsrc16x8_u),  516);
+            vsrc32x4x3_1.val[2] = vmlal_n_s16(vsrc32x4x3_1.val[2], vget_high_s16(vsrc16x8_u), 516);
+
+            //shift right
+            vsrc32x4x3_0.val[0] = vshrq_n_s32(vsrc32x4x3_0.val[0], 8);
+            vsrc32x4x3_1.val[0] = vshrq_n_s32(vsrc32x4x3_1.val[0], 8);
+
+            vsrc32x4x3_0.val[1] = vshrq_n_s32(vsrc32x4x3_0.val[1], 8);
+            vsrc32x4x3_1.val[1] = vshrq_n_s32(vsrc32x4x3_1.val[1], 8);
+
+            vsrc32x4x3_0.val[2] = vshrq_n_s32(vsrc32x4x3_0.val[2], 8);
+            vsrc32x4x3_1.val[2] = vshrq_n_s32(vsrc32x4x3_1.val[2], 8);
+
+            int16x4_t vTmp16x4_0 = vmovn_s32(vsrc32x4x3_0.val[0]);
+            int16x4_t vTmp16x4_1 = vmovn_s32(vsrc32x4x3_1.val[0]);
+            int16x8_t vR16x8 = vcombine_s16(vTmp16x4_0, vTmp16x4_1);
+
+            vTmp16x4_0 = vmovn_s32(vsrc32x4x3_0.val[1]);
+            vTmp16x4_1 = vmovn_s32(vsrc32x4x3_1.val[1]);
+            int16x8_t vG16x8 = vcombine_s16(vTmp16x4_0, vTmp16x4_1);
+
+            vTmp16x4_0 = vmovn_s32(vsrc32x4x3_0.val[2]);
+            vTmp16x4_1 = vmovn_s32(vsrc32x4x3_1.val[2]);
+            int16x8_t vB16x8 = vcombine_s16(vTmp16x4_0, vTmp16x4_1);
+
+            uint16x8_t mask;
+
+            mask = vcltq_s16(vR16x8, vsrc16x8_255);
+            vR16x8  = vbslq_s16(mask, vR16x8, vsrc16x8_255);
+
+            mask = vcltq_s16(vG16x8, vsrc16x8_255);
+            vG16x8  = vbslq_s16(mask, vG16x8, vsrc16x8_255);
+
+            mask = vcltq_s16(vB16x8, vsrc16x8_255);
+            vB16x8  = vbslq_s16(mask, vB16x8, vsrc16x8_255);
+
+            mask = vcgtq_s16(vR16x8, vsrc16x8_0);
+            vR16x8  = vbslq_s16(mask, vR16x8, vsrc16x8_0);
+
+            mask = vcgtq_s16(vG16x8, vsrc16x8_0);
+            vG16x8  = vbslq_s16(mask, vG16x8, vsrc16x8_0);
+
+            mask = vcgtq_s16(vB16x8, vsrc16x8_0);
+            vB16x8  = vbslq_s16(mask, vB16x8, vsrc16x8_0);
+
+            //narrow 32 to 8
+            uint8x8x3_t vRet8x8x3;
+            uint16x8x3_t vsrc16x8x3;
+            vsrc16x8x3.val[0] = vreinterpretq_u16_s16(vR16x8);
+            vsrc16x8x3.val[1] = vreinterpretq_u16_s16(vG16x8);
+            vsrc16x8x3.val[2] = vreinterpretq_u16_s16(vB16x8);
+
+            //R
+            if (bgrFlag)
+                vRet8x8x3.val[2] = vmovn_u16(vsrc16x8x3.val[0]);
+            else
+                vRet8x8x3.val[0] = vmovn_u16(vsrc16x8x3.val[0]);
+
+            //G
+            vRet8x8x3.val[1]    = vmovn_u16(vsrc16x8x3.val[1]);
+
+            //B
+            if (bgrFlag)
+                vRet8x8x3.val[0] = vmovn_u16(vsrc16x8x3.val[2]);
+            else
+                vRet8x8x3.val[2] = vmovn_u16(vsrc16x8x3.val[2]);
+
+            vst3_u8(pDstCur, vRet8x8x3);
+
+            pDstCur += 24;
+            pCurY += 8;
+            pCurUV += 8;
+        }
+
+        for( i = 0; i < roiWLeft; i++)
+        {
+            int Y, U, V, R, G, B, Y298;
+            Y = ((int32_t)*pCurY) - 16;
+            U = ((int32_t)*pCurUV) - 128;
+            V = ((int32_t)*(pCurUV+1)) - 128;
+
+            Y298 = 298*(Y) + 128;
+            R = (Y298 + 409*(V))>>8;
+            G = (Y298 - 100*(U) - 208*(V))>>8;
+            B = (Y298 + 516*(U))>>8;
+
+            if (R < 0) R = 0;
+            else if (R > 255) R = 255;
+
+            if (G < 0) G = 0;
+            else if (G > 255) G = 255;
+
+            if (B < 0) B = 0;
+            else if (B > 255) B = 255;
+
+            if (bgrFlag)
+            {
+                *pDstCur++ = (unsigned char)B;
+                *pDstCur++ = (unsigned char)G;
+                *pDstCur++ = (unsigned char)R;
+            }
+            else
+            {
+                *pDstCur++ = (unsigned char)R;
+                *pDstCur++ = (unsigned char)G;
+                *pDstCur++ = (unsigned char)B;
+            }
+
+            pCurY++;
+            if (i%2) pCurUV += 2;
+        }
+    }
+
+    return;
+}
+
