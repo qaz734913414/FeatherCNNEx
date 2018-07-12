@@ -39,7 +39,7 @@ Net::Net(size_t num_threads)
     }
     max_top_blob_size = 0;
     net_name[0] = 0;
-    useSgemm = 0;
+    type = CONV_TYPE_SGEMM;
 }
 
 Net::~Net()
@@ -60,10 +60,10 @@ Net::~Net()
     layer_map.clear();
 }
 
-int Net::config1x1ConvType(int useSgemm)
+int Net::config1x1ConvType(CONV_TYPE_E type)
 {
-    this->useSgemm = useSgemm;
-    this->rt_param->useSgemm = useSgemm;
+    this->type = type;
+    this->rt_param->type = type;
     return 0;
 }
 

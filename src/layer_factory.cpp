@@ -36,7 +36,7 @@
 #include "layers/softmax_layer.h"
 #include "layers/concat_layer.h"
 #include "layers/conv_direct_layer.h"
-
+#include "common.h"
 #include <stdio.h>
 
 namespace feather
@@ -81,7 +81,7 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
         conv_layer->_subType = "Direct";
     }
-    else if(0 == rt_param->useSgemm && group == 1 && kernel_height == 1 && kernel_width == 1 &&
+    else if(CONV_TYPE_DIRECT == rt_param->type && group == 1 && kernel_height == 1 && kernel_width == 1 &&
             stride_height == 1 && stride_width == 1 &&
             input_channels <= 64 && output_channels <= 64)
     {

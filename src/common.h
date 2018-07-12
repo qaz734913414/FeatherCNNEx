@@ -56,6 +56,13 @@ typedef short fix16_t;
 		return; \
 	}
 
+typedef enum {
+	CONV_TYPE_DIRECT,
+	CONV_TYPE_WINOGRADF63,
+	CONV_TYPE_WINOGRADF23,
+	CONV_TYPE_SGEMM
+} CONV_TYPE_E;
+
 static inline unsigned alignSize(unsigned sz, int n)
 {
     return (sz + n-1) & -n;

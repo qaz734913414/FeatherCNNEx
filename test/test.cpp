@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
     float *pImgBuff = (float *)malloc(img.cols * img.rows * img.channels() *sizeof(float));
 
     Net forward_net(num_threads);
-    forward_net.config1x1ConvType(1);
+    forward_net.config1x1ConvType(CONV_TYPE_SGEMM);
     forward_net.inChannels = 3;
     forward_net.inWidth = img.cols;
     forward_net.inHeight = img.rows;
