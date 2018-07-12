@@ -74,14 +74,14 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
         conv_layer->_subType = "winograd F23";
     }
     else if(group == 1 && kernel_height == 3 && kernel_width == 3 &&
-            stride_height == 1 && stride_width == 1 &&
+            ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)) &&
             input_channels <= 4)
     {
         //printf("Direct\n");
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
         conv_layer->_subType = "Direct";
     }
-    else if(group == 1 && kernel_height == 1 && kernel_width == 1 &&
+    else if(0 == rt_param->useSgemm && group == 1 && kernel_height == 1 && kernel_width == 1 &&
             stride_height == 1 && stride_width == 1 &&
             input_channels <= 64 && output_channels <= 64)
     {

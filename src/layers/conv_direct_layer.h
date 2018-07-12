@@ -21,6 +21,7 @@ public:
         padOutChannel = padInChannel = 0;
         alignWidth = 16; //to make channel size 16 bytes align
         _fusible = true;
+        fuse_prelu = false;
         fusedWeightBlobId = 0;
     }
 
@@ -100,7 +101,7 @@ public:
     {
         if (kernel_width == 3 && kernel_height == 3 && stride_height == 1 && stride_width == 1)
         {
-            if (padInChannel) padBuffer(align_input, input, input_height*input_width, padInChannel, input_channels, num_threads);
+            if (padInChannel) padChannelBuffer(align_input, input, input_height*input_width, padInChannel, input_channels, num_threads);
             else align_input = input;
             if (0 == padOutChannel) align_output = output;
             conv3x3s1_neon(align_input,  input_channels,  input_height,  input_width,  input_height *input_width  + padInChannel,
@@ -110,11 +111,34 @@ public:
             {
                 prelu(align_output, output, num_threads);
             }
-            else if (padOutChannel) padBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
+            else if (padOutChannel) padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
+        }
+        else if (kernel_width == 3 && kernel_height == 3 && stride_height == 2 && stride_width == 2)
+        {
+            if (0 != (padding_left + padding_top))
+            {
+                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_top, 16, .0f, num_threads);
+            }
+            else
+            {
+                if (padInChannel) padChannelBuffer(align_input, input, input_height*input_width, padInChannel, input_channels, num_threads);
+                else align_input = input;
+            }
+            if (0 == padOutChannel) align_output = output;
+
+            conv3x3s2_neon(align_input,  input_channels,  input_height+padding_top+padding_bottom,  input_width+padding_left+padding_right,  (input_height+padding_top+padding_bottom)*(input_width+padding_left+padding_right) + padInputSize,
+                           align_output, output_channels, output_height, output_width, output_height*output_width + padOutChannel,
+                           kernel_data, bias_data, num_threads);
+
+            if (fuse_prelu)
+            {
+                prelu(align_output, output, num_threads);
+            }
+            else if (padOutChannel) padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
         else if (kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1)
         {
-            if (padInChannel) padBuffer(align_input, input, input_height*input_width, padInChannel, input_channels, num_threads);
+            if (padInChannel) padChannelBuffer(align_input, input, input_height*input_width, padInChannel, input_channels, num_threads);
             else align_input = input;
             if (0 == padOutChannel) align_output = output;
             conv1x1s1_neon(align_input,  input_channels,  input_height,  input_width,  input_height *input_width  + padInChannel,
@@ -124,7 +148,7 @@ public:
             {
                 prelu(align_output, output, num_threads);
             }
-            else if (padOutChannel) padBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
+            else if (padOutChannel) padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
         else
         {
@@ -139,11 +163,20 @@ public:
 
     int Init(float *ginput, float *goutput)
     {
+        padInputSize = alignSize((input_height+padding_top+padding_bottom)*(input_width+padding_left+padding_right), 16) - (input_height+padding_top+padding_bottom)*(input_width+padding_left+padding_right);
         padInChannel  = alignSize(input_height*input_width,   16) - input_height*input_width;
         padOutChannel = alignSize(output_height*output_width, 16) - output_height*output_width;
-        if(padInChannel)
-            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&align_input,  sizeof(float) * input_channels * alignSize(input_height*input_width,   16)));
-        if(padOutChannel)
+        if (0 != padInputSize)
+        {
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&align_input, sizeof(float) * input_channels * alignSize((input_height+padding_top+padding_bottom)*(input_width+padding_left+padding_right),   16)));
+        }
+        else
+        {
+            if (0 != padInChannel)
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&align_input, sizeof(float) * input_channels * alignSize(input_height*input_width,   16)));
+        }
+
+        if (0 != padOutChannel)
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&align_output, sizeof(float) * output_channels * alignSize(output_height*output_width, 16)));
 
         if ((NULL != ginput) && (NULL != goutput))
@@ -161,6 +194,7 @@ private:
     bool fuse_prelu;
     unsigned padInChannel;
     unsigned padOutChannel;
+    unsigned padInputSize;
     float* align_input;
     float* align_output;
 };

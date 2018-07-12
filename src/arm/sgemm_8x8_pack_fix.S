@@ -175,6 +175,8 @@ __END:
 
 #else
 
+#define ENABLE_HALF
+
 #define STACK_SIZE       512
 
 /* RSV [r4~r9,fp] */
@@ -199,6 +201,8 @@ __END:
 #define ST_LDC    [fp, #0]
 
 #endif
+
+#ifndef ENABLE_HALF
 
 /************ Vector Regs ***********/
 /* RSV Q0~Q7 */
@@ -241,6 +245,35 @@ __END:
 #define VSRC_4S_C7     q2//V26.4S ---- resuse C0
 #define VSRC_4S_CF     q3//V27.4S ---- resuse C8
 
+#else
+
+/* RSV Q0~Q7 */
+#define VSRC_4H_A0     d0//V0.4H
+#define VSRC_4H_A0_0   d0[0]
+#define VSRC_4H_A0_1   d0[1]
+#define VSRC_4H_A0_2   d0[0]
+#define VSRC_4H_A0_3   d0[1]
+
+#define VSRC_4H_A1     d1//V1.4H
+#define VSRC_4H_A1_0   d1[0]
+#define VSRC_4H_A1_1   d1[1]
+#define VSRC_4H_A1_2   d1[0]
+#define VSRC_4H_A1_3   d1[1]
+
+#define VSRC_4H_B0     d2
+
+#define VSRC_4S_C0     q8
+#define VSRC_4S_C1     q9
+#define VSRC_4S_C2     q10
+#define VSRC_4S_C3     q11
+#define VSRC_4S_C4     q12
+#define VSRC_4S_C5     q13
+#define VSRC_4S_C6     q14
+#define VSRC_4S_C7     q15
+
+
+#endif
+
 /************ Stack fp Area *********/
 #define  STACK_START  [fp, #-524] // -512-12
 
@@ -281,6 +314,9 @@ ABI: softfp  r0 r1 r2 r3  [fp,#0]  [fp,#4]  [fp,#8]   [fp,#12]  [fp,#16]  [fp,#2
 */
 
 /* void sgemm_8x8_pack_fix( int L, short *a, short *b, float *c, int ldc ) */
+
+#ifndef ENABLE_HALF
+
 	.text
 	.align 5
 #ifdef __APPLE__
@@ -420,4 +456,104 @@ __END:
 	sub sp, fp, #12
 	pop {r4-r5, fp}
 	bx lr
+
+#else
+
+	.text
+	.align 5
+#ifdef __APPLE__
+	.global _sgemm_8x8_pack_fix
+_sgemm_8x8_pack_fix:
+#else
+	.global sgemm_8x8_pack_fix
+sgemm_8x8_pack_fix:
+#endif
+	push {r4-r5, fp}
+	add fp, sp, #12
+	sub sp, sp, #STACK_SIZE
+
+	sub r4, fp, #140   /* [fp, -140] */
+	vstm r4, {s0-s5}
+
+	str C, ST_C        /* backup C into ST_C */
+	ldr LDC, ST_LDC    /* load LDC param from ST_LDC */
+	lsl LDC, LDC, #2
+
+	cmp L, #0
+	beq __END
+
+	mov r5, #16
+	vld1.32 {VSRC_4S_C0}, [C], LDC
+	vcvt.s32.f32 VSRC_4S_C0, VSRC_4S_C0, #FRACTIONBX2
+	vld1.32 {VSRC_4S_C1}, [C], LDC
+	vcvt.s32.f32 VSRC_4S_C1, VSRC_4S_C1, #FRACTIONBX2
+	vld1.32 {VSRC_4S_C2}, [C], LDC
+	vcvt.s32.f32 VSRC_4S_C2, VSRC_4S_C2, #FRACTIONBX2
+	vld1.32 {VSRC_4S_C3}, [C], LDC
+	vcvt.s32.f32 VSRC_4S_C3, VSRC_4S_C3, #FRACTIONBX2
+	vld1.32 {VSRC_4S_C4}, [C], LDC
+	vcvt.s32.f32 VSRC_4S_C4, VSRC_4S_C4, #FRACTIONBX2
+	vld1.32 {VSRC_4S_C5}, [C], LDC
+	vcvt.s32.f32 VSRC_4S_C5, VSRC_4S_C5, #FRACTIONBX2
+	vld1.32 {VSRC_4S_C6}, [C], LDC
+	vcvt.s32.f32 VSRC_4S_C6, VSRC_4S_C6, #FRACTIONBX2
+	vld1.32 {VSRC_4S_C7}, [C]
+	vcvt.s32.f32 VSRC_4S_C7, VSRC_4S_C7, #FRACTIONBX2
+
+__LOOP:
+	vld1.16 {VSRC_4H_A0, VSRC_4H_A1}, [A]!
+	subs L, L, #1
+	vld1.16 {VSRC_4H_B0}, [B], r5
+
+	pld [B, #32]
+	vmlal.s16 VSRC_4S_C0, VSRC_4H_B0, VSRC_4H_A0_0
+	vmlal.s16 VSRC_4S_C1, VSRC_4H_B0, VSRC_4H_A0_1
+	pld [A, #32]
+	vmlal.s16 VSRC_4S_C4, VSRC_4H_B0, VSRC_4H_A1_0
+	vrev64.32 VSRC_4H_A0, VSRC_4H_A0
+	vmlal.s16 VSRC_4S_C5, VSRC_4H_B0, VSRC_4H_A1_1
+
+	vmlal.s16 VSRC_4S_C2, VSRC_4H_B0, VSRC_4H_A0_2
+	vrev64.32 VSRC_4H_A1, VSRC_4H_A1
+	vmlal.s16 VSRC_4S_C3, VSRC_4H_B0, VSRC_4H_A0_3
+	vmlal.s16 VSRC_4S_C6, VSRC_4H_B0, VSRC_4H_A1_2
+	vmlal.s16 VSRC_4S_C7, VSRC_4H_B0, VSRC_4H_A1_3
+
+	cmp L, #0
+	bne __LOOP
+
+	ldr C, ST_C
+
+	vcvt.f32.s32 VSRC_4S_C0, VSRC_4S_C0, #FRACTIONBX2
+	vst1.32 {VSRC_4S_C0}, [C], LDC
+
+	vcvt.f32.s32 VSRC_4S_C1, VSRC_4S_C1, #FRACTIONBX2
+	vst1.32 {VSRC_4S_C1}, [C], LDC
+
+	vcvt.f32.s32 VSRC_4S_C2, VSRC_4S_C2, #FRACTIONBX2
+	vst1.32 {VSRC_4S_C2}, [C], LDC
+
+	vcvt.f32.s32 VSRC_4S_C3, VSRC_4S_C3, #FRACTIONBX2
+	vst1.32 {VSRC_4S_C3}, [C], LDC
+
+	vcvt.f32.s32 VSRC_4S_C4, VSRC_4S_C4, #FRACTIONBX2
+	vst1.32 {VSRC_4S_C4}, [C], LDC
+
+	vcvt.f32.s32 VSRC_4S_C5, VSRC_4S_C5, #FRACTIONBX2
+	vst1.32 {VSRC_4S_C5}, [C], LDC
+
+	vcvt.f32.s32 VSRC_4S_C6, VSRC_4S_C6, #FRACTIONBX2
+	vst1.32 {VSRC_4S_C6}, [C], LDC
+
+	vcvt.f32.s32 VSRC_4S_C7, VSRC_4S_C7, #FRACTIONBX2
+	vst1.32 {VSRC_4S_C7}, [C]
+
+__END:
+	sub r4, fp, #140
+	vldm r4, {s0-s5}
+	sub sp, fp, #12
+	pop {r4-r5, fp}
+	bx lr
+#endif
+
 #endif

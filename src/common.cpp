@@ -23,15 +23,40 @@
 #include <iostream>
 #include <fstream>
 #include <math.h>
+#include "utils.h"
 
-void padBuffer(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads)
+void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned h, unsigned padw, unsigned padh, unsigned channelAlignSize, float val, unsigned num_threads)
+{
+    int dstChannelSize = alignSize((w+2*padw)*(h+2*padh), channelAlignSize);
+    float *pDst;
+    #pragma omp parallel for if (channels > 4) num_threads(num_threads)
+    for(int i = 0; i < channels; i++)
+    {
+        pDst = dst + i*dstChannelSize;
+        for(int k = 0; k < padh; k++)
+            fill(pDst+k*(w+2*padw), w + 2*padw, val);
+
+        pDst += padh*(w+2*padw);
+        for(int j = 0; j < h; j++)
+        {
+            fill(pDst   + j*(w+2*padw), padw, val);
+            memcpy(pDst + j*(w+2*padw) + padw, src + i*w*h + j*w, w*sizeof(float));
+            fill(pDst   + j*(w+2*padw) + padw + w, padw, val);
+        }
+        pDst = dst + i*dstChannelSize + (padh+h)*(w+2*padw);
+        for(int k = 0; k < padh; k++)
+            fill(pDst+k*(w+2*padw), w + 2*padw, val);
+    }
+}
+
+void padChannelBuffer(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads)
 {
     #pragma omp parallel for if (channels > 4) num_threads(num_threads)
     for(int i = 0; i < channels; i++)
         memcpy(dst + i*(channelSize + channelPad), src + i*(channelSize), channelSize*sizeof(float));
 }
 
-void padBufferInv(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads)
+void padChannelBufferInv(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads)
 {
     #pragma omp parallel for if (channels > 4) num_threads(num_threads)
     for(int i = 0; i < channels; i++)

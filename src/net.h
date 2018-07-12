@@ -41,6 +41,7 @@ public:
     float*GetInputBuffer();
     int GetBlobDataSize(size_t* data_size, std::string blob_name);
     int ExtractBlob(float* output_ptr, std::string blob_name);//Don't forget to free this memory.
+    int config1x1ConvType(int useSgemm);
     float* ExtractBlob(std::string blob_name);
     int GetBlobShape(unsigned *pChannel, unsigned *pWidth, unsigned *pHeight, std::string name);
     std::map<std::string, Layer*> layer_map;
@@ -51,6 +52,7 @@ public:
     unsigned max_top_blob_size;
     char max_top_blob_name[256];
     char net_name[256];
+    int useSgemm;
 private:
     void branchBufferInit(unsigned branchId);
     std::vector<Layer *> layers;

@@ -62,8 +62,9 @@ static inline unsigned alignSize(unsigned sz, int n)
 }
 
 int makeDir(const char* inpath);
-void padBufferInv(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads);
-void padBuffer(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads);
+void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned h, unsigned padw, unsigned padh, unsigned channelAlignSize, float val, unsigned num_threads);
+void padChannelBufferInv(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads);
+void padChannelBuffer(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads);
 void* _mm_malloc(size_t sz, size_t align);
 void _mm_free(void* ptr);
 void writeFile(unsigned char *data, unsigned size, const char *pFileName);

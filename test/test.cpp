@@ -28,11 +28,12 @@ using namespace cv;
 using namespace feather;
 
 static float C_REF[] =
-#if 1
+#if 0
 {
     0.476289,  0.523711
 };
-#elif 0
+#elif 1
+//Azra
     {
         -1.851036,  0.623337, -0.525843,  1.556319, -0.354686, -0.860171, -1.055367, -4.224126, -0.683708,  1.449931, -1.623300, -1.609216,  1.740315,  0.919525, -3.278305, -1.286112,
         0.028684,  0.393444,  2.596983,  1.816258,  1.466974, -0.903676, -0.226741,  2.928450,  2.627020, -0.765943, -2.376863, -1.178697,  2.633178, -1.041616,  1.060217, -1.040673,
@@ -111,12 +112,12 @@ int main(int argc, char *argv[])
 {
     int colIdx = 0, maxabscol = 0, maxratiocol = 0;
     int i = 1, loopCnt = 1;
-#if 1
+#if 0
     char *pFname = (char *)"12.jpg";
     char *pModel = (char*)"12net_prob1_0.feathermodel";
     char *pBlob = (char *)"prob1";
 #else
-    char *pFname = (char *)"96_112.jpg";
+    char *pFname = (char *)"dataset/112x96/Azra_Akin_Azra_Akin_0001.jpg";//"96_112.jpg";
     char *pModel = (char*)"insano_mobilenet_v2_layer9_conv1x1_scale_14.feathermodel";
     char *pBlob = (char *)"mobilenet_v2_layer9_conv1x1_bn";
 #endif
@@ -214,6 +215,7 @@ int main(int argc, char *argv[])
     float *pImgBuff = (float *)malloc(img.cols * img.rows * img.channels() *sizeof(float));
 
     Net forward_net(num_threads);
+    forward_net.config1x1ConvType(1);
     forward_net.inChannels = 3;
     forward_net.inWidth = img.cols;
     forward_net.inHeight = img.rows;
@@ -224,10 +226,11 @@ int main(int argc, char *argv[])
     float *pOut = (float *)malloc(data_size*sizeof(float));
     gettimeofday(&beg, NULL);
 
+    float *pIn = forward_net.GetInputBuffer();
     for(int loop = 0; loop < loopCnt; loop++)
     {
-        from_rgb_normal(img.data, img.cols, img.rows, pImgBuff, 127.5f, 0.0078125f, 0);
-        int ret = forward_net.Forward(pImgBuff);
+        from_rgb_normal(img.data, img.cols, img.rows, pIn, 127.5f, 0.0078125f, 0);
+        int ret = forward_net.Forward();
         forward_net.ExtractBlob(pOut, pBlob);
         printf("[%03d/%03d] ret: %d\n", loop, loopCnt, ret);
     }
@@ -244,7 +247,7 @@ int main(int argc, char *argv[])
         printf("%9.6f, ", pOut[i]);
     }
     printf("\n");
-#if 0
+#if 1
     float maxDiff      = .0f;
     float maxDiffRefC  =.0f, maxDiffAsm = .0f;
     float maxDiffRatio = .0f;

@@ -39,6 +39,7 @@ Net::Net(size_t num_threads)
     }
     max_top_blob_size = 0;
     net_name[0] = 0;
+    useSgemm = 0;
 }
 
 Net::~Net()
@@ -57,6 +58,13 @@ Net::~Net()
 
     blob_map.clear();
     layer_map.clear();
+}
+
+int Net::config1x1ConvType(int useSgemm)
+{
+    this->useSgemm = useSgemm;
+    this->rt_param->useSgemm = useSgemm;
+    return 0;
 }
 
 int Net::ExtractBlob(float* output_ptr, std::string name)
@@ -165,7 +173,8 @@ int Net::Forward()
 #endif
         layers[i]->Forward();
 #ifdef TIME_PROFILE
-        if ((strcmp(net_name, "pnet") == 0) && (0 == strcmp(layers[i]->type().c_str(), "Convolution")))
+        //if ((strcmp(net_name, "onet") == 0) && (0 == strcmp(layers[i]->type().c_str(), "Convolution")))
+        if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
             t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
 #endif
     }

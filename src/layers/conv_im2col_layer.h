@@ -48,9 +48,9 @@ public:
     int Forward()
     {
 #if 0
-        printf("[%d %d] [%d %d] [b: %d f: %d g: %d] [%d %d %d] [%d %d %d] [%d]\n",
+        printf("[%d %d] [%d %d] [b: %d f: %d g: %d] [%d %d %d] [%d %d %d] [%d] [fuse: %d] %p %p %d\n",
                kernel_width, kernel_height, stride_width, stride_height, bias_term, this->fractions, group,
-               input_channels, input_height, input_width, output_channels, output_height, output_width, num_threads);
+               input_channels, input_height, input_width, output_channels, output_height, output_width, num_threads, fuse_prelu, bias_data, slopeDataPrelu, sharedPrelu);
 #endif
         if(kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1)
         {
@@ -295,21 +295,27 @@ public:
         int M = (int)output_channels;
         int K = (int)input_channels * (int)kernel_height * (int)kernel_width;
         int eM = M + (8 - M % 8) % 8; /* extend M make sure 8 aligned */
+
         //printf("MNK: %d %d %d, [%d %d %d] [%d %d %d]\n", M, K, eM, input_channels, input_height, input_width, output_channels, output_height, output_width);
+        if (num_threads > 4) num_threads = 4;
+
         if (0 == fractions)
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(float) * eM * K));
-            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB, sizeof(short) * kc * (int)output_width * (int)output_height));
+            for(int i = 0; i< num_threads; i++)
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(short) * kc * (int)output_width * (int)output_height));
         }
         else if (8 == fractions)
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(char) * eM * K));
-            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB, sizeof(short) * kc * (int)output_width * (int)output_height));
+            for(int i = 0; i< num_threads; i++)
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(short) * kc * (int)output_width * (int)output_height));
         }
         else
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(short) * eM * K));
-            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB, sizeof(float) * kc * (int)output_width * (int)output_height));
+            for(int i = 0; i< num_threads; i++)
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(float) * kc * (int)output_width * (int)output_height));
         }
         MEMPOOL_CHECK_RETURN(common_mempool->Request(sizeof(float)*(input_channels*kernel_height*kernel_width)*(output_width*output_height),
                              this->name()+" ["+this->type()+"]"));
@@ -349,7 +355,7 @@ public:
 
 private:
     void *packed_kernel;
-    void *packB;
+    void *packB[16];
     float *img_buffer;
     unsigned fusedWeightBlobId;
     bool fuse_prelu;
