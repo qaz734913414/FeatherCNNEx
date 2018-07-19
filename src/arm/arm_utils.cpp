@@ -64,12 +64,11 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
 
     int nn = size >> 3;
     int i = 0;
-    int remain = size - (nn << 3);
+    int remain = size & 7;
 
     float32x4_t mean32x4  = vdupq_n_f32(mean);
     float32x4_t scale32x4 = vdupq_n_f32(scale);
 
-    //for (; nn>0; nn--)
     #pragma omp parallel for num_threads(2)
     for ( i = 0; i < nn; i++)
     {
@@ -125,30 +124,25 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
         }
     }
 
-    rgb += 3*8*i;
-    ptr0 += 8*i;
-    ptr1 += 8*i;
-    ptr2 += 8*i;
+    rgb  += 3*8*nn;
+    ptr0 += 8*nn;
+    ptr1 += 8*nn;
+    ptr2 += 8*nn;
 
-    for (; remain>0; remain--)
+    for (i = 0; i < remain; i++)
     {
         if (bgr)
         {
-            *ptr0 = ((float)rgb[2] - mean)*scale;
-            *ptr1 = ((float)rgb[1] - mean)*scale;
-            *ptr2 = ((float)rgb[0] - mean)*scale;
+            *ptr2++ = ((float)*rgb++ - mean)*scale;
+            *ptr1++ = ((float)*rgb++ - mean)*scale;
+            *ptr0++ = ((float)*rgb++ - mean)*scale;
         }
         else
         {
-            *ptr0 = ((float)rgb[0] - mean)*scale;
-            *ptr1 = ((float)rgb[1] - mean)*scale;
-            *ptr2 = ((float)rgb[2] - mean)*scale;
+            *ptr0++ = ((float)*rgb++ - mean)*scale;
+            *ptr1++ = ((float)*rgb++ - mean)*scale;
+            *ptr2++ = ((float)*rgb++ - mean)*scale;
         }
-
-        rgb += 3;
-        ptr0++;
-        ptr1++;
-        ptr2++;
     }
 
     return;
