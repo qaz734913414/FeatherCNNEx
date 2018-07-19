@@ -10,4 +10,5 @@ Author Email: tianylijun@163.com
 QQ Group: 420089534
 
 ## BenchMark
+<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/FeatherCNNExVSNCNN.jpeg">
 <img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/MeiZu_Benchmark.jpeg">
