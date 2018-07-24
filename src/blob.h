@@ -18,7 +18,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <common.h>
-#include "./crypto/aes.h"
+#include "aes.h"
 
 namespace feather
 {

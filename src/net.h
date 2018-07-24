@@ -19,7 +19,7 @@
 #include <vector>
 #include <map>
 #include <common.h>
-#include "./crypto/aes.h"
+#include "aes.h"
 
 namespace feather
 {
