@@ -23,6 +23,7 @@
 #include <iostream>
 #include <fstream>
 #include <math.h>
+#ifndef X86_PC
 #include "utils.h"
 
 void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned h, unsigned padw, unsigned padh, unsigned channelAlignSize, float val, unsigned num_threads)
@@ -48,6 +49,7 @@ void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned 
             fill(pDst+k*(w+2*padw), w + 2*padw, val);
     }
 }
+#endif
 
 void padChannelBuffer(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads)
 {
@@ -192,7 +194,7 @@ unsigned char* readFile(const char *pFileName)
     }
 
     long fSize = getFileSize(fp);
-    printf("File %s size %ld\n", pFileName, fSize);
+    //printf("File %s size %ld\n", pFileName, fSize);
     unsigned char *pData = (unsigned char *)malloc(fSize);
     fread(pData, 1, fSize, fp);
     fclose(fp);

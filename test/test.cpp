@@ -112,6 +112,7 @@ int main(int argc, char *argv[])
 {
     int colIdx = 0, maxabscol = 0, maxratiocol = 0;
     int i = 1, loopCnt = 1;
+    const char * pSerialFile = NULL;
 #if 0
     char *pFname = (char *)"12.jpg";
     char *pModel = (char*)"12net_prob1_0.feathermodel";
@@ -124,15 +125,16 @@ int main(int argc, char *argv[])
     int num_threads = 1;
     struct timeval beg, end;
 
-    printf("e.g.:  ./demo 10 1 filelist.txt insano_mobilenet_v2_layer9_conv1x1_scale_14.feathermodel mobilenet_v2_layer9_conv1x1_bn\n");
+    printf("e.g.:  ./demo 10 1 filelist.txt insano_mobilenet_v2_layer9_conv1x1_scale_14.feathermodel mobilenet_v2_layer9_conv1x1_bn serialfile\n");
 
     if (argc > 1) loopCnt = atoi(argv[i++]);
     if (argc > 2) num_threads = atoi(argv[i++]);
     if (argc > 3) pFname = argv[i++];
     if (argc > 4) pModel = argv[i++];
     if (argc > 5) pBlob = argv[i++];
+    if (argc > 6) pSerialFile = argv[i++];
 
-    printf("file: %s model: %s blob: %s loopCnt: %d num_threads: %d\n", pFname, pModel, pBlob, loopCnt, num_threads);
+    printf("file: %s model: %s blob: %s loopCnt: %d num_threads: %d SerialFile: %s\n", pFname, pModel, pBlob, loopCnt, num_threads, pSerialFile);
 #if 0
     FILE *fp = NULL;
     if(NULL == (fp = fopen(pFname,"r")))
@@ -216,12 +218,13 @@ int main(int argc, char *argv[])
 
     Net forward_net(num_threads);
     forward_net.config1x1ConvType(CONV_TYPE_SGEMM);
+    forward_net.configCrypto(pSerialFile);
     forward_net.inChannels = 3;
     forward_net.inWidth = img.cols;
     forward_net.inHeight = img.rows;
     forward_net.InitFromPath(pModel);
 
-    size_t data_size;
+    size_t data_size = 0;
     forward_net.GetBlobDataSize(&data_size, pBlob);
     float *pOut = (float *)malloc(data_size*sizeof(float));
     gettimeofday(&beg, NULL);
@@ -247,7 +250,7 @@ int main(int argc, char *argv[])
         printf("%9.6f, ", pOut[i]);
     }
     printf("\n");
-#if 1
+#if 0
     float maxDiff      = .0f;
     float maxDiffRefC  =.0f, maxDiffAsm = .0f;
     float maxDiffRatio = .0f;

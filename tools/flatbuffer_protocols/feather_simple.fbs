@@ -300,6 +300,8 @@ table BlobProto {
   height:int;
   width:int;
   fractions:int;
+  validSize:int;
+  crypto:int;
 }
 
 root_type NetParameter;

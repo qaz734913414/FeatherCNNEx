@@ -19,6 +19,7 @@
 #include <vector>
 #include <map>
 #include <common.h>
+#include "./crypto/aes.h"
 
 namespace feather
 {
@@ -42,6 +43,7 @@ public:
     int GetBlobDataSize(size_t* data_size, std::string blob_name);
     int ExtractBlob(float* output_ptr, std::string blob_name);//Don't forget to free this memory.
     int config1x1ConvType(CONV_TYPE_E type);
+    int configCrypto(const char * pSerialFile);
     float* ExtractBlob(std::string blob_name);
     int GetBlobShape(unsigned *pChannel, unsigned *pWidth, unsigned *pHeight, std::string name);
     std::map<std::string, Layer*> layer_map;
@@ -53,6 +55,8 @@ public:
     char max_top_blob_name[256];
     char net_name[256];
     CONV_TYPE_E type;
+    struct AES_ctx AESCtx;
+    uint8_t key[16];
 private:
     void branchBufferInit(unsigned branchId);
     std::vector<Layer *> layers;

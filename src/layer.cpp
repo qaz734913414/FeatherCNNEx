@@ -44,6 +44,7 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     const LayerParameter* layer_param = (const LayerParameter*)layer_param_in;
     _name = layer_param->name()->str();
     _type = layer_param->type()->str();
+    this->pNet = (Net *)rt_param->pNet;
     private_mempool = new PrivateMemPool<void>();
     private_mempool->setName(_name);
     consumersNum = 0;
@@ -74,18 +75,21 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
         if (0 == proto->fractions())
         {
             Blob<float>* p_blob = new Blob<float>();
+            p_blob->pNet = this->pNet;
             p_blob->FromProto(proto);
             _weight_blobs.push_back(p_blob);
         }
         else if (8 == proto->fractions())
         {
             Blob<int8_t>* p_blob = new Blob<int8_t>();
+            p_blob->pNet = this->pNet;
             p_blob->FromProto(proto);
             _weight_blobs_fix8.push_back(p_blob);
         }
         else
         {
             Blob<short>* p_blob = new Blob<short>();
+            p_blob->pNet = this->pNet;
             p_blob->FromProto(proto);
             _weight_blobs_fix.push_back(p_blob);
         }

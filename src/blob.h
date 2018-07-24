@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <common.h>
+#include "./crypto/aes.h"
 
 namespace feather
 {
@@ -142,6 +143,8 @@ public:
         printf("----------------\n");
     }
 
+    void *pNet;
+
 private:
     Dtype* _data;
     size_t _num;
@@ -149,6 +152,9 @@ private:
     size_t _height;
     size_t _width;
     size_t _fractions;
+    size_t _crypto;
+    size_t _validSize;
+    size_t _data_length;
     unsigned char globalData;
     std::string _name;
 };

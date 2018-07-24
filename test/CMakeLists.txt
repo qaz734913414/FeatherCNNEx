@@ -26,7 +26,7 @@ if( CMAKE_SYSTEM_PROCESSOR MATCHES armv7-a )
 add_definitions(-mfpu=neon-fp16)
 endif()
 
-add_definitions(-std=c++11)
+add_definitions(-std=c++11 -DINFERENCE_FEATHERCNNEX)
 
 if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
 
@@ -36,6 +36,9 @@ target_link_libraries(feather_test64 feather ${OpenCV_LIBS})
 add_executable(face64 face.cpp mtcnn.cpp)
 target_link_libraries(face64 feather ${OpenCV_LIBS})
 
+add_executable(face64-new mtcnndetect.cpp)
+target_link_libraries(face64-new feather ${OpenCV_LIBS})
+
 else("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
 
 add_executable(feather_test32 test.cpp)
@@ -43,5 +46,8 @@ target_link_libraries(feather_test32 feather ${OpenCV_LIBS})
 
 add_executable(face32 face.cpp mtcnn.cpp)
 target_link_libraries(face32 feather ${OpenCV_LIBS})
+
+add_executable(face32-new mtcnndetect.cpp)
+target_link_libraries(face32-new feather ${OpenCV_LIBS})
 
 endif ()

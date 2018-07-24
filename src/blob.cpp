@@ -14,6 +14,7 @@
 
 #include "feather_simple_generated.h"
 #include "blob.h"
+#include "net.h"
 
 namespace feather
 {
@@ -21,7 +22,7 @@ template<class Dtype>
 void Blob<Dtype>::Alloc()
 {
     size_t dim_byte = _num * _channels * _height * _width * sizeof(Dtype);
-    _data = (Dtype*) _mm_malloc(dim_byte, 128);
+    _data = (Dtype*) _mm_malloc(dim_byte, 16);
 }
 
 template<class Dtype>
@@ -33,32 +34,43 @@ void Blob<Dtype>::FromProto(const void *proto_in)//proto MUST be of type BlobPro
     this->_height = proto->height();
     this->_width = proto->width();
     this->_fractions = proto->fractions();
-    size_t data_length;
+    this->_crypto = proto->crypto();
+    this->_validSize = proto->validSize();
+    if (_num * _channels * _height * _width != this->_validSize)
+    {
+        printf("Wrong weight blob size, [%d != %d]\n", _num * _channels * _height * _width, this->_validSize);
+        return;
+    }
     if (0 == this->_fractions)
-        data_length = proto->data()->Length();
+        _data_length = proto->data()->Length();
     else if (8 == this->_fractions)
-        data_length = proto->data_fix8()->Length();
+        _data_length = proto->data_fix8()->Length();
     else
-        data_length = proto->data_fix()->Length();
-
-    if (_num * _channels * _height * _width == data_length)
+        _data_length = proto->data_fix()->Length();
+    this->Alloc();
+    Dtype *pTmp = (Dtype *)malloc(_data_length*sizeof(Dtype));
+    for (int i = 0; i < _data_length; ++i)
     {
-        this->Alloc();
-        for (int i = 0; i < data_length; ++i)
+        if (0 == this->_fractions)
+            pTmp[i] = proto->data()->Get(i);
+        else if (8 == this->_fractions)
+            pTmp[i] = proto->data_fix8()->Get(i);
+        else
+            pTmp[i] = proto->data_fix()->Get(i);
+    }
+    if (this->_crypto)
+    {
+        if (0 == ((_data_length*sizeof(Dtype)) % 16))
         {
-            if (0 == this->_fractions)
-                this->_data[i] = proto->data()->Get(i);
-            else if (8 == this->_fractions)
-                this->_data[i] = proto->data_fix8()->Get(i);
-            else
-                this->_data[i] = proto->data_fix()->Get(i);
+            AES_CBC_decrypt_buffer(&(((Net *)this->pNet)->AESCtx), (uint8_t *)pTmp, _data_length*sizeof(Dtype));
+            memcpy(_data, pTmp, _num * _channels * _height * _width * sizeof(Dtype));
         }
+        else
+            printf("Size must be 16 bytes align\n");
     }
     else
-    {
-        //Error handling
-        printf("Wrong weight blob size, [%d != %d]\n", _num * _channels * _height * _width, data_length);
-    }
+        memcpy(_data, pTmp, _num * _channels * _height * _width * sizeof(Dtype));
+    free(pTmp);
 }
 
 template class Blob<float>;

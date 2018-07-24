@@ -35,7 +35,7 @@ bool CommonMemPool<PTR_TYPE>::Alloc()
 
     if(common_size > 0)
     {
-        common_memory = (PTR_TYPE *) _mm_malloc(common_size, 128);
+        common_memory = (PTR_TYPE *) _mm_malloc(common_size, 16);
         if(!common_memory)
         {
             fprintf(stderr, "Error: cannot allocate common memory.\n");
@@ -112,7 +112,7 @@ static size_t total_private_size = 0;
 template<typename PTR_TYPE>
 bool PrivateMemPool<PTR_TYPE>::Alloc(PTR_TYPE ** ptr, size_t size_byte)
 {
-    PTR_TYPE* wptr = (PTR_TYPE *) _mm_malloc(size_byte, 128);
+    PTR_TYPE* wptr = (PTR_TYPE *) _mm_malloc(size_byte, 16);
     if(!wptr)
     {
         fprintf(stderr, "Allocation of size %ld failed\n", size_byte);

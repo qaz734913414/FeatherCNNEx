@@ -3568,7 +3568,9 @@ struct BlobProto FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
         VT_CHANNELS = 12,
         VT_HEIGHT = 14,
         VT_WIDTH = 16,
-        VT_FRACTIONS = 18
+        VT_FRACTIONS = 18,
+        VT_VALIDSIZE = 20,
+        VT_CRYPTO = 22
     };
     const flatbuffers::Vector<float> *data() const
     {
@@ -3602,6 +3604,14 @@ struct BlobProto FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     {
         return GetField<int32_t>(VT_FRACTIONS, 0);
     }
+    int32_t validSize() const
+    {
+        return GetField<int32_t>(VT_VALIDSIZE, 0);
+    }
+    int32_t crypto() const
+    {
+        return GetField<int32_t>(VT_CRYPTO, 0);
+    }
     bool Verify(flatbuffers::Verifier &verifier) const
     {
         return VerifyTableStart(verifier) &&
@@ -3616,6 +3626,8 @@ struct BlobProto FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
                VerifyField<int32_t>(verifier, VT_HEIGHT) &&
                VerifyField<int32_t>(verifier, VT_WIDTH) &&
                VerifyField<int32_t>(verifier, VT_FRACTIONS) &&
+               VerifyField<int32_t>(verifier, VT_VALIDSIZE) &&
+               VerifyField<int32_t>(verifier, VT_CRYPTO) &&
                verifier.EndTable();
     }
 };
@@ -3656,6 +3668,14 @@ struct BlobProtoBuilder
     {
         fbb_.AddElement<int32_t>(BlobProto::VT_FRACTIONS, fractions, 0);
     }
+    void add_validSize(int32_t validSize)
+    {
+        fbb_.AddElement<int32_t>(BlobProto::VT_VALIDSIZE, validSize, 0);
+    }
+    void add_crypto(int32_t crypto)
+    {
+        fbb_.AddElement<int32_t>(BlobProto::VT_CRYPTO, crypto, 0);
+    }
     explicit BlobProtoBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb)
     {
@@ -3679,9 +3699,13 @@ inline flatbuffers::Offset<BlobProto> CreateBlobProto(
     int32_t channels = 0,
     int32_t height = 0,
     int32_t width = 0,
-    int32_t fractions = 0)
+    int32_t fractions = 0,
+    int32_t validSize = 0,
+    int32_t crypto = 0)
 {
     BlobProtoBuilder builder_(_fbb);
+    builder_.add_crypto(crypto);
+    builder_.add_validSize(validSize);
     builder_.add_fractions(fractions);
     builder_.add_width(width);
     builder_.add_height(height);
@@ -3702,7 +3726,9 @@ inline flatbuffers::Offset<BlobProto> CreateBlobProtoDirect(
     int32_t channels = 0,
     int32_t height = 0,
     int32_t width = 0,
-    int32_t fractions = 0)
+    int32_t fractions = 0,
+    int32_t validSize = 0,
+    int32_t crypto = 0)
 {
     return feather::CreateBlobProto(
                _fbb,
@@ -3713,7 +3739,9 @@ inline flatbuffers::Offset<BlobProto> CreateBlobProtoDirect(
                channels,
                height,
                width,
-               fractions);
+               fractions,
+               validSize,
+               crypto);
 }
 
 inline const feather::NetParameter *GetNetParameter(const void *buf)

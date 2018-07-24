@@ -32,6 +32,7 @@ Net::Net(size_t num_threads)
     register_layer_creators();
     CommonMemPool<float> *mempool = new CommonMemPool<float>();
     rt_param = new RuntimeParameter<float>(mempool, num_threads);
+    rt_param->pNet = this;
     for(unsigned i = 0; i < MAXBRANCHNUM; i++)
     {
         pingpang[i][0] = NULL;
@@ -40,6 +41,22 @@ Net::Net(size_t num_threads)
     max_top_blob_size = 0;
     net_name[0] = 0;
     type = CONV_TYPE_SGEMM;
+}
+
+int Net::configCrypto(const char * pSerialFile)
+{
+    unsigned char *pFileBuff = readFile(pSerialFile);
+    if (NULL != pFileBuff)
+    {
+        memcpy(key, pFileBuff, 16);
+        free(pFileBuff);
+        uint8_t iv[]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+        AES_init_ctx_iv(&AESCtx, key, iv);
+    }
+    else
+        printf("Wrong serial file, %s\n", pSerialFile);
+
+    return 0;
 }
 
 Net::~Net()
@@ -218,9 +235,9 @@ void Net::InitFromFile(FILE* fp)
 
 void Net::branchBufferInit(unsigned branchId)
 {
-    pingpang[branchId][0] = (float*)_mm_malloc(max_top_blob_size, 128);
+    pingpang[branchId][0] = (float*)_mm_malloc(max_top_blob_size, 16);
     POINTER_CHECK_NO_RET(pingpang[branchId][0]);
-    pingpang[branchId][1] = (float*)_mm_malloc(max_top_blob_size, 128);
+    pingpang[branchId][1] = (float*)_mm_malloc(max_top_blob_size, 16);
     POINTER_CHECK_NO_RET(pingpang[branchId][1]);
     branchPingPang[branchId] = 0;
     //printf("---[%d] %p %p--\n", branchId, pingpang[branchId][0], pingpang[branchId][1]);
