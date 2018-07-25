@@ -58,7 +58,7 @@ public:
         if (0 == this->fractions)
             dwConv(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data, kernel_width, kernel_height, group, num_threads);
         else if (8 == this->fractions)
-            dwConvFix8(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data_fix8, kernel_width, kernel_height, group, num_threads, this->fractions, this->int8scale);
+            dwConvFix8(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data_fix8, kernel_width, kernel_height, group, num_threads, this->fractions, this->int8scaleW, this->int8scaleIn, this->int8scaleOut);
         else
             dwConvFix(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data_fix, kernel_width, kernel_height, group, num_threads, this->fractions);
 

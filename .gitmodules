@@ -1,0 +1,3 @@
+[submodule "tools/int8_script"]
+	path = tools/int8_script
+	url = https://github.com/BUG1989/caffe-int8-convert-tools.git

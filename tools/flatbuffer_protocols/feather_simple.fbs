@@ -128,7 +128,9 @@ table ConvolutionParameter {
   axis:int = 1;
   force_nd_im2col:bool;
   fractions:uint;
-  int8scale:float;
+  int8scaleW:float;
+  int8scaleIn:float;
+  int8scaleOut:float;
 }
 
 table CropParameter {

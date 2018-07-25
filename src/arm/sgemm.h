@@ -14,7 +14,7 @@
 
 #pragma once
 
-typedef void (*sgemm_tiny_scale_fix8_func)(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scale);
+typedef void (*sgemm_tiny_scale_fix8_func)(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scaleW, float int8scaleIn, float int8scaleOut);
 typedef void (*sgemm_tiny_scale_fix_func)(int L, short *a, int lda, float *b, int ldb, float *c, int ldc);
 typedef void (*sgemm_tiny_scale_func)(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu);
 typedef void (*internalPackA_func)(int L, float* packA, float* a, int lda);
@@ -33,5 +33,5 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *A, float *
 
 void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *A, float *B, float *C, int num_threads, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu);
 void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *A, float *B, float *C, int num_threads, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu);
-void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *A, float *B, float *C, int num_threads, float int8scale, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu);
+void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *A, float *B, float *C, int num_threads, float int8scaleW, float int8scaleIn, float int8scaleOut, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu);
 

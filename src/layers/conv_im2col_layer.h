@@ -64,7 +64,7 @@ public:
                 else if (8 == this->fractions)
                     block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                            (int8_t *)packed_kernel, input, output, (int)num_threads, int8scale, packB,
+                            (int8_t *)packed_kernel, input, output, (int)num_threads, int8scaleW, int8scaleIn, int8scaleOut, packB,
                             bias_data, slopeDataPrelu, sharedPrelu);
                 else
                     block_sgemm_external_pack_threading_8x8Fix((int)output_channels, (int)output_width * (int)output_height,

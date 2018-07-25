@@ -1311,7 +1311,9 @@ struct ConvolutionParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
         VT_AXIS = 30,
         VT_FORCE_ND_IM2COL = 32,
         VT_FRACTIONS = 34,
-        VT_INT8SCALE = 36
+        VT_INT8SCALEW = 36,
+        VT_INT8SCALEIN = 38,
+        VT_INT8SCALEOUT = 40
     };
     uint32_t num_output() const
     {
@@ -1377,9 +1379,17 @@ struct ConvolutionParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     {
         return GetField<uint32_t>(VT_FRACTIONS, 0);
     }
-    float int8scale() const
+    float int8scaleW() const
     {
-        return GetField<float>(VT_INT8SCALE, 0.0f);
+        return GetField<float>(VT_INT8SCALEW, 0.0f);
+    }
+    float int8scaleIn() const
+    {
+        return GetField<float>(VT_INT8SCALEIN, 0.0f);
+    }
+    float int8scaleOut() const
+    {
+        return GetField<float>(VT_INT8SCALEOUT, 0.0f);
     }
     bool Verify(flatbuffers::Verifier &verifier) const
     {
@@ -1404,7 +1414,9 @@ struct ConvolutionParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
                VerifyField<int32_t>(verifier, VT_AXIS) &&
                VerifyField<uint8_t>(verifier, VT_FORCE_ND_IM2COL) &&
                VerifyField<uint32_t>(verifier, VT_FRACTIONS) &&
-               VerifyField<float>(verifier, VT_INT8SCALE) &&
+               VerifyField<float>(verifier, VT_INT8SCALEW) &&
+               VerifyField<float>(verifier, VT_INT8SCALEIN) &&
+               VerifyField<float>(verifier, VT_INT8SCALEOUT) &&
                verifier.EndTable();
     }
 };
@@ -1477,9 +1489,17 @@ struct ConvolutionParameterBuilder
     {
         fbb_.AddElement<uint32_t>(ConvolutionParameter::VT_FRACTIONS, fractions, 0);
     }
-    void add_int8scale(float int8scale)
+    void add_int8scaleW(float int8scaleW)
     {
-        fbb_.AddElement<float>(ConvolutionParameter::VT_INT8SCALE, int8scale, 0.0f);
+        fbb_.AddElement<float>(ConvolutionParameter::VT_INT8SCALEW, int8scaleW, 0.0f);
+    }
+    void add_int8scaleIn(float int8scaleIn)
+    {
+        fbb_.AddElement<float>(ConvolutionParameter::VT_INT8SCALEIN, int8scaleIn, 0.0f);
+    }
+    void add_int8scaleOut(float int8scaleOut)
+    {
+        fbb_.AddElement<float>(ConvolutionParameter::VT_INT8SCALEOUT, int8scaleOut, 0.0f);
     }
     explicit ConvolutionParameterBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb)
@@ -1513,10 +1533,14 @@ inline flatbuffers::Offset<ConvolutionParameter> CreateConvolutionParameter(
     int32_t axis = 1,
     bool force_nd_im2col = false,
     uint32_t fractions = 0,
-    float int8scale = 0.0f)
+    float int8scaleW = 0.0f,
+    float int8scaleIn = 0.0f,
+    float int8scaleOut = 0.0f)
 {
     ConvolutionParameterBuilder builder_(_fbb);
-    builder_.add_int8scale(int8scale);
+    builder_.add_int8scaleOut(int8scaleOut);
+    builder_.add_int8scaleIn(int8scaleIn);
+    builder_.add_int8scaleW(int8scaleW);
     builder_.add_fractions(fractions);
     builder_.add_axis(axis);
     builder_.add_group(group);
@@ -1554,7 +1578,9 @@ inline flatbuffers::Offset<ConvolutionParameter> CreateConvolutionParameterDirec
     int32_t axis = 1,
     bool force_nd_im2col = false,
     uint32_t fractions = 0,
-    float int8scale = 0.0f)
+    float int8scaleW = 0.0f,
+    float int8scaleIn = 0.0f,
+    float int8scaleOut = 0.0f)
 {
     return feather::CreateConvolutionParameter(
                _fbb,
@@ -1574,7 +1600,9 @@ inline flatbuffers::Offset<ConvolutionParameter> CreateConvolutionParameterDirec
                axis,
                force_nd_im2col,
                fractions,
-               int8scale);
+               int8scaleW,
+               int8scaleIn,
+               int8scaleOut);
 }
 
 struct CropParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table

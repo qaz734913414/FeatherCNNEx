@@ -653,7 +653,7 @@ static inline void sgemm_4x7(int L, float *a, int lda, float *b, int ldb, float 
     vst1q_lane_f32(cptr + 6, vc6, 3);
 }
 
-static void sgemm_8x1_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scale)
+static void sgemm_8x1_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scaleW, float int8scaleIn, float int8scaleOut)
 {
     int8_t *aptr = a;
     float *bptr = b;
@@ -687,8 +687,8 @@ static void sgemm_8x1_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         va1 = vmovl_s16(vget_high_s16(va));
         float32x4_t vaf0 = vcvtq_f32_s32(va0);
         float32x4_t vaf1 = vcvtq_f32_s32(va1);
-        vaf0 = vmulq_n_f32(vaf0, int8scale);
-        vaf1 = vmulq_n_f32(vaf1, int8scale);
+        vaf0 = vmulq_n_f32(vaf0, int8scaleW);
+        vaf1 = vmulq_n_f32(vaf1, int8scaleW);
         int32x4_t va0i32 = vcvtq_n_s32_f32(vaf0, FRACTION);
         int32x4_t va1i32 = vcvtq_n_s32_f32(vaf1, FRACTION);
         int16x4_t va16_0 = vmovn_s32(va0i32);
@@ -908,7 +908,7 @@ static void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
 }
 
-static void sgemm_8x2_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scale)
+static void sgemm_8x2_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scaleW, float int8scaleIn, float int8scaleOut)
 {
     int8_t *aptr = a;
     float *bptr = b;
@@ -951,8 +951,8 @@ static void sgemm_8x2_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         va1 = vmovl_s16(vget_high_s16(va));
         float32x4_t vaf0 = vcvtq_f32_s32(va0);
         float32x4_t vaf1 = vcvtq_f32_s32(va1);
-        vaf0 = vmulq_n_f32(vaf0, int8scale);
-        vaf1 = vmulq_n_f32(vaf1, int8scale);
+        vaf0 = vmulq_n_f32(vaf0, int8scaleW);
+        vaf1 = vmulq_n_f32(vaf1, int8scaleW);
         int32x4_t va0i32 = vcvtq_n_s32_f32(vaf0, FRACTION);
         int32x4_t va1i32 = vcvtq_n_s32_f32(vaf1, FRACTION);
         int16x4_t va16_0 = vmovn_s32(va0i32);
@@ -2487,7 +2487,7 @@ static void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int l
     }
 }
 
-extern "C" void sgemm_8x8_pack_fix8( int L, int8_t *a, short *b, float *c, int ldc, float* int8scale);
+extern "C" void sgemm_8x8_pack_fix8( int L, int8_t *a, short *b, float *c, int ldc, float* int8scaleW, float *int8scaleIn, float *int8scaleOut);
 #if __aarch64__
 extern "C" void sgemm_8x8_pack_fix( int L, short *a, int lda, short *b, int ldb, float *c, int ldc );
 #else
@@ -2819,7 +2819,7 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *
     }
 }
 
-static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, short* packB, float int8scale, sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8)
+static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, short* packB, float int8scaleW, float int8scaleIn, float int8scaleOut, sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8)
 {
     int eL = L + (4 - L % 4) % 4;
     int remN = N % 8;
@@ -2832,10 +2832,10 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t
         {
             if(i == 0)
                 internalPackB8Fix(L, packB + j * eL, b + j, ldb);
-            sgemm_8x8_pack_fix8(L, a + i * L, packB + j * eL, c + i * ldc + j, ldc, &int8scale);
+            sgemm_8x8_pack_fix8(L, a + i * L, packB + j * eL, c + i * ldc + j, ldc, &int8scaleW, &int8scaleIn, &int8scaleOut);
         }
         if(remN)
-            sgemm_tiny_scale_fix8(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc, int8scale);
+            sgemm_tiny_scale_fix8(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc, int8scaleW, int8scaleIn, int8scaleOut);
     }
 }
 
@@ -2882,7 +2882,7 @@ void block_sgemm_pack(int M, int N, int L, float *a, int lda, float *b, int ldb,
 }
 
 template<typename T>
-static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc, float int8scale, void *pfunc, void *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
+static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc, float int8scaleW, float int8scaleIn, float int8scaleOut, void *pfunc, void *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     if (NULL != bias_data)
         for(int i = 0; i < M; ++i)
@@ -2939,7 +2939,7 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
                 for(int p = 0; p < L; p += kc)
                 {
                     int pb = MIN(L - p, kc);
-                    SGEBP_externalPackA_tiny_scale_8x8_fix8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (short*)packB, int8scale, (sgemm_tiny_scale_fix8_func)pfunc);
+                    SGEBP_externalPackA_tiny_scale_8x8_fix8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (short*)packB, int8scaleW, int8scaleIn, int8scaleOut, (sgemm_tiny_scale_fix8_func)pfunc);
                     packAptr += ib * pb;
                 }
             }
@@ -2996,7 +2996,7 @@ void block_sgemm_external_pack_threading( int M, int N, int L, float *a, float *
     }
 }
 
-void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a, float *b, float *c, int num_threads, float int8scale, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
+void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a, float *b, float *c, int num_threads, float int8scaleW, float int8scaleIn, float int8scaleOut, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
     sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8;
 
@@ -3027,7 +3027,7 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
 
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<int8_t>(eM, N, L, a, L, b, N, c, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB[0], bias_data, slopeDataPrelu, sharedPrelu);
+        block_sgemm_pack_8x8<int8_t>(eM, N, L, a, L, b, N, c, N, int8scaleW, int8scaleIn, int8scaleOut, (void*)sgemm_tiny_scale_fix8, packB[0], bias_data, slopeDataPrelu, sharedPrelu);
     }
     else
     {
@@ -3037,7 +3037,7 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<int8_t>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB[tid], bias_data, slopeDataPrelu, sharedPrelu);
+            block_sgemm_pack_8x8<int8_t>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, int8scaleW, int8scaleIn, int8scaleOut, (void*)sgemm_tiny_scale_fix8, packB[tid], bias_data, slopeDataPrelu, sharedPrelu);
         }
     }
 }
@@ -3088,7 +3088,7 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
 
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N, 0.0, (void*)sgemm_tiny_scale_fix, packB[0], bias_data, slopeDataPrelu, sharedPrelu);
+        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale_fix, packB[0], bias_data, slopeDataPrelu, sharedPrelu);
     }
     else
     {
@@ -3098,7 +3098,7 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, (void*)sgemm_tiny_scale_fix, packB[tid], bias_data, slopeDataPrelu, sharedPrelu);
+            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale_fix, packB[tid], bias_data, slopeDataPrelu, sharedPrelu);
         }
     }
 }
@@ -3150,7 +3150,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
 
     if (num_threads == 1 || N <= 8 || N - (num_threads * factor - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<float>(eM, N, L, a, L, b, N, c, N, 0.0, (void*)sgemm_tiny_scale, packB[0], bias_data, slopeDataPrelu, sharedPrelu);
+        block_sgemm_pack_8x8<float>(eM, N, L, a, L, b, N, c, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale, packB[0], bias_data, slopeDataPrelu, sharedPrelu);
     }
     else
     {
@@ -3160,7 +3160,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, float *a, flo
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<float>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, (void*)sgemm_tiny_scale, packB[tid], bias_data, slopeDataPrelu, sharedPrelu);
+            block_sgemm_pack_8x8<float>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale, packB[tid], bias_data, slopeDataPrelu, sharedPrelu);
         }
     }
 }

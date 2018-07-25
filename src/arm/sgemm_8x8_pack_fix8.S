@@ -73,7 +73,7 @@ COPYRIGHT_HOLDER:
 
 #define VSRC_4S_SCALE  V29.4S
 
-/* void sgemm_8x8_pack_fix8( int L, char *a, short *b, float *c, int ldc, float* int8scale ) */
+/* void sgemm_8x8_pack_fix8( int L, char *a, short *b, float *c, int ldc, float* int8scaleW, float *int8scaleIn, float *int8scaleOut ) */
 	.text
 	.align 5
 #ifdef __APPLE__
@@ -305,7 +305,7 @@ ABI: hard    r0 r1 r2 r3  [fp,#0]  [fp,#4]  [s0]      [s0]      [fp,#8]   [fp,#1
 ABI: softfp  r0 r1 r2 r3  [fp,#0]  [fp,#4]  [fp,#8]   [fp,#12]  [fp,#16]  [fp,#20]
 */
 
-/* void sgemm_8x8_pack_fix8( int L, char *a, short *b, float *c, int ldc, float int8scale ) */
+/* void sgemm_8x8_pack_fix8( int L, char *a, short *b, float *c, int ldc, float *int8scaleW, float *int8scaleIn, float *int8scaleOut) */
 	.text
 	.align 5
 #ifdef __APPLE__

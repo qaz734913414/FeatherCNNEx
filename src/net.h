@@ -44,6 +44,7 @@ public:
     int ExtractBlob(float* output_ptr, std::string blob_name);//Don't forget to free this memory.
     int config1x1ConvType(CONV_TYPE_E type);
     int configCrypto(const char * pSerialFile);
+    int configCryptoBuffer(uint8_t* pKeyBuff);
     float* ExtractBlob(std::string blob_name);
     int GetBlobShape(unsigned *pChannel, unsigned *pWidth, unsigned *pHeight, std::string name);
     std::map<std::string, Layer*> layer_map;

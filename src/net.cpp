@@ -59,6 +59,17 @@ int Net::configCrypto(const char * pSerialFile)
     return 0;
 }
 
+int Net::configCryptoBuffer(uint8_t* pKeyBuff)
+{
+    if (NULL != pKeyBuff)
+    {
+        printf("Null pointer at %s %d\n", __func__, __LINE__);
+        return -1;
+    }
+    memcpy(key, pKeyBuff, 16);
+    return 0;
+}
+
 Net::~Net()
 {
     for(unsigned i = 0; i < MAXBRANCHNUM; i++)
