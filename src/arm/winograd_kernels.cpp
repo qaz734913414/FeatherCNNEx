@@ -23,7 +23,9 @@
 #include <omp.h>
 #endif
 
+/* pay attention to this arm32 api diff with arm64 need be call twice */
 extern "C" void TensorGEMMInnerKernel4x4x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
+
 extern "C" void TensorGEMMInnerKernel4x3x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 extern "C" void TensorGEMMInnerKernel4x2x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 extern "C" void TensorGEMMInnerKernel4x1x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
@@ -350,7 +352,12 @@ static inline void GEBPInnerKernel4x4x4_fp16(fix16_t* &vp, fix16_t* UTp, float* 
 {
     for(int i = beginIdx; i < endIdx; i+=4)
     {
+#ifdef __aarch64__
         TensorGEMMInnerKernel4x4x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+#else
+        TensorGEMMInnerKernel4x4x4_fp16(WTp + i * 4, wstride, UTp, vp, inChannels);
+        TensorGEMMInnerKernel4x4x4_fp16(WTp + i * 4 + 2*wstride, wstride, UTp + 8, vp, inChannels);
+#endif
         vp += inChannels*16;
     }
 }

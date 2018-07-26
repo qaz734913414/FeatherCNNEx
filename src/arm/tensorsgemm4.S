@@ -414,7 +414,14 @@ ABI: hard    r0 r1 r2 r3  [fp,#0]  [fp,#4]  [s0]      [s0]      [fp,#8]   [fp,#1
 ABI: softfp  r0 r1 r2 r3  [fp,#0]  [fp,#4]  [fp,#8]   [fp,#12]  [fp,#16]  [fp,#20]
 */
 
-/* void TensorGEMMInnerKernel4x4x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels) */
+/*
+Warning this arm32 api only process half of data, you need call this api twice with second call, as follows:
+
+TensorGEMMInnerKernel4x4x4_fp16(WTp, wstride, UTp, vp, inChannels);
+TensorGEMMInnerKernel4x4x4_fp16(WTp + 2*wstride, wstride, UTp + 8, vp, inChannels);
+=========================================================================================
+void TensorGEMMInnerKernel4x4x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels)
+*/
 	.text
 	.align 5
 #ifdef __APPLE__
@@ -423,108 +430,6 @@ _TensorGEMMInnerKernel4x4x4_fp16:
 #else
 	.global TensorGEMMInnerKernel4x4x4_fp16
 TensorGEMMInnerKernel4x4x4_fp16:
-#endif
-	push {r4-r5, fp}
-	add fp, sp, #12
-	sub sp, sp, #STACK_SIZE
-
-	sub r4, fp, #140   /* [fp, -140] */
-	vstm r4, {s0-s31}
-
-	ldr L, ST_L        /* load L param from ST_L */
-	lsl LDC, LDC, #2
-	sub VST, fp, #396   /* [fp, -396] ST_Q0_Q7 */
-
-	cmp L, #0
-	beq __END4
-
-	veor VSRC_4S_C0, VSRC_4S_C0, VSRC_4S_C0
-	pld [UTP, #32]
-	vmov VSRC_4S_C1, VSRC_4S_C0
-	vmov VSRC_4S_C2, VSRC_4S_C0
-	vmov VSRC_4S_C3, VSRC_4S_C0
-	vmov VSRC_4S_C4, VSRC_4S_C0
-	vmov VSRC_4S_C5, VSRC_4S_C0
-	vmov VSRC_4S_C6, VSRC_4S_C0
-	vmov VSRC_4S_C7, VSRC_4S_C0
-
-	vstm VST, {VSRC_4S_C8-VSRC_4S_CF}
-	vpush {VSRC_4S_C0-VSRC_4S_C7}
-
-__LOOP4:
-	vld1.16 {VSRC_8H_U0, VSRC_8H_V0}, [VP]! //Q1
-	vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_U0 //Q6
-	subs L, L, #1
-	vcvt.f32.f16 VSRC_4S_V1, VSRC_4H_U1 //Q7
-
-	vcvt.f32.f16 VSRC_4S_V2, VSRC_4H_V0 //Q4
-	vld1.16 {VSRC_8H_U0}, [UTP]! //q0
-	vcvt.f32.f16 VSRC_4S_V3, VSRC_4H_V1 //Q5
-	vcvt.f32.f16 VSRC_4S_U0, VSRC_4H_U0 //q2
-
-	vpop {VSRC_4S_C0-VSRC_4S_C7}
-
-	pld [UTP, #16]
-	vmla.f32 VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
-	vmla.f32 VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
-	vcvt.f32.f16 VSRC_4S_U1, VSRC_4H_U1 //q3
-	vmla.f32 VSRC_4S_C2, VSRC_4S_U0, VSRC_4S_V2
-	vmla.f32 VSRC_4S_C3, VSRC_4S_U0, VSRC_4S_V3
-
-	vld1.16 {VSRC_8H_U0}, [UTP]! //Q0
-	vmla.f32 VSRC_4S_C4, VSRC_4S_U1, VSRC_4S_V0
-	vmla.f32 VSRC_4S_C5, VSRC_4S_U1, VSRC_4S_V1
-	vcvt.f32.f16 VSRC_4S_U2, VSRC_4H_U0 //Q2
-	vmla.f32 VSRC_4S_C6, VSRC_4S_U1, VSRC_4S_V2
-	vmla.f32 VSRC_4S_C7, VSRC_4S_U1, VSRC_4S_V3
-
-	vpush {VSRC_4S_C0-VSRC_4S_C7}
-
-	vldm VST, {VSRC_4S_C8-VSRC_4S_CF}
-
-	vmla.f32 VSRC_4S_C8, VSRC_4S_U2, VSRC_4S_V0
-	pld [VP, #32]
-	vmla.f32 VSRC_4S_C9, VSRC_4S_U2, VSRC_4S_V1
-	vcvt.f32.f16 VSRC_4S_U3, VSRC_4H_U1 //Q3
-	vmla.f32 VSRC_4S_CA, VSRC_4S_U2, VSRC_4S_V2
-	pld [UTP, #16]
-	vmla.f32 VSRC_4S_CB, VSRC_4S_U2, VSRC_4S_V3
-	vmla.f32 VSRC_4S_CC, VSRC_4S_U3, VSRC_4S_V0
-	vmla.f32 VSRC_4S_CD, VSRC_4S_U3, VSRC_4S_V1
-	vmla.f32 VSRC_4S_CE, VSRC_4S_U3, VSRC_4S_V2
-	vmla.f32 VSRC_4S_CF, VSRC_4S_U3, VSRC_4S_V3
-
-	vstm VST, {VSRC_4S_C8-VSRC_4S_CF}
-
-	cmp L, #0
-	bne __LOOP4
-
-	vpop {VSRC_4S_C0-VSRC_4S_C7}
-	vstm WTP, {VSRC_4S_C0-VSRC_4S_C3}
-	add WTP, WTP, LDC
-	vstm WTP, {VSRC_4S_C4-VSRC_4S_C7}
-	add WTP, WTP, LDC
-	vldm VST, {VSRC_4S_C8-VSRC_4S_CF}
-	vstm WTP, {VSRC_4S_C8-VSRC_4S_CB}
-	add WTP, WTP, LDC
-	vstm WTP, {VSRC_4S_CC-VSRC_4S_CF}
-__END4:
-	sub r4, fp, #140
-	vldm r4, {s0-s31}
-	sub sp, fp, #12
-	pop {r4-r5, fp}
-	bx lr
-
-
-/* void TensorGEMMInnerKernel4x4x4_fp16_n(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels) */
-	.text
-	.align 5
-#ifdef __APPLE__
-	.global _TensorGEMMInnerKernel4x4x4_fp16_n
-_TensorGEMMInnerKernel4x4x4_fp16_n:
-#else
-	.global TensorGEMMInnerKernel4x4x4_fp16_n
-TensorGEMMInnerKernel4x4x4_fp16_n:
 #endif
 	push {r4-r5, fp}
 	add fp, sp, #12

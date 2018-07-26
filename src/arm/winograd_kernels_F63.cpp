@@ -34,8 +34,9 @@ extern "C" void TensorGEMMInnerKernel4x3x4_fix16(float* WTp, const int wstride, 
 extern "C" void TensorGEMMInnerKernel4x2x4_fix16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 extern "C" void TensorGEMMInnerKernel4x1x4_fix16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 
-extern "C" void TensorGEMMInnerKernel4x4x4_fp16_n(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
+/* pay attention to this arm32 api diff with arm64 need be call twice */
 extern "C" void TensorGEMMInnerKernel4x4x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
+
 extern "C" void TensorGEMMInnerKernel4x3x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 extern "C" void TensorGEMMInnerKernel4x2x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 extern "C" void TensorGEMMInnerKernel4x1x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
@@ -978,8 +979,8 @@ void TensorGEMM_fix16
 #ifdef __aarch64__
                             TensorGEMMInnerKernel4x4x4_fp16(WTp, wstride, UTp, vp, inChannels);
 #else
-                            TensorGEMMInnerKernel4x4x4_fp16_n(WTp, wstride, UTp, vp, inChannels);
-                            TensorGEMMInnerKernel4x4x4_fp16_n(WTp + 2*wstride, wstride, UTp + 8, vp, inChannels);
+                            TensorGEMMInnerKernel4x4x4_fp16(WTp, wstride, UTp, vp, inChannels);
+                            TensorGEMMInnerKernel4x4x4_fp16(WTp + 2*wstride, wstride, UTp + 8, vp, inChannels);
 #endif
                         }
                         else
