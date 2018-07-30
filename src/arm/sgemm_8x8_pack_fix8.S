@@ -22,13 +22,13 @@ COPYRIGHT_HOLDER:
 #define LDC               w4
 #define LDCX              x4
 #define INT8SCALEW_ADDR   x5
-#define INT8SCALEW        W5
+#define INT8SCALEW        w5
 #define INT8SCALEIN_ADDR  x6
-#define INT8SCALEIN       W6
+#define INT8SCALEIN       w6
 #define INT8SCALEOUT_ADDR x7
-#define INT8SCALEOUT      W7
+#define INT8SCALEOUT      w7
 
-#define CHANNEL           W8
+#define CHANNEL           w8
 #define CHANNELX          X8
 #define SLOPEX            X9
 
@@ -108,34 +108,6 @@ COPYRIGHT_HOLDER:
 #define VSRC_4S_SLOPE_1_2 V31.S[2]
 #define VSRC_4S_SLOPE_1_3 V31.S[3]
 
-.macro RESULT_CONVERT_MACRO, src_0:req, src_1:req
-	ld1 {VSRC_4S_C_LOW, VSRC_4S_C_HIGH}, [C]
-	scvtf \src_0, \src_0
-	fmul \src_0, \src_0, VSRC_4S_SCALEIN
-	scvtf \src_1, \src_1
-	add \src_0, \src_0, VSRC_4S_C_LOW
-        fmul \src_1, \src_1, VSRC_4S_SCALEIN
-	add \src_1, \src_1, VSRC_4S_C_HIGH
-        st1 {\src_0, \src_1}, [C], LDCX
-.endm
-
-.macro RESULT_CONVERT_WITH_PRELU_MACRO, src_0:req, src_1:req, src_0_16b:req, src_1_16b:req, slope_0:req
-	ld1 {VSRC_4S_C_LOW, VSRC_4S_C_HIGH}, [C]
-	scvtf \src_0, \src_0
-	fmul \src_0, \src_0, VSRC_4S_SCALEIN
-	scvtf \src_1, \src_1
-	add \src_0, \src_0, VSRC_4S_C_LOW
-        fmul \src_1, \src_1, VSRC_4S_SCALEIN
-        fcmle VSRC_4S_MASK_0, \src_0, #0.0
-	add \src_1, \src_1, VSRC_4S_C_HIGH
-        fcmle VSRC_4S_MASK_1, \src_1, #0.0
-        fmul VSRC_4S_MUL_0, \src_0, \slope_0
-        fmul VSRC_4S_MUL_1, \src_1, \slope_0
-        bsl VSRC_4S_MASK_0_16B, VSRC_4S_MUL_0_16B, \src_0_16b
-        bsl VSRC_4S_MASK_1_16B, VSRC_4S_MUL_1_16B, \src_1_16b
-        st1 {VSRC_4S_MASK_0, VSRC_4S_MASK_1}, [C], LDCX
-.endm
-
 /* void sgemm_8x8_pack_fix8( int L, char *a, int8_t *b, float *c, int ldc, float* int8scaleW, float *int8scaleIn, float *int8scaleOut, int ch, float *slopeDataPrelu ) */
 	.text
 	.align 5
@@ -154,8 +126,6 @@ sgemm_8x8_pack_fix8:
 	ldr INT8SCALEIN, [INT8SCALEIN_ADDR]
 	dup VSRC_4S_SCALEIN, INT8SCALEIN
         fmul VSRC_4S_SCALEIN, VSRC_4S_SCALEIN, VSRC_4S_SCALEW
-
-	/* ldr INT8SCALEOUT, [INT8SCALEOUT_ADDR] */
 
 	ldr CHANNEL, [sp]      /* load param from stack */
         sxtw CHANNELX, CHANNEL
@@ -216,6 +186,23 @@ __LOOP:
 
         add SLOPEX, SLOPEX, CHANNELX
         ld1 {VSRC_4S_SLOPE_0, VSRC_4S_SLOPE_1}, [SLOPEX]
+
+.macro RESULT_CONVERT_WITH_PRELU_MACRO, src_0:req, src_1:req, src_0_16b:req, src_1_16b:req, slope_0:req
+	ld1 {VSRC_4S_C_LOW, VSRC_4S_C_HIGH}, [C]
+	scvtf \src_0, \src_0
+	fmul \src_0, \src_0, VSRC_4S_SCALEIN
+	scvtf \src_1, \src_1
+	add \src_0, \src_0, VSRC_4S_C_LOW
+        fmul \src_1, \src_1, VSRC_4S_SCALEIN
+        fcmle VSRC_4S_MASK_0, \src_0, #0.0
+	add \src_1, \src_1, VSRC_4S_C_HIGH
+        fcmle VSRC_4S_MASK_1, \src_1, #0.0
+        fmul VSRC_4S_MUL_0, \src_0, \slope_0
+        fmul VSRC_4S_MUL_1, \src_1, \slope_0
+        bsl VSRC_4S_MASK_0_16B, VSRC_4S_MUL_0_16B, \src_0_16b
+        bsl VSRC_4S_MASK_1_16B, VSRC_4S_MUL_1_16B, \src_1_16b
+        st1 {VSRC_4S_MASK_0, VSRC_4S_MASK_1}, [C], LDCX
+.endm
 	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C0, VSRC_4S_C8, VSRC_16B_C0, VSRC_16B_C8, VSRC_4S_SLOPE_0_0
 	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C1, VSRC_4S_C9, VSRC_16B_C1, VSRC_16B_C9, VSRC_4S_SLOPE_0_1
 	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C2, VSRC_4S_CA, VSRC_16B_C2, VSRC_16B_CA, VSRC_4S_SLOPE_0_2
@@ -227,6 +214,16 @@ __LOOP:
 	b __END
 
 __NOSLOPE:
+.macro RESULT_CONVERT_MACRO, src_0:req, src_1:req
+	ld1 {VSRC_4S_C_LOW, VSRC_4S_C_HIGH}, [C]
+	scvtf \src_0, \src_0
+	fmul \src_0, \src_0, VSRC_4S_SCALEIN
+	scvtf \src_1, \src_1
+	add \src_0, \src_0, VSRC_4S_C_LOW
+        fmul \src_1, \src_1, VSRC_4S_SCALEIN
+	add \src_1, \src_1, VSRC_4S_C_HIGH
+        st1 {\src_0, \src_1}, [C], LDCX
+.endm
 	RESULT_CONVERT_MACRO VSRC_4S_C0, VSRC_4S_C8
 	RESULT_CONVERT_MACRO VSRC_4S_C1, VSRC_4S_C9
 	RESULT_CONVERT_MACRO VSRC_4S_C2, VSRC_4S_CA
@@ -255,7 +252,6 @@ __END:
 #define INT8SCALEW       r5
 #define INT8SCALEIN      r6
 #define INT8SCALEOUT     r7
-#define CONST_16         r7 //causion for INT8SCALEOUT, if used
 #define CHANNEL          r8
 #define SLOPE            r9
 
@@ -367,15 +363,13 @@ sgemm_8x8_pack_fix8:
 	push {r4-r9, fp}
 	add fp, sp, #28
 	sub sp, sp, #STACK_SIZE
-	sub r4, fp, #156   /* [fp, -156] */
-	vstm r4, {s0-s31}
+	sub r4, fp, #156                  /* [fp, -156] */
+	vstm r4, {s0-s23}
 
 	ldr LDC, ST_LDC                   /* load param from stack */
 	lsl LDC, LDC, #2
 	ldr INT8SCALEW, ST_INT8SCALEW     /* load param from stack */
 	ldr INT8SCALEIN, ST_INT8SCALEIN   /* load param from stack */
-	mov CONST_16, #16
-	//ldr INT8SCALEOUT, ST_INT8SCALEOUT /* load param from stack */
 	ldr CHANNEL, ST_CHANNEL           /* load param from stack */
 	ldr SLOPE, ST_SLOPE               /* load param from stack */
 
@@ -395,7 +389,7 @@ sgemm_8x8_pack_fix8:
 __LOOP:
 	vld1.8 {VSRC_8B_A}, [A]!
 	subs L, L, #1
-	vld1.8 {VSRC_8B_B}, [B], CONST_16
+	vld1.8 {VSRC_8B_B}, [B]!
         vmovl.s8 VSRC_8H_A, VSRC_8B_A
 	pld [B, #8]
         vmovl.s8 VSRC_8H_B, VSRC_8B_B
@@ -417,6 +411,7 @@ __LOOP:
 	bne __LOOP
 
         vdup.32 VSRC_4S_SCALEW, INT8SCALEW
+        veor VSRC_4S_ZERO, VSRC_4S_ZERO, VSRC_4S_ZERO
         vdup.32 VSRC_4S_SCALEIN, INT8SCALEIN
         vmul.f32 VSRC_4S_SCALEIN, VSRC_4S_SCALEIN, VSRC_4S_SCALEW
 
@@ -468,7 +463,7 @@ __NO_SLOPE:
 
 __END:
 	sub r4, fp, #156
-	vldm r4, {s0-s31}
+	vldm r4, {s0-s23}
 	sub sp, fp, #28
 	pop {r4-r9, fp}
 	bx lr
