@@ -285,13 +285,13 @@ __END:
 #define VSRC_4H_A0    d0
 #define VSRC_4H_A0_0  d0[0]
 #define VSRC_4H_A0_1  d0[1]
-#define VSRC_4H_A0_2  d0[0]
-#define VSRC_4H_A0_3  d0[1]
+#define VSRC_4H_A0_2  d0[2]
+#define VSRC_4H_A0_3  d0[3]
 #define VSRC_4H_A1    d1
 #define VSRC_4H_A1_0  d1[0]
 #define VSRC_4H_A1_1  d1[1]
-#define VSRC_4H_A1_2  d1[0]
-#define VSRC_4H_A1_3  d1[1]
+#define VSRC_4H_A1_2  d1[2]
+#define VSRC_4H_A1_3  d1[3]
 
 #define VSRC_8H_B     q1
 #define VSRC_8B_B     d2
@@ -398,13 +398,11 @@ __LOOP:
 	vmlal.s16 VSRC_4S_C0, VSRC_4H_B, VSRC_4H_A0_0
 	vmlal.s16 VSRC_4S_C1, VSRC_4H_B, VSRC_4H_A0_1
 	pld [A, #8]
-	vmlal.s16 VSRC_4S_C4, VSRC_4H_B, VSRC_4H_A1_0
-	vrev64.32 VSRC_4H_A0, VSRC_4H_A0
-	vmlal.s16 VSRC_4S_C5, VSRC_4H_B, VSRC_4H_A1_1
-
 	vmlal.s16 VSRC_4S_C2, VSRC_4H_B, VSRC_4H_A0_2
-	vrev64.32 VSRC_4H_A1, VSRC_4H_A1
 	vmlal.s16 VSRC_4S_C3, VSRC_4H_B, VSRC_4H_A0_3
+
+	vmlal.s16 VSRC_4S_C4, VSRC_4H_B, VSRC_4H_A1_0
+	vmlal.s16 VSRC_4S_C5, VSRC_4H_B, VSRC_4H_A1_1
 	vmlal.s16 VSRC_4S_C6, VSRC_4H_B, VSRC_4H_A1_2
 	vmlal.s16 VSRC_4S_C7, VSRC_4H_B, VSRC_4H_A1_3
 
