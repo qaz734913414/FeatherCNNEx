@@ -43,6 +43,7 @@ public:
         _fusible = true;
         sharedPrelu = false;
         slopeDataPrelu = NULL;
+        img_buffer = NULL;
     }
 
     int Forward()
@@ -84,7 +85,7 @@ public:
         else
         {
             MEMPOOL_CHECK_RETURN(common_mempool->GetPtr(&img_buffer));
-
+            if (NULL == img_buffer) return -1;
             Im2col();
 
             int block = (int)input_channels/group * (int)kernel_width * (int)kernel_height;
@@ -105,20 +106,7 @@ public:
                                                         bias_data, slopeDataPrelu, sharedPrelu);
             }
         }
-#if 0
-        if(bias_term)
-        {
-            size_t out_stride = output_width * output_height;
-            for(int i = 0; i < output_channels; ++i)
-            {
-                float bias = bias_data[i];
-                for(int j = 0; j < out_stride; ++j)
-                {
-                    output[out_stride * i + j] = output[out_stride * i + j] + bias;
-                }
-            }
-        }
-#else
+
         if ((fuse_prelu) && (consumersNum > 1))
         {
             unsigned outSize = output_channels*output_width*output_height;
@@ -128,7 +116,7 @@ public:
                 memcpy(pNet->pingpang[consumerBranchId][0], output, outSize*sizeof(float));
             }
         }
-#endif
+
         return 0;
     }
 
@@ -299,47 +287,53 @@ public:
         //printf("MNK: %d %d %d, [%d %d %d] [%d %d %d]\n", M, K, eM, input_channels, input_height, input_width, output_channels, output_height, output_width);
         if (num_threads > 4) num_threads = 4;
 
-        if (0 == fractions)
+        if (0 == fractions) /* float32 */
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(float) * eM * K));
             for(int i = 0; i< num_threads; i++)
-                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(short) * kc * (int)output_width * (int)output_height));
-        }
-        else if (8 == fractions)
-        {
-            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(char) * eM * K));
-            for(int i = 0; i< num_threads; i++)
-                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(short) * kc * (int)output_width * (int)output_height));
-        }
-        else
-        {
-            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(short) * eM * K));
-            for(int i = 0; i< num_threads; i++)
                 MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(float) * kc * (int)output_width * (int)output_height));
         }
-        MEMPOOL_CHECK_RETURN(common_mempool->Request(sizeof(float)*(input_channels*kernel_height*kernel_width)*(output_width*output_height),
-                             this->name()+" ["+this->type()+"]"));
+        else if (8 == fractions) /* int8 */
+        {
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(int8_t) * eM * K));
+            for(int i = 0; i< num_threads; i++)
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(int8_t) * kc * (int)output_width * (int)output_height));
+        }
+        else /* fix16 or fp16 */
+        {
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(fix16_t) * eM * K));
+            for(int i = 0; i< num_threads; i++)
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(fix16_t) * kc * (int)output_width * (int)output_height));
+        }
 
-        if (0 == this->fractions)
+        /* only not 1x1 sgemmm need im2col buffer */
+        if (kernel_width != 1 || kernel_height != 1 || stride_height != 1 || stride_width != 1)
+        {
+            /* im2col buffer */
+            MEMPOOL_CHECK_RETURN(common_mempool->Request(sizeof(float)*(input_channels*kernel_height*kernel_width)*(output_width*output_height),
+                                 this->name()+" ["+this->type()+"]"));
+        }
+
+        if (0 == this->fractions) /* float32 */
         {
             if (M % 8 == 0)
                 externalPackA8<float>(M, K, (float *)packed_kernel, kernel_data, K);
-            else
+            else /* if not align to 8, then we align to 4 */
                 externalPackA(M, K, (float *)packed_kernel, kernel_data, K);
         }
-        else if (8 == this->fractions)
+        else if (8 == this->fractions) /* int8 */
         {
             if (M % 8 == 0)
                 externalPackA8<int8_t>(M, K, (int8_t *)packed_kernel, kernel_data_fix8, K);
             else
-                externalPackAFix8(M, K, packed_kernel, kernel_data_fix8, K);
+                externalPackA(M, K, (int8_t *)packed_kernel, kernel_data_fix8, K);
         }
-        else
+        else /* fix16 or fp16 */
         {
             if (M % 8 == 0)
                 externalPackA8<short>(M, K, (short *)packed_kernel, kernel_data_fix, K);
             else
-                externalPackAFix(M, K, packed_kernel, kernel_data_fix, K);
+                externalPackA(M, K, (short *)packed_kernel, kernel_data_fix, K);
         }
 
         if ((NULL != ginput) && (NULL != goutput))
@@ -355,7 +349,7 @@ public:
 
 private:
     void *packed_kernel;
-    void *packB[16];
+    void *packB[4];
     float *img_buffer;
     unsigned fusedWeightBlobId;
     bool fuse_prelu;
