@@ -126,6 +126,7 @@ sgemm_8x8_pack_fix8:
 	ldr INT8SCALEIN, [INT8SCALEIN_ADDR]
 	dup VSRC_4S_SCALEIN, INT8SCALEIN
         fmul VSRC_4S_SCALEIN, VSRC_4S_SCALEIN, VSRC_4S_SCALEW
+        frecpe VSRC_4S_SCALEIN, VSRC_4S_SCALEIN
 
 	ldr CHANNEL, [sp]      /* load param from stack */
         sxtw CHANNELX, CHANNEL
@@ -414,6 +415,7 @@ __LOOP:
         veor VSRC_4S_ZERO, VSRC_4S_ZERO, VSRC_4S_ZERO
         vdup.32 VSRC_4S_SCALEIN, INT8SCALEIN
         vmul.f32 VSRC_4S_SCALEIN, VSRC_4S_SCALEIN, VSRC_4S_SCALEW
+        vrecpe.f32 VSRC_4S_SCALEIN, VSRC_4S_SCALEIN
 
 __SLOPE:
 .macro RESULT_CONVERT_WITH_PRELU_MACRO, src_0:req, slope_0:req
