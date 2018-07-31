@@ -28,7 +28,6 @@ COPYRIGHT_HOLDER:
 #define INT8SCALEOUT_ADDR x7
 #define INT8SCALEOUT      w7
 
-#define CHANNEL           w8
 #define CHANNELX          X8
 #define SLOPEX            X9
 
@@ -125,12 +124,11 @@ sgemm_8x8_pack_fix8:
 
 	ldr INT8SCALEIN, [INT8SCALEIN_ADDR]
 	dup VSRC_4S_SCALEIN, INT8SCALEIN
-        fmul VSRC_4S_SCALEIN, VSRC_4S_SCALEIN, VSRC_4S_SCALEW
-        frecpe VSRC_4S_SCALEIN, VSRC_4S_SCALEIN
 
-	ldr CHANNEL, [sp]      /* load param from stack */
-        sxtw CHANNELX, CHANNEL
-	ldr SLOPEX,  [sp, #8]  /* load param from stack */
+	ldr CHANNELX, [sp]      /* load param from stack */
+        fmul VSRC_4S_SCALEIN, VSRC_4S_SCALEIN, VSRC_4S_SCALEW
+	ldr SLOPEX,   [sp, #8]  /* load param from stack */
+        frecpe VSRC_4S_SCALEIN, VSRC_4S_SCALEIN
 	cbz L, __END
 
 	prfm PLDL1KEEP, [A, #16]
@@ -160,16 +158,16 @@ __LOOP:
 	prfm PLDL1KEEP, [A, #8]
 	sxtl VSRC_8H_B, VSRC_8B_B
 
-	smlal VSRC_4S_C0, VSRC_4H_B, VSRC_8H_A_0
-	smlal VSRC_4S_C1, VSRC_4H_B, VSRC_8H_A_1
-	smlal VSRC_4S_C2, VSRC_4H_B, VSRC_8H_A_2
-	smlal VSRC_4S_C3, VSRC_4H_B, VSRC_8H_A_3
+	smlal  VSRC_4S_C0, VSRC_4H_B, VSRC_8H_A_0
+	smlal  VSRC_4S_C1, VSRC_4H_B, VSRC_8H_A_1
+	smlal  VSRC_4S_C2, VSRC_4H_B, VSRC_8H_A_2
+	smlal  VSRC_4S_C3, VSRC_4H_B, VSRC_8H_A_3
 
 	prfm PLDL1KEEP, [B, #8]
-	smlal VSRC_4S_C4, VSRC_4H_B, VSRC_8H_A_4
-	smlal VSRC_4S_C5, VSRC_4H_B, VSRC_8H_A_5
-	smlal VSRC_4S_C6, VSRC_4H_B, VSRC_8H_A_6
-	smlal VSRC_4S_C7, VSRC_4H_B, VSRC_8H_A_7
+	smlal  VSRC_4S_C4, VSRC_4H_B, VSRC_8H_A_4
+	smlal  VSRC_4S_C5, VSRC_4H_B, VSRC_8H_A_5
+	smlal  VSRC_4S_C6, VSRC_4H_B, VSRC_8H_A_6
+	smlal  VSRC_4S_C7, VSRC_4H_B, VSRC_8H_A_7
 
 	smlal2 VSRC_4S_C8, VSRC_8H_B, VSRC_8H_A_0
 	smlal2 VSRC_4S_C9, VSRC_8H_B, VSRC_8H_A_1
@@ -188,7 +186,7 @@ __LOOP:
         add SLOPEX, SLOPEX, CHANNELX
         ld1 {VSRC_4S_SLOPE_0, VSRC_4S_SLOPE_1}, [SLOPEX]
 
-.macro RESULT_CONVERT_WITH_PRELU_MACRO, src_0:req, src_1:req, src_0_16b:req, src_1_16b:req, slope_0:req
+.macro SLOPE_STORE_MACRO, src_0:req, src_1:req, src_0_16b:req, src_1_16b:req, slope_0:req
 	ld1 {VSRC_4S_C_LOW, VSRC_4S_C_HIGH}, [C]
 	scvtf \src_0, \src_0
 	fmul \src_0, \src_0, VSRC_4S_SCALEIN
@@ -204,18 +202,18 @@ __LOOP:
         bsl VSRC_4S_MASK_1_16B, VSRC_4S_MUL_1_16B, \src_1_16b
         st1 {VSRC_4S_MASK_0, VSRC_4S_MASK_1}, [C], LDCX
 .endm
-	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C0, VSRC_4S_C8, VSRC_16B_C0, VSRC_16B_C8, VSRC_4S_SLOPE_0_0
-	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C1, VSRC_4S_C9, VSRC_16B_C1, VSRC_16B_C9, VSRC_4S_SLOPE_0_1
-	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C2, VSRC_4S_CA, VSRC_16B_C2, VSRC_16B_CA, VSRC_4S_SLOPE_0_2
-	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C3, VSRC_4S_CB, VSRC_16B_C3, VSRC_16B_CB, VSRC_4S_SLOPE_0_3
-	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C4, VSRC_4S_CC, VSRC_16B_C4, VSRC_16B_CC, VSRC_4S_SLOPE_1_0
-	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C5, VSRC_4S_CD, VSRC_16B_C5, VSRC_16B_CD, VSRC_4S_SLOPE_1_1
-	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C6, VSRC_4S_CE, VSRC_16B_C6, VSRC_16B_CE, VSRC_4S_SLOPE_1_2
-	RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C7, VSRC_4S_CF, VSRC_16B_C7, VSRC_16B_CF, VSRC_4S_SLOPE_1_3
+	SLOPE_STORE_MACRO VSRC_4S_C0, VSRC_4S_C8, VSRC_16B_C0, VSRC_16B_C8, VSRC_4S_SLOPE_0_0
+	SLOPE_STORE_MACRO VSRC_4S_C1, VSRC_4S_C9, VSRC_16B_C1, VSRC_16B_C9, VSRC_4S_SLOPE_0_1
+	SLOPE_STORE_MACRO VSRC_4S_C2, VSRC_4S_CA, VSRC_16B_C2, VSRC_16B_CA, VSRC_4S_SLOPE_0_2
+	SLOPE_STORE_MACRO VSRC_4S_C3, VSRC_4S_CB, VSRC_16B_C3, VSRC_16B_CB, VSRC_4S_SLOPE_0_3
+	SLOPE_STORE_MACRO VSRC_4S_C4, VSRC_4S_CC, VSRC_16B_C4, VSRC_16B_CC, VSRC_4S_SLOPE_1_0
+	SLOPE_STORE_MACRO VSRC_4S_C5, VSRC_4S_CD, VSRC_16B_C5, VSRC_16B_CD, VSRC_4S_SLOPE_1_1
+	SLOPE_STORE_MACRO VSRC_4S_C6, VSRC_4S_CE, VSRC_16B_C6, VSRC_16B_CE, VSRC_4S_SLOPE_1_2
+	SLOPE_STORE_MACRO VSRC_4S_C7, VSRC_4S_CF, VSRC_16B_C7, VSRC_16B_CF, VSRC_4S_SLOPE_1_3
 	b __END
 
 __NOSLOPE:
-.macro RESULT_CONVERT_MACRO, src_0:req, src_1:req
+.macro STORE_MACRO, src_0:req, src_1:req
 	ld1 {VSRC_4S_C_LOW, VSRC_4S_C_HIGH}, [C]
 	scvtf \src_0, \src_0
 	fmul \src_0, \src_0, VSRC_4S_SCALEIN
@@ -225,15 +223,14 @@ __NOSLOPE:
 	add \src_1, \src_1, VSRC_4S_C_HIGH
         st1 {\src_0, \src_1}, [C], LDCX
 .endm
-	RESULT_CONVERT_MACRO VSRC_4S_C0, VSRC_4S_C8
-	RESULT_CONVERT_MACRO VSRC_4S_C1, VSRC_4S_C9
-	RESULT_CONVERT_MACRO VSRC_4S_C2, VSRC_4S_CA
-	RESULT_CONVERT_MACRO VSRC_4S_C3, VSRC_4S_CB
-	RESULT_CONVERT_MACRO VSRC_4S_C4, VSRC_4S_CC
-	RESULT_CONVERT_MACRO VSRC_4S_C5, VSRC_4S_CD
-	RESULT_CONVERT_MACRO VSRC_4S_C6, VSRC_4S_CE
-	RESULT_CONVERT_MACRO VSRC_4S_C7, VSRC_4S_CF
-
+	STORE_MACRO VSRC_4S_C0, VSRC_4S_C8
+	STORE_MACRO VSRC_4S_C1, VSRC_4S_C9
+	STORE_MACRO VSRC_4S_C2, VSRC_4S_CA
+	STORE_MACRO VSRC_4S_C3, VSRC_4S_CB
+	STORE_MACRO VSRC_4S_C4, VSRC_4S_CC
+	STORE_MACRO VSRC_4S_C5, VSRC_4S_CD
+	STORE_MACRO VSRC_4S_C6, VSRC_4S_CE
+	STORE_MACRO VSRC_4S_C7, VSRC_4S_CF
 __END:
 	ret
 
@@ -257,41 +254,25 @@ __END:
 #define SLOPE            r9
 
 /************ Stack Param ***********/
-/* fp <--> r11 */
-#ifdef __ARM_PCS_VFP  /*float-abi = hard*/
-
 #define ST_LDC            [fp, #0]
 #define ST_INT8SCALEW     [fp, #4]
 #define ST_INT8SCALEIN    [fp, #8]
 #define ST_INT8SCALEOUT   [fp, #12]
 #define ST_CHANNEL        [fp, #16]
 #define ST_SLOPE          [fp, #20]
-
-#else /*float-abi = softfp*/
-
-#define ST_LDC            [fp, #0]
-#define ST_INT8SCALEW     [fp, #4]
-#define ST_INT8SCALEIN    [fp, #8]
-#define ST_INT8SCALEOUT   [fp, #12]
-#define ST_CHANNEL        [fp, #16]
-#define ST_SLOPE          [fp, #20]
-
-#endif
 
 /************ Vector Regs ***********/
 /* RSV Q0~Q7 */
 #define VSRC_8H_A     q0
 #define VSRC_8B_A     d0
-#define VSRC_4H_A0    d0
-#define VSRC_4H_A0_0  d0[0]
-#define VSRC_4H_A0_1  d0[1]
-#define VSRC_4H_A0_2  d0[2]
-#define VSRC_4H_A0_3  d0[3]
-#define VSRC_4H_A1    d1
-#define VSRC_4H_A1_0  d1[0]
-#define VSRC_4H_A1_1  d1[1]
-#define VSRC_4H_A1_2  d1[2]
-#define VSRC_4H_A1_3  d1[3]
+#define VSRC_8H_A_0   d0[0]
+#define VSRC_8H_A_1   d0[1]
+#define VSRC_8H_A_2   d0[2]
+#define VSRC_8H_A_3   d0[3]
+#define VSRC_8H_A_4   d1[0]
+#define VSRC_8H_A_5   d1[1]
+#define VSRC_8H_A_6   d1[2]
+#define VSRC_8H_A_7   d1[3]
 
 #define VSRC_8H_B     q1
 #define VSRC_8B_B     d2
@@ -299,11 +280,11 @@ __END:
 
 #define VSRC_4S_SCALEW  q0
 #define VSRC_4S_C_LOW   q0
-#define VSRC_4S_SCALEIN q1
 
-#define VSRC_4S_ZERO   q2
-#define VSRC_4S_MASK   q3
-#define VSRC_4S_MUL    q4
+#define VSRC_4S_SCALEIN q1
+#define VSRC_4S_ZERO    q2
+#define VSRC_4S_MASK    q3
+#define VSRC_4S_MUL     q4
 
 #define VSRC_4S_SLOPE   q5
 #define VSRC_4S_SLOPE_0 d10[0]
@@ -311,17 +292,17 @@ __END:
 #define VSRC_4S_SLOPE_2 d11[0]
 #define VSRC_4S_SLOPE_3 d11[1]
 
-#define VSRC_4S_C0     q8
-#define VSRC_4S_C1     q9
-#define VSRC_4S_C2     q10
-#define VSRC_4S_C3     q11
-#define VSRC_4S_C4     q12
-#define VSRC_4S_C5     q13
-#define VSRC_4S_C6     q14
-#define VSRC_4S_C7     q15
+#define VSRC_4S_C0      q8
+#define VSRC_4S_C1      q9
+#define VSRC_4S_C2      q10
+#define VSRC_4S_C3      q11
+#define VSRC_4S_C4      q12
+#define VSRC_4S_C5      q13
+#define VSRC_4S_C6      q14
+#define VSRC_4S_C7      q15
 
 /************ Stack fp Area *********/
-#define  STACK_START  [fp, #-524] // -512-12
+#define  STACK_START  [fp, #-540] // -512-28
 
 /*
 ----------------------------------------------------------------------------------------------
@@ -395,16 +376,16 @@ __LOOP:
 	pld [B, #8]
         vmovl.s8 VSRC_8H_B, VSRC_8B_B
 
-	vmlal.s16 VSRC_4S_C0, VSRC_4H_B, VSRC_4H_A0_0
-	vmlal.s16 VSRC_4S_C1, VSRC_4H_B, VSRC_4H_A0_1
+	vmlal.s16 VSRC_4S_C0, VSRC_4H_B, VSRC_8H_A_0
+	vmlal.s16 VSRC_4S_C1, VSRC_4H_B, VSRC_8H_A_1
 	pld [A, #8]
-	vmlal.s16 VSRC_4S_C2, VSRC_4H_B, VSRC_4H_A0_2
-	vmlal.s16 VSRC_4S_C3, VSRC_4H_B, VSRC_4H_A0_3
+	vmlal.s16 VSRC_4S_C2, VSRC_4H_B, VSRC_8H_A_2
+	vmlal.s16 VSRC_4S_C3, VSRC_4H_B, VSRC_8H_A_3
 
-	vmlal.s16 VSRC_4S_C4, VSRC_4H_B, VSRC_4H_A1_0
-	vmlal.s16 VSRC_4S_C5, VSRC_4H_B, VSRC_4H_A1_1
-	vmlal.s16 VSRC_4S_C6, VSRC_4H_B, VSRC_4H_A1_2
-	vmlal.s16 VSRC_4S_C7, VSRC_4H_B, VSRC_4H_A1_3
+	vmlal.s16 VSRC_4S_C4, VSRC_4H_B, VSRC_8H_A_4
+	vmlal.s16 VSRC_4S_C5, VSRC_4H_B, VSRC_8H_A_5
+	vmlal.s16 VSRC_4S_C6, VSRC_4H_B, VSRC_8H_A_6
+	vmlal.s16 VSRC_4S_C7, VSRC_4H_B, VSRC_8H_A_7
 
 	cmp L, #0
 	bne __LOOP
@@ -416,7 +397,12 @@ __LOOP:
         vrecpe.f32 VSRC_4S_SCALEIN, VSRC_4S_SCALEIN
 
 __SLOPE:
-.macro RESULT_CONVERT_WITH_PRELU_MACRO, src_0:req, slope_0:req
+        cmp SLOPE, #0
+        beq __NO_SLOPE
+
+        add SLOPE, SLOPE, CHANNEL
+        vld1.32 {VSRC_4S_SLOPE}, [SLOPE]!
+.macro SLOPE_STORE_MACRO, src_0:req, slope_0:req
         vld1.32 {VSRC_4S_C_LOW}, [C]
 	vcvt.f32.s32 \src_0, \src_0
 	vmul.f32 \src_0, \src_0, VSRC_4S_SCALEIN
@@ -426,41 +412,33 @@ __SLOPE:
         vbsl VSRC_4S_MASK, VSRC_4S_MUL, \src_0
         vst1.32 {VSRC_4S_MASK}, [C], LDC
 .endm
-        cmp SLOPE, #0
-        beq __NO_SLOPE
-
-        add SLOPE, SLOPE, CHANNEL
-        vld1.32 {VSRC_4S_SLOPE}, [SLOPE]!
-
-        RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C0, VSRC_4S_SLOPE_0
-        RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C1, VSRC_4S_SLOPE_1
-        RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C2, VSRC_4S_SLOPE_2
-        RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C3, VSRC_4S_SLOPE_3
+        SLOPE_STORE_MACRO VSRC_4S_C0, VSRC_4S_SLOPE_0
+        SLOPE_STORE_MACRO VSRC_4S_C1, VSRC_4S_SLOPE_1
+        SLOPE_STORE_MACRO VSRC_4S_C2, VSRC_4S_SLOPE_2
+        SLOPE_STORE_MACRO VSRC_4S_C3, VSRC_4S_SLOPE_3
 
         vld1.32 {VSRC_4S_SLOPE}, [SLOPE]
-
-        RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C4, VSRC_4S_SLOPE_0
-        RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C5, VSRC_4S_SLOPE_1
-        RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C6, VSRC_4S_SLOPE_2
-        RESULT_CONVERT_WITH_PRELU_MACRO VSRC_4S_C7, VSRC_4S_SLOPE_3
+        SLOPE_STORE_MACRO VSRC_4S_C4, VSRC_4S_SLOPE_0
+        SLOPE_STORE_MACRO VSRC_4S_C5, VSRC_4S_SLOPE_1
+        SLOPE_STORE_MACRO VSRC_4S_C6, VSRC_4S_SLOPE_2
+        SLOPE_STORE_MACRO VSRC_4S_C7, VSRC_4S_SLOPE_3
         b __END
 __NO_SLOPE:
-.macro RESULT_CONVERT_MACRO, src_0:req
+.macro STORE_MACRO, src_0:req
         vld1.32 {VSRC_4S_C_LOW}, [C]
 	vcvt.f32.s32 \src_0, \src_0
 	vmul.f32 \src_0, \src_0, VSRC_4S_SCALEIN
 	vadd.f32 \src_0, \src_0, VSRC_4S_C_LOW
 	vst1.32 {\src_0}, [C], LDC
 .endm
-        RESULT_CONVERT_MACRO VSRC_4S_C0
-        RESULT_CONVERT_MACRO VSRC_4S_C1
-        RESULT_CONVERT_MACRO VSRC_4S_C2
-        RESULT_CONVERT_MACRO VSRC_4S_C3
-        RESULT_CONVERT_MACRO VSRC_4S_C4
-        RESULT_CONVERT_MACRO VSRC_4S_C5
-        RESULT_CONVERT_MACRO VSRC_4S_C6
-        RESULT_CONVERT_MACRO VSRC_4S_C7
-
+        STORE_MACRO VSRC_4S_C0
+        STORE_MACRO VSRC_4S_C1
+        STORE_MACRO VSRC_4S_C2
+        STORE_MACRO VSRC_4S_C3
+        STORE_MACRO VSRC_4S_C4
+        STORE_MACRO VSRC_4S_C5
+        STORE_MACRO VSRC_4S_C6
+        STORE_MACRO VSRC_4S_C7
 __END:
 	sub r4, fp, #156
 	vldm r4, {s0-s23}
