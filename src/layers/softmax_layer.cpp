@@ -172,6 +172,7 @@ int SoftmaxLayer::NE_softmax(float *input, unsigned c, unsigned h, unsigned w, f
 int SoftmaxLayer::Forward()
 {
     int ret = NE_softmax(input, c, h, w, output, num_threads);
+    Layer::Forward();
     return ret;
 }
 };

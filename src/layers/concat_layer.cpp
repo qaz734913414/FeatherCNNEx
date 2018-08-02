@@ -36,8 +36,7 @@ int ConcatLayer::GenerateTopBlobs()
     }
     printf("Output shape %d %d %d\n", channels, height, width);
     _top_blobs[_top[0]] = new Blob<float>(num, channels, height, width);
-    _top_blobs[_top[0]]->Alloc(); //TODO reduce memory
-
+    //_top_blobs[_top[0]]->Alloc();
     return 0;
 }
 
@@ -62,6 +61,8 @@ int ConcatLayer::Forward()
         size_t bottom_data_size = _bottom_blobs[_bottom[i]]->data_size();
         memcpy(_top_ptr_table[i], bottom_data, sizeof(float) * bottom_data_size);
     }
+
+    Layer::Forward();
     return 0;
 }
 };

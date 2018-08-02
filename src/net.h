@@ -58,6 +58,7 @@ public:
     CONV_TYPE_E type;
     struct AES_ctx AESCtx;
     uint8_t key[16];
+    uint32_t globalBranchIdx;
 private:
     void branchBufferInit(unsigned branchId);
     std::vector<Layer *> layers;

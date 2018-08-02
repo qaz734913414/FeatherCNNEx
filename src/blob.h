@@ -96,6 +96,11 @@ public:
         return _num * _channels * _height *_width;
     }
 
+    size_t element_size() const
+    {
+        return sizeof(Dtype);
+    }
+
     std::string name()
     {
         return _name;

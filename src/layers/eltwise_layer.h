@@ -36,6 +36,8 @@ public:
             add_relu<true>(output, input_alpha, input_beta, data_len, num_threads);
         else
             add_relu<false>(output, input_alpha, input_beta, data_len, num_threads);
+
+        Layer::Forward();
         return 0;
     }
 
@@ -65,11 +67,12 @@ public:
 
     int Init(float *ginput, float *goutput)
     {
-        //TODO reduce memory
+        (void)ginput;
+        (void)goutput;
         input_alpha = _bottom_blobs[_bottom[0]]->data();
-        input_beta = _bottom_blobs[_bottom[1]]->data();
-        output = _top_blobs[_top[0]]->data();
-        data_len = _top_blobs[_top[0]]->data_size();
+        input_beta  = _bottom_blobs[_bottom[1]]->data();
+        output      = _top_blobs[_top[0]]->data();
+        data_len    = _top_blobs[_top[0]]->data_size();
         return 0;
     }
 private:

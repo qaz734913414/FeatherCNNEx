@@ -92,6 +92,7 @@ int SliceLayer::Forward()
         break;
     }
 
+    Layer::Forward();
     return 0;
 }
 

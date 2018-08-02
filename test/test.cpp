@@ -119,8 +119,8 @@ int main(int argc, char *argv[])
     char *pBlob = (char *)"prob1";
 #else
     char *pFname = (char *)"dataset/112x96/Azra_Akin_Azra_Akin_0001.jpg";//"96_112.jpg";
-    char *pModel = (char*)"insano_mobilenet_v2_layer9_conv1x1_scale_14.feathermodel";
-    char *pBlob = (char *)"mobilenet_v2_layer9_conv1x1_bn";
+    char *pModel = (char*)"mbface_fc5_0.feathermodel";
+    char *pBlob = (char *)"fc5";
 #endif
     int num_threads = 1;
     struct timeval beg, end;
@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
     forward_net.InitFromPath(pModel);
     size_t data_size;
     forward_net.GetBlobDataSize(&data_size, pBlob);
-    float *pOut = (float *)malloc(data_size*sizeof(float));
+    float *pOut = NULL;
     static float *pImgBuff = NULL;
 
     char tmp[1024];
@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
 
         from_rgb_normal(img.data, img.cols, img.rows, pImgBuff, 127.5f, 0.0078125f, 0);
         forward_net.Forward(pImgBuff);
-        forward_net.ExtractBlob(pOut, pBlob);
+        pOut = forward_net.ExtractBlob(pBlob);
 
         gettimeofday(&end, NULL);
         total += (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000;
@@ -202,7 +202,6 @@ int main(int argc, char *argv[])
         printf("[%d] %s, %s\n", ++fileCnt, imgFile, tmp);
     }
     fclose(fp);
-    free(pOut);
     if (NULL != pImgBuff)
         free(pImgBuff);
     printf("average %9.6f ms, %d\n", total*1.0/fileCnt, fileCnt);
@@ -226,7 +225,7 @@ int main(int argc, char *argv[])
 
     size_t data_size = 0;
     forward_net.GetBlobDataSize(&data_size, pBlob);
-    float *pOut = (float *)malloc(data_size*sizeof(float));
+    float *pOut = NULL;
     gettimeofday(&beg, NULL);
 
     float *pIn = forward_net.GetInputBuffer();
@@ -234,8 +233,8 @@ int main(int argc, char *argv[])
     {
         from_rgb_normal(img.data, img.cols, img.rows, pIn, 127.5f, 0.0078125f, 0);
         int ret = forward_net.Forward();
-        forward_net.ExtractBlob(pOut, pBlob);
-        printf("[%03d/%03d] ret: %d\n", loop, loopCnt, ret);
+        pOut = forward_net.ExtractBlob(pBlob);
+        printf("[%03d/%03d] ret: %d,(in: %p out: %p)\n", loop, loopCnt, ret, pIn, pOut);
     }
 
     gettimeofday(&end, NULL);
@@ -286,7 +285,6 @@ int main(int argc, char *argv[])
     printf("cos: %f\n", cosv);
     printf("\n");
 #endif
-    free(pOut);
 #endif
     return 0;
 }

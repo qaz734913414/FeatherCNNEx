@@ -23,6 +23,8 @@ int BatchNormLayer::Forward()
 {
     size_t stride = input_width * input_height;
     bn_kernel(input_channels, stride, alpha, beta, scale_bias_data, scale_data, input, output, num_threads);
+
+    Layer::Forward();
     return 0;
 }
 

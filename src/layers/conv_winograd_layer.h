@@ -78,6 +78,8 @@ public:
             winogradNonFusedTransform(output, output_channels, WT, VT, UT, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
 #endif
         }
+
+        Layer::Forward();
         return 0;
     }
 

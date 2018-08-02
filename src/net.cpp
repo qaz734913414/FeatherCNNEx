@@ -40,22 +40,25 @@ Net::Net(size_t num_threads)
     }
     max_top_blob_size = 0;
     net_name[0] = 0;
+    globalBranchIdx = 0;
     type = CONV_TYPE_SGEMM;
 }
 
 int Net::configCrypto(const char * pSerialFile)
 {
-    unsigned char *pFileBuff = readFile(pSerialFile);
-    if (NULL != pFileBuff)
+    if (NULL != pSerialFile)
     {
-        memcpy(key, pFileBuff, 16);
-        free(pFileBuff);
-        uint8_t iv[]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
-        AES_init_ctx_iv(&AESCtx, key, iv);
+        unsigned char *pFileBuff = readFile(pSerialFile);
+        if (NULL != pFileBuff)
+        {
+            memcpy(key, pFileBuff, 16);
+            free(pFileBuff);
+            uint8_t iv[]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+            AES_init_ctx_iv(&AESCtx, key, iv);
+        }
+        else
+            printf("Wrong serial file, %s\n", pSerialFile);
     }
-    else
-        printf("Wrong serial file, %s\n", pSerialFile);
-
     return 0;
 }
 
@@ -75,7 +78,9 @@ Net::~Net()
     for(unsigned i = 0; i < MAXBRANCHNUM; i++)
     {
         _mm_free(pingpang[i][0]);
+        pingpang[i][0] = NULL;
         _mm_free(pingpang[i][1]);
+        pingpang[i][1] = NULL;
     }
 
     delete rt_param->common_mempool();
@@ -190,7 +195,6 @@ int Net::Forward(float *input)
 
 int Net::Forward()
 {
-    //layers[0]->top_blob(0)->PrintBlobInfo();
     for (int i = 1; i < layers.size(); ++i)
     {
         //printf("Forward layer%d:%s %s %s... \n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
@@ -201,9 +205,8 @@ int Net::Forward()
 #endif
         layers[i]->Forward();
 #ifdef TIME_PROFILE
-        //if ((strcmp(net_name, "onet") == 0) && (0 == strcmp(layers[i]->type().c_str(), "Convolution")))
-        if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
-            t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
+        //if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
+        t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
 #endif
     }
     return 0;
@@ -246,12 +249,19 @@ void Net::InitFromFile(FILE* fp)
 
 void Net::branchBufferInit(unsigned branchId)
 {
-    pingpang[branchId][0] = (float*)_mm_malloc(max_top_blob_size, 16);
-    POINTER_CHECK_NO_RET(pingpang[branchId][0]);
-    pingpang[branchId][1] = (float*)_mm_malloc(max_top_blob_size, 16);
-    POINTER_CHECK_NO_RET(pingpang[branchId][1]);
-    branchPingPang[branchId] = 0;
-    //printf("---[%d] %p %p--\n", branchId, pingpang[branchId][0], pingpang[branchId][1]);
+    if (branchId < MAXBRANCHNUM)
+    {
+        if ((NULL == pingpang[branchId][0]) && (NULL == pingpang[branchId][1]))
+        {
+            pingpang[branchId][0] = (float*)_mm_malloc(max_top_blob_size, 16);
+            POINTER_CHECK_NO_RET(pingpang[branchId][0]);
+            pingpang[branchId][1] = (float*)_mm_malloc(max_top_blob_size, 16);
+            POINTER_CHECK_NO_RET(pingpang[branchId][1]);
+            branchPingPang[branchId] = 0;
+        }
+    }
+    else
+        printf("wrong branch\n", branchId);
 }
 
 bool Net::InitFromBuffer(const void *net_buffer)
@@ -415,8 +425,6 @@ bool Net::InitFromBuffer(const void *net_buffer)
     }
     //printf("Blobs fuse ok\n");
 
-    branchBufferInit(0); //init branch 0 pingpang buffer
-
     for (int i = 0; i < layers.size(); ++i)
     {
         layers[i]->consumersNum = 0;
@@ -430,35 +438,53 @@ bool Net::InitFromBuffer(const void *net_buffer)
                 if (0 == top_blob_name.compare(blob_name))
                 {
                     layers[i]->consumersNum++;
-                    if(layers[i]->consumersNum > 1)
-                    {
-                        branchBufferInit(++branchCnt);
-                        layers[t]->branchId = branchCnt;
-                    }
                     layers[i]->consumers.push_back(layers[t]->name());
+                    layers[t]->producetsNum++;
                     layers[t]->products.push_back(layers[i]->name());
                 }
             }
         }
     }
 
+    branchBufferInit(0);     //init branch 0 pingpang buffer
+    layers[0]->inBranchIdVec["Self"] = 0;
+    layers[0]->branchId = 0;
+    globalBranchIdx = 0;
+
     for (int i = 0; i < layers.size(); ++i)
     {
+        unsigned idx;
+        /* get cur layer branchid */
         if (0 != i)
         {
-            assert(1 == layers[i]->products.size());
-            if (layer_map[layers[i]->products[0]]->branchId > layers[i]->branchId)
-                layers[i]->branchId = layer_map[layers[i]->products[0]]->branchId;
+            unsigned minBranchId = 0xffffffff;
+            std::map<std::string,unsigned>::iterator it = layers[i]->inBranchIdVec.begin();
+            while(it != layers[i]->inBranchIdVec.end())
+            {
+                minBranchId = MIN(it->second, minBranchId);
+                it++;
+            }
+            layers[i]->branchId = minBranchId;
+            /* merge branch */
+            if (layers[i]->inBranchIdVec.size() > 1)
+                globalBranchIdx -= layers[i]->inBranchIdVec.size() - 1;
         }
-#if 0
-        unsigned idx = 0;
-        printf("[%03d/%03d] %-16s branch: %d consumers %02d { ", i, layers.size()-1, layers[i]->name().c_str(), layers[i]->branchId, layers[i]->consumersNum);
-        for(auto loop:layers[i]->consumers)
+
+        /* generate consumer branch id */
+        idx = 0;
+        for(auto consumer:layers[i]->consumers)
         {
-            printf("[%02d] %-16s ", idx++, loop.c_str());
+            unsigned branchId;
+            if (0 == idx++) /* inherit branch id from cur layers for first consumer */
+                branchId = layers[i]->branchId;
+            else            /* new branch for other consumer */
+            {
+                branchId = ++globalBranchIdx;
+                branchBufferInit(branchId);
+            }
+            layer_map[consumer]->inBranchIdVec[layers[i]->name()] = branchId;
+            //printf("[%d] layer: %-50s consumer: %-50s branchId: %d\n", idx-1, layers[i]->name().c_str(), consumer.c_str(), branchId);
         }
-        printf(" }\n");
-#endif
     }
 
     //Rebuild blob map
@@ -469,32 +495,95 @@ bool Net::InitFromBuffer(const void *net_buffer)
         {
             std::string blob_name = layers[i]->top(t);
             blob_map[blob_name] = layers[i]->top_blob(blob_name);
-            //blob_map[blob_name]->PrintBlobInfo();
         }
 
-        unsigned layerBranchId = layers[i]->branchId;
-        //printf("[%03d] %-16s %-16s branchid: %d input pingpangidx: %d", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layerBranchId, branchPingPang[layerBranchId]);
-        float *input  = pingpang[layerBranchId][branchPingPang[layerBranchId]];
-        branchPingPang[layerBranchId]++;
-        branchPingPang[layerBranchId] = branchPingPang[layerBranchId]%2;
+        //printf("\n[%03d] %-45s %-15s [%d]", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->branchId);
 
-        //printf(", output pingpangidx: %d", branchPingPang[layerBranchId]);
-        float *output = pingpang[layerBranchId][branchPingPang[layerBranchId]];
+        /* in branchId */
+        if (0 != i)
+        {
+            std::map<std::string,unsigned>::iterator it = layers[i]->inBranchIdVec.begin();
+            while(it != layers[i]->inBranchIdVec.end())
+            {
+                unsigned branchId = it->second;
+                std::string blobName; /* cur layer bottom blob name of the branch */
+                for (int t = 0; t < layer_map[it->first]->top_size(); ++t)
+                {
+                    for (int k = 0; k < layers[i]->bottom_size(); ++k)
+                    {
+                        if (0 == layer_map[it->first]->top(t).compare(layers[i]->bottom(k)))
+                        {
+                            blobName = layers[i]->bottom(k);
+                            t = layer_map[it->first]->top_size();
+                            break;
+                        }
+                    }
+                }
+                layers[i]->inputVec[it->first] = pingpang[branchId][branchPingPang[branchId]];
+                assert(layers[i]->_bottom_blobs[blobName]->data() == layers[i]->inputVec[it->first]);
+                //printf(" in  [%d], %p", branchId, layers[i]->inputVec[it->first]);
 
-        //printf(" (%p %p)\n", input, output);
-        layers[i]->Init(input, output);
+                it++;
+            }
+        }
+
+        /* out branchId */
+        if (0 == layers[i]->consumers.size())
+        {
+            unsigned branchId = layers[i]->branchId;
+            branchPingPang[branchId] = (branchPingPang[branchId] + 1)%2;
+            float *out = pingpang[branchId][branchPingPang[branchId]];
+            ((Blob<float> *)layers[i]->_top_blobs[layers[i]->_top[0]])->setData(out);
+            //printf(" setdata: %s %p ", layers[i]->_top[0].c_str(), out);
+            //printf(" out- [%d], %p", branchId, out);
+        }
+        else
+        {
+            unsigned idx = 0;
+            for(auto consumer:layers[i]->consumers)
+            {
+                unsigned branchId = layer_map[consumer]->inBranchIdVec[layers[i]->name()];
+                if(0 == i) /* input data branch id is 0 by default */
+                {
+                    assert(NULL != pingpang[0][branchPingPang[0]]);
+                    layers[i]->outputVec[consumer] = pingpang[0][branchPingPang[0]];
+                }
+                else
+                {
+                    branchPingPang[branchId] = (branchPingPang[branchId] + 1)%2;
+                    assert(NULL != pingpang[branchId][branchPingPang[branchId]]);
+                    layers[i]->outputVec[consumer] = pingpang[branchId][branchPingPang[branchId]];
+                }
+
+                if (branchId == layers[i]->branchId) /* inherit branch */
+                {
+                    ((Blob<float> *)layers[i]->_top_blobs[layers[i]->_top[0]])->setData(layers[i]->outputVec[consumer]);
+                    //printf(" setdata: %s %p ", layers[i]->_top[0].c_str(), layers[i]->outputVec[consumer]);
+                }
+                else /* new branch, generate new top blob and update consumer bottom blob */
+                {
+                    string newBlobName = layers[i]->GenerateNewTopBlobs(layers[i]->outputVec[consumer]);
+                    layer_map[consumer]->SetupBottomBlob((const Blob<float>*)layers[i]->_top_blobs[newBlobName], layers[i]->top(0));
+                    blob_map[newBlobName] = (const Blob<float>*)layers[i]->_top_blobs[newBlobName];
+                }
+                //printf(" out [%d], %p", branchId, layers[i]->outputVec[consumer]);
+                idx++;
+            }
+        }
+
+        layers[i]->Init(NULL, NULL);
 
 #ifdef MEM_USAGE_PRINT
         layers[i]->printPrivateMempool();
 #endif
     }
-    //printf("Layers init ok\n");
+    //printf("\nLayers init ok\n");
 
     rt_param->common_mempool()->Alloc();
 #ifdef MEM_USAGE_PRINT
     rt_param->common_mempool()->PrintStats();
 #endif
-    //printf("Net init ok\n");
+    //printf("\nNet init ok\n");
     return true;
 }
 };

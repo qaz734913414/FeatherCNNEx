@@ -20,6 +20,8 @@ namespace feather
 int ScaleLayer::Forward()
 {
     scale_kernel(input_channels, stride, bias_data, scale_data, input, output, num_threads);
+
+    Layer::Forward();
     return 0;
 }
 

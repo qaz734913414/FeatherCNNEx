@@ -40,6 +40,7 @@ int ReluLayer::Forward()
     for (size_t i = 0; i < data_size; ++i)
         output[i] = input[i] > 0 ? input[i]: 0;
 
+    Layer::Forward();
     return 0;
 }
 };

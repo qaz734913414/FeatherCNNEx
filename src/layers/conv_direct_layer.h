@@ -44,7 +44,7 @@ public:
             return 0;
     }
 
-    void prelu(float *input, float *output, unsigned num_threads)
+    void prelu_padchannel(float *input, float *output, unsigned num_threads)
     {
         bool shared = _weight_blobs[fusedWeightBlobId]->data_size() > 1 ? false : true;
         float *slope_data = _weight_blobs[fusedWeightBlobId]->data();
@@ -86,15 +86,6 @@ public:
         }
         else
             printf("pls fix me, %s %d\n", __FILE__, __LINE__);
-
-        if (consumersNum > 1)
-        {
-            for (int i = 0; i < consumersNum; i++)
-            {
-                unsigned consumerBranchId = pNet->layer_map[consumers[i]]->branchId;
-                memcpy(pNet->pingpang[consumerBranchId][0], output, outSize*sizeof(float));
-            }
-        }
     }
 
     int Forward()
@@ -109,7 +100,7 @@ public:
                            kernel_data, bias_data, num_threads);
             if (fuse_prelu)
             {
-                prelu(align_output, output, num_threads);
+                prelu_padchannel(align_output, output, num_threads);
             }
             else if (padOutChannel) padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
@@ -132,7 +123,7 @@ public:
 
             if (fuse_prelu)
             {
-                prelu(align_output, output, num_threads);
+                prelu_padchannel(align_output, output, num_threads);
             }
             else if (padOutChannel) padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
@@ -146,7 +137,7 @@ public:
                            kernel_data, bias_data, num_threads);
             if (fuse_prelu)
             {
-                prelu(align_output, output, num_threads);
+                prelu_padchannel(align_output, output, num_threads);
             }
             else if (padOutChannel) padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
@@ -158,6 +149,8 @@ public:
                    input_channels, input_height, input_width, output_channels, output_height, output_width, num_threads);
             return -1;
         }
+
+        Layer::Forward();
         return 0;
     }
 

@@ -20,6 +20,12 @@
 #include "common.h"
 #include "sgemm.h"
 
+extern "C" void internalPackB8Fix(int L, short* packB, float* B, int ldb);
+extern "C" void internalPackB8Fix8(int L, int8_t* packB, float* B, int ldb, float int8scaleIn);
+extern "C" void sgemm_8x8_pack_fix8( int L, int8_t *a, int8_t *b, float *c, int ldc, float* int8scaleW, float *int8scaleIn, float *int8scaleOut, int ch, float *slopeDataPrelu);
+/* pay attention to this arm32 api diff with arm64 need be call twice */
+extern "C" void sgemm_8x8_pack_fix( int L, short *a, short *b, float *c, int ldc, int ch, float *slopeDataPrelu );
+
 template<typename T>
 static void internalPackA8(int L, T* packA, T* a, int lda)
 {
@@ -221,9 +227,6 @@ static void internalPackB8(int L, float* packB, float* B, int ldb)
         bp += ldb;
     }
 }
-
-extern "C" void internalPackB8Fix(int L, short* packB, float* B, int ldb);
-extern "C" void internalPackB8Fix8(int L, int8_t* packB, float* B, int ldb, float int8scaleIn);
 
 static inline void sgemm_4x1(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
 {
@@ -4775,11 +4778,6 @@ static void SGEBP_externalPackA_tiny_scale( int M, int N, int L, float *a, int l
     }
 }
 
-extern "C" void sgemm_8x8_pack_fix8( int L, int8_t *a, int8_t *b, float *c, int ldc, float* int8scaleW, float *int8scaleIn, float *int8scaleOut, int ch, float *slopeDataPrelu);
-
-/* pay attention to this arm32 api diff with arm64 need be call twice */
-extern "C" void sgemm_8x8_pack_fix( int L, short *a, short *b, float *c, int ldc, int ch, float *slopeDataPrelu );
-
 inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu )
 {
     float *aptr = a;
@@ -5062,6 +5060,10 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t
             if(i == 0)
                 internalPackB8Fix8(L, packB + j * eL, b + j, ldb, int8scaleIn);
             sgemm_8x8_pack_fix8(L, a + i * L, packB + j * eL, c + i * ldc + j, ldc, &int8scaleW, &int8scaleIn, &int8scaleOut, i, slopeDataPrelu);
+#ifndef __aarch64__
+            /* arm32 split into two stage for better performance */
+            sgemm_8x8_pack_fix8(L, a + i * L, packB + j * eL + 4, c + i * ldc + j + 4, ldc, &int8scaleW, &int8scaleIn, &int8scaleOut, i, slopeDataPrelu);
+#endif
         }
         if(remN)
             sgemm_tiny_scale_fix8(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc, int8scaleW, int8scaleIn, int8scaleOut, i, bias_data, slopeDataPrelu, sharedPrelu);

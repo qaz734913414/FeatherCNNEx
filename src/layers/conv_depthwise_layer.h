@@ -74,6 +74,8 @@ public:
                 }
             }
         }
+
+        Layer::Forward();
         return 0;
     }
 

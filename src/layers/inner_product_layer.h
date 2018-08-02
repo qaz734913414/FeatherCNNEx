@@ -73,6 +73,7 @@ public:
         t.endBench("inner");
 #endif
 
+        Layer::Forward();
         return 0;
     }
 

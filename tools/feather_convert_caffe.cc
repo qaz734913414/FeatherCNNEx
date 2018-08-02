@@ -776,14 +776,14 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     blob_builder.add_fractions(0);
                     blob_builder.add_crypto(crypto);
                     PRINTF(" 0]\n");
-                    printf("crypto: %d validSize: %d, realSize: %d\n", crypto, validSize, realSize);
+                    PRINTF("crypto: %d validSize: %d, realSize: %d\n", crypto, validSize, realSize);
                 }
                 else
                 {
                     blob_builder.add_fractions(0);
                     blob_builder.add_crypto(0);
                     PRINTF(" 0]\n");
-                    printf("crypto: %d validSize: %d, realSize: %d\n", 0, validSize, realSize);
+                    PRINTF("crypto: %d validSize: %d, realSize: %d\n", 0, validSize, realSize);
                 }
                 blob_builder.add_num(num);
                 blob_builder.add_channels(channels);
@@ -1076,7 +1076,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     PRINTF("+ MAX op\n");
                     feather_op = feather::EltwiseParameter_::EltwiseOp_MAX;
                     break;
-defalut:
+                defalut:
                     PRINTF("Unknown eltwise parameter.\n");
                 }
                 std::vector<float> coeff_vec;
@@ -1213,7 +1213,7 @@ int main(int argc, char *argv[])
     float threshold = 0.02f;
     if (argc < 3 || argc > 9)
     {
-        printf("Usage: ./caffe_model_convert $1(caffe_prototxt) $2(caffe_model_name) [$3(output_model_name_prefix)] [$4(fractions)] [$5(threshold)] [$6(crypto)] [$7(SerialFile)] [$7(Int8ScaleFile)]\n");
+        printf("Usage: ./caffe_model_convert $1(caffe_prototxt) $2(caffe_model_name) [$3(output_model_name_prefix)] [$4(fractions)] [$5(threshold)] [$7(SNFile)] [$7(Int8ScaleFile)]\n");
         return -1;
     }
     std::string caffe_prototxt_name = argv[1];
@@ -1222,27 +1222,29 @@ int main(int argc, char *argv[])
     if (argc > 3) output_model_name = (argv[3]);
     if (argc > 4) fractions = atoi(argv[4]);
     if (argc > 5) threshold = atof(argv[5]);
-    if (argc > 6) crypto = atoi(argv[6]);
-    if (argc > 7) pSerialFile = argv[7];
-    if (argc > 8) pInt8ScaleFile = argv[8];
+    if (argc > 6) pSerialFile = argv[6];
+    if (argc > 7) pInt8ScaleFile = argv[7];
 
     printf("%s caffe proto: %s caffe model: %s featherCNN: %s fractions:%d threshold:%.3f crypto:%d SerialFile: %s Int8ScaleFile: %s\n", argv[0], argv[1], argv[2], output_model_name.c_str(), fractions, threshold, crypto, pSerialFile, pInt8ScaleFile);
-    unsigned char *pFileBuff = readFile(pSerialFile);
-    if (NULL != pFileBuff)
+    if (NULL != pSerialFile)
     {
-        memcpy(key, pFileBuff, 16);
-        free(pFileBuff);
-        printf("Key:\n");
-        for(int i = 0 ; i < 16; i++)
+        unsigned char *pFileBuff = readFile(pSerialFile);
+        if (NULL != pFileBuff)
         {
-            if ((0 != i)&& (0 == i % 16))
-                printf("\n");
-            printf("0x%x, ", key[i]);
+            memcpy(key, pFileBuff, 16);
+            free(pFileBuff);
+            printf("Key:\n");
+            for(int i = 0 ; i < 16; i++)
+            {
+                if ((0 != i)&& (0 == i % 16))
+                    printf("\n");
+                printf("0x%x, ", key[i]);
+            }
+            printf("\n");
         }
-        printf("\n");
     }
-
-    parseInt8ScaleFile(int8scaleMap, pInt8ScaleFile);
+    if (NULL != pInt8ScaleFile)
+        parseInt8ScaleFile(int8scaleMap, pInt8ScaleFile);
 
     CaffeModelWeightsConvert convert(caffe_prototxt_name, caffe_model_name, output_model_name);
     if (false == convert.Convert())
@@ -1250,6 +1252,7 @@ int main(int argc, char *argv[])
         printf("Read file failed\n");
         return -2;
     }
+    if (NULL != pSerialFile) crypto = 1;
     convert.SaveModelWeights(fractions, threshold, crypto);
     return 0;
 }

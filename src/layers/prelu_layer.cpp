@@ -11,7 +11,7 @@ int PReluLayer::Init(float *ginput, float *goutput)
         ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
     }
 
-    input = _bottom_blobs[_bottom[0]]->data();
+    input  = _bottom_blobs[_bottom[0]]->data();
     output = _top_blobs[_top[0]]->data();
     n = _bottom_blobs[_bottom[0]]->num();
     c = _bottom_blobs[_bottom[0]]->channels();
@@ -162,16 +162,7 @@ int PReluLayer::Forward()
 #endif
     }
 
-    if (consumersNum > 1)
-    {
-        //printf("prelu %s, consumersNum:%d size:%d\n", name().c_str(), consumersNum, outSize);
-        for (int i = 0; i < consumersNum; i++)
-        {
-            unsigned consumerBranchId = pNet->layer_map[consumers[i]]->branchId;
-            memcpy(pNet->pingpang[consumerBranchId][0], output, outSize*sizeof(float));
-        }
-    }
-
+    Layer::Forward();
     return 0;
 }
 };

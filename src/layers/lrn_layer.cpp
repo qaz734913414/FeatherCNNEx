@@ -95,6 +95,7 @@ int LRNLayer::Forward()
         output[i] = input[i] * power;
     }
 
+    Layer::Forward();
     return 0;
 }
 

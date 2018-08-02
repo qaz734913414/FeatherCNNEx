@@ -62,16 +62,7 @@ public:
         winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, packInput, num_threads, slopeDataPrelu, sharedPrelu);
 #endif
 
-        if ((fuse_prelu) && (consumersNum > 1))
-        {
-            unsigned outSize = output_channels*output_width*output_height;
-            for (int i = 0; i < consumersNum; i++)
-            {
-                unsigned consumerBranchId = pNet->layer_map[consumers[i]]->branchId;
-                memcpy(pNet->pingpang[consumerBranchId][0], output, outSize*sizeof(float));
-            }
-        }
-
+        Layer::Forward();
         return 0;
     }
 

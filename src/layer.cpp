@@ -14,7 +14,7 @@
 
 #include "layer.h"
 #include "feather_simple_generated.h"//For LayerParameter
-
+#include <stdlib.h>
 
 namespace feather
 {
@@ -34,6 +34,10 @@ Layer::~Layer()
 
     _top_blobs.clear();
     _bottom_blobs.clear();
+
+    inBranchIdVec.clear();
+    inputVec.clear();
+    outputVec.clear();
 }
 
 Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param)
@@ -48,14 +52,20 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     private_mempool = new PrivateMemPool<void>();
     private_mempool->setName(_name);
     consumersNum = 0;
+    producetsNum = 0;
     branchId = 0;
     alignHeight = alignWidth = 0;
     _subType = " ";
     products.clear();
     consumers.clear();
+    _bottom.clear();
+    _top.clear();
+    inBranchIdVec.clear();
+    inputVec.clear();
+    outputVec.clear();
+    newTopId = 0;
     for(int i = 0; i < VectorLength(layer_param->bottom()); ++i)
         _bottom.push_back(layer_param->bottom()->Get(i)->str());
-
     for(int i = 0; i < VectorLength(layer_param->top()); ++i)
         _top.push_back(layer_param->top()->Get(i)->str());
 
@@ -64,7 +74,6 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     _weight_blobs.clear();
     _weight_blobs_fix.clear();
     _weight_blobs_fix8.clear();
-
     _top_blobs.clear();
     _bottom_blobs.clear();
 
@@ -158,6 +167,21 @@ int Layer::GenerateTopBlobs()
     return 0;
 }
 
+std::string Layer::GenerateNewTopBlobs(float *pData)
+{
+    std::string newBlobName;
+    Blob<float>* p_blob = new Blob<float>();
+    p_blob->CopyShape(_top_blobs[_top[0]]);
+    p_blob->setData(pData);
+    char tmp[16]= {0};
+    snprintf(tmp, sizeof(tmp)-1, "%d", ++newTopId);
+    newBlobName = tmp;
+    newBlobName = _top[0]+"_" + newBlobName;
+    _top.push_back(newBlobName);
+    _top_blobs[newBlobName] = p_blob;
+    return newBlobName;
+}
+
 int Layer::Init(float *ginput, float *goutput)
 {
     return 0;
@@ -165,7 +189,30 @@ int Layer::Init(float *ginput, float *goutput)
 
 int Layer::Forward()
 {
-    return false;
+#if 0
+    printf("Bottom:");
+    for(unsigned i = 0; i < _bottom.size(); i++)
+        printf(" %p", bottom_blob(0)->data());
+    printf(" Top:");
+    for(unsigned i = 0; i < _top.size(); i++)
+        printf(" %p", top_blob(i)->data());
+    printf(" ");
+#endif
+    if (outputVec.size() > 1)
+    {
+        unsigned outSize = top_blob(0)->data_size() * top_blob(0)->element_size();
+        std::map<std::string,float*>::iterator it = outputVec.begin();
+        while(it != outputVec.end())
+        {
+            if (it->second != top_blob(0)->data())
+            {
+                memcpy(it->second, top_blob(0)->data(), outSize);
+                //printf("copy %p to %p ", top_blob(0)->data(), it->second);
+            }
+            it++;
+        }
+    }
+    return true;
 }
 std::string Layer::name()
 {
@@ -206,6 +253,18 @@ Blob<float>* Layer::top_blob(size_t idx)
 {
     std::string name = this->top(idx);
     return top_blob(name);
+}
+Blob<float>* Layer::bottom_blob(std::string name)
+{
+    if(_bottom_blobs.find(name) != _bottom_blobs.end())
+        return (Blob<float>*)_bottom_blobs[name];
+    else
+        return NULL;
+}
+Blob<float>* Layer::bottom_blob(size_t idx)
+{
+    std::string name = this->bottom(idx);
+    return bottom_blob(name);
 }
 const size_t Layer::weight_blob_num() const
 {

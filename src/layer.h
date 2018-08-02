@@ -41,6 +41,7 @@ public:
 
     virtual int Fuse(Layer* next_layer);
     virtual int GenerateTopBlobs();
+    std::string GenerateNewTopBlobs(float *pData);
     virtual int Init(float *ginput, float *goutput);
     virtual int Forward();
 
@@ -53,6 +54,8 @@ public:
     size_t top_blob_size();
     Blob<float>* top_blob(std::string name);
     Blob<float>* top_blob(size_t idx);
+    Blob<float>* bottom_blob(std::string name);
+    Blob<float>* bottom_blob(size_t idx);
     //For fusing
     const size_t weight_blob_num() const;
     const Blob<float>* weight_blob(size_t i) const;
@@ -62,28 +65,29 @@ public:
     std::vector<Blob<float>*> _weight_blobs;
     std::vector<Blob<short>*> _weight_blobs_fix;
     std::vector<Blob<int8_t>*> _weight_blobs_fix8;
+    unsigned producetsNum;
     std::vector<std::string> products;
     unsigned consumersNum;
     std::vector<std::string> consumers;
     Net *pNet;
     unsigned branchId;
+    std::map<std::string, unsigned> inBranchIdVec;
     unsigned alignWidth;
     unsigned alignHeight;
     float* input;
     float* output;
+    std::map<std::string, float*> inputVec;
+    std::map<std::string, float*> outputVec;
     std::string _subType;
-
+    std::map<std::string, const Blob<float>*> _bottom_blobs;
+    std::map<std::string, Blob<float>*> _top_blobs;
+    std::vector<std::string> _bottom;
+    std::vector<std::string> _top;
+    unsigned newTopId;
 protected:
     std::string _name;
     std::string _type;
-    std::vector<std::string> _bottom;
-    std::vector<std::string> _top;
-
-    std::map<std::string, const Blob<float>*> _bottom_blobs; //We don't want to do computation inplace.
-    std::map<std::string, Blob<float>*> _top_blobs;
-
     bool _fusible;
-
     size_t num_threads;
     CommonMemPool<float> 	*common_mempool;
     PrivateMemPool<void> 	*private_mempool;

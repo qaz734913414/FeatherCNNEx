@@ -107,16 +107,7 @@ public:
             }
         }
 
-        if ((fuse_prelu) && (consumersNum > 1))
-        {
-            unsigned outSize = output_channels*output_width*output_height;
-            for (int i = 0; i < consumersNum; i++)
-            {
-                unsigned consumerBranchId = pNet->layer_map[consumers[i]]->branchId;
-                memcpy(pNet->pingpang[consumerBranchId][0], output, outSize*sizeof(float));
-            }
-        }
-
+        Layer::Forward();
         return 0;
     }
 
