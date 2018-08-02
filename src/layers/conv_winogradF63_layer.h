@@ -80,13 +80,9 @@ public:
             p_blob->Copy(next_layer->weight_blob(0));
             _weight_blobs.push_back(p_blob);
 
-            consumers.clear();
-            consumers.assign(next_layer->consumers.begin(), next_layer->consumers.end());
-            consumersNum = next_layer->consumersNum;
             fuse_prelu = true;
             sharedPrelu = _weight_blobs[fusedWeightBlobId]->data_size() > 1 ? false : true;
             slopeDataPrelu = _weight_blobs[fusedWeightBlobId]->data();
-
             return 1;
         }
         else

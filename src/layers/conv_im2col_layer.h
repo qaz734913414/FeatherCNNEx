@@ -44,6 +44,34 @@ public:
         sharedPrelu = false;
         slopeDataPrelu = NULL;
         img_buffer = NULL;
+        fuse_relu = false;
+    }
+
+    void relu_inplace(float *input, unsigned num_threads)
+    {
+        int size = output_height*output_width;
+        float32x4_t vzerof32x4 = vdupq_n_f32(0.f);
+
+        #pragma omp parallel for num_threads(num_threads)
+        for (int q=0; q<output_channels; q++)
+        {
+            float* inPtr = input + q*size;
+            int i = 0;
+#ifdef __ARM_NEON
+            for (; i < size - 4; i += 4)
+            {
+                float32x4_t vsrcf32x4 = vld1q_f32(inPtr + i);
+                uint32x4_t vmasku32x4 = vcleq_f32(vsrcf32x4, vzerof32x4);
+                vsrcf32x4 = vbslq_f32(vmasku32x4, vzerof32x4, vsrcf32x4);
+                vst1q_f32(inPtr + i, vsrcf32x4);
+            }
+#endif
+            for (; i<size; i++)
+            {
+                if (inPtr[i] < 0)
+                    inPtr[i] = 0;
+            }
+        }
     }
 
     int Forward()
@@ -106,6 +134,9 @@ public:
                                                         bias_data, slopeDataPrelu, sharedPrelu);
             }
         }
+
+        if (fuse_relu)
+            relu_inplace(output, num_threads);
 
         Layer::Forward();
         return 0;
@@ -256,13 +287,15 @@ public:
             p_blob->Copy(next_layer->weight_blob(0));
             _weight_blobs.push_back(p_blob);
 
-            consumers.clear();
-            consumers.assign(next_layer->consumers.begin(), next_layer->consumers.end());
-            consumersNum = next_layer->consumersNum;
             fuse_prelu = true;
+            /* add weight blobs */
             sharedPrelu = _weight_blobs[fusedWeightBlobId]->data_size() > 1 ? false : true;
             slopeDataPrelu = _weight_blobs[fusedWeightBlobId]->data();
-
+            return 1;
+        }
+        else if(next_layer->type().compare("ReLU") == 0)
+        {
+            fuse_relu = true;
             return 1;
         }
         else
@@ -346,5 +379,6 @@ private:
     bool fuse_prelu;
     bool sharedPrelu;
     float *slopeDataPrelu;
+    bool fuse_relu;
 };
 };

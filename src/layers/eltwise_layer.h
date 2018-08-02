@@ -45,7 +45,6 @@ public:
     {
         if(next_layer->type().compare("ReLU") == 0)
         {
-            printf("[FUSE] Eltwise with ReLU, %s, %s\n", this->name().c_str(), next_layer->name().c_str());
             fuse_relu = true;
             return 1;
         }

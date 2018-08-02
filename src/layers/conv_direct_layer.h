@@ -22,6 +22,7 @@ public:
         alignWidth = 16; //to make channel size 16 bytes align
         _fusible = true;
         fuse_prelu = false;
+        fuse_relu = false;
         fusedWeightBlobId = 0;
     }
 
@@ -34,14 +35,47 @@ public:
             p_blob->Copy(next_layer->weight_blob(0));
             _weight_blobs.push_back(p_blob);
 
-            consumers.clear();
-            consumers.assign(next_layer->consumers.begin(), next_layer->consumers.end());
-            consumersNum = next_layer->consumersNum;
             fuse_prelu = true;
+            return 1;
+        }
+        else if(next_layer->type().compare("ReLU") == 0)
+        {
+            fuse_relu = true;
             return 1;
         }
         else
             return 0;
+    }
+
+    void relu_padchannel(float *input, float *output, unsigned num_threads)
+    {
+        int size = output_height*output_width;
+        int inSize = size + padOutChannel;
+        float32x4_t vzerof32x4 = vdupq_n_f32(0.f);
+
+        #pragma omp parallel for num_threads(num_threads)
+        for (int q=0; q<output_channels; q++)
+        {
+            const float* inPtr = input + q*inSize;
+            float* outPtr = output + q*size;
+            int i = 0;
+#ifdef __ARM_NEON
+            for (; i < size - 4; i += 4)
+            {
+                float32x4_t vsrcf32x4 = vld1q_f32(inPtr + i);
+                uint32x4_t vmasku32x4 = vcleq_f32(vsrcf32x4, vzerof32x4);
+                vsrcf32x4 = vbslq_f32(vmasku32x4, vzerof32x4, vsrcf32x4);
+                vst1q_f32(&outPtr[i], vsrcf32x4);
+            }
+#endif
+            for (; i<size; i++)
+            {
+                if (inPtr[i] < 0)
+                    outPtr[i] = 0;
+                else
+                    outPtr[i] = inPtr[i];
+            }
+        }
     }
 
     void prelu_padchannel(float *input, float *output, unsigned num_threads)
@@ -49,13 +83,11 @@ public:
         bool shared = _weight_blobs[fusedWeightBlobId]->data_size() > 1 ? false : true;
         float *slope_data = _weight_blobs[fusedWeightBlobId]->data();
 
-        unsigned outSize = 0;
         if ((0 != output_channels) && (0 != output_height) && (0 != output_width))
         {
             int size = output_height*output_width;
             int inSize = size + padOutChannel;
             float32x4_t vzerof32x4 = vdupq_n_f32(0.f);
-            outSize = output_channels*size;
 
             #pragma omp parallel for num_threads(num_threads)
             for (int q=0; q<output_channels; q++)
@@ -99,10 +131,11 @@ public:
                            align_output, output_channels, output_height, output_width, output_height*output_width + padOutChannel,
                            kernel_data, bias_data, num_threads);
             if (fuse_prelu)
-            {
                 prelu_padchannel(align_output, output, num_threads);
-            }
-            else if (padOutChannel) padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
+            else if (fuse_relu)
+                relu_padchannel(align_output, output, num_threads);
+            else if (padOutChannel)
+                padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
         else if (kernel_width == 3 && kernel_height == 3 && stride_height == 2 && stride_width == 2)
         {
@@ -122,24 +155,28 @@ public:
                            kernel_data, bias_data, num_threads);
 
             if (fuse_prelu)
-            {
                 prelu_padchannel(align_output, output, num_threads);
-            }
-            else if (padOutChannel) padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
+            else if (fuse_relu)
+                relu_padchannel(align_output, output, num_threads);
+            else if (padOutChannel)
+                padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
         else if (kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1)
         {
             if (padInChannel) padChannelBuffer(align_input, input, input_height*input_width, padInChannel, input_channels, num_threads);
             else align_input = input;
             if (0 == padOutChannel) align_output = output;
+
             conv1x1s1_neon(align_input,  input_channels,  input_height,  input_width,  input_height *input_width  + padInChannel,
                            align_output, output_channels, output_height, output_width, output_height*output_width + padOutChannel,
                            kernel_data, bias_data, num_threads);
+
             if (fuse_prelu)
-            {
                 prelu_padchannel(align_output, output, num_threads);
-            }
-            else if (padOutChannel) padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
+            else if (fuse_relu)
+                relu_padchannel(align_output, output, num_threads);
+            else if (padOutChannel)
+                padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
         else
         {
@@ -185,6 +222,7 @@ public:
 private:
     unsigned fusedWeightBlobId;
     bool fuse_prelu;
+    bool fuse_relu;
     unsigned padInChannel;
     unsigned padOutChannel;
     unsigned padInputSize;

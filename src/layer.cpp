@@ -125,18 +125,20 @@ int Layer::ReplaceBottomBlob(std::string old_bottom, std::string new_bottom, con
     if(name_iter == _bottom.end() || blob_iter == _bottom_blobs.end())
         return -1;
 
-    *name_iter = new_bottom;//should not change order
-    _bottom_blobs.erase(blob_iter);
+    *name_iter = new_bottom; /* should not change order as concate constain */
 
+    _bottom_blobs.erase(blob_iter);
     _bottom_blobs[new_bottom] = p_blob;
     //printf("+old bottom %s to new bottom %s\n", old_bottom.c_str(), new_bottom.c_str());
 
     return 0;
-
 }
 
 int Layer::TryFuse(Layer *next_layer)
 {
+    if (next_layer->bottom_size() > 1)
+        return 0;
+
     //Judge if next_layer points to this layer.
     for(int i = 0; i < next_layer->bottom_size(); ++i)
     {
