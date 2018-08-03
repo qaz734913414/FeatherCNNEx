@@ -26,14 +26,22 @@ public:
         : Layer(layer_param, rt_param)
     {
         const DropoutParameter *dropout_param = layer_param->dropout_param();
-        scale = 1.0 - dropout_param->dropout_ratio();
+        //scale = 1.0 - dropout_param->dropout_ratio();
+        scale = 1.0; /* dropout layer do no work just a dumy layer */
     }
 
     int Forward()
     {
         int size = w * h;
-        float32x4_t vscale = vdupq_n_f32(scale);
 
+        if (scale == 1.0f)
+        {
+            memcpy(output, input, c*size*sizeof(float));
+            Layer::Forward();
+            return 0;
+        }
+
+        float32x4_t vscale = vdupq_n_f32(scale);
         #pragma omp parallel for if (c > 4) num_threads(num_threads)
         for (int q=0; q<c; q++)
         {

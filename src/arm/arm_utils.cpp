@@ -54,6 +54,193 @@ void fill(float * ptr, int size, float _v)
     }
 }
 
+void from_rgb_submeans(unsigned char* rgb, int w, int h, float* dst, float *mean, int bgr)
+{
+    int size = w * h;
+
+    float* ptr0 = dst;
+    float* ptr1 = ptr0 + size;
+    float* ptr2 = ptr1 + size;
+
+    int nn = size >> 3;
+    int i = 0;
+    int remain = size & 7;
+
+    float32x4_t mean32x4_r  = vdupq_n_f32(mean[0]);
+    float32x4_t mean32x4_g  = vdupq_n_f32(mean[1]);
+    float32x4_t mean32x4_b  = vdupq_n_f32(mean[2]);
+
+    #pragma omp parallel for num_threads(2)
+    for ( i = 0; i < nn; i++)
+    {
+        float *pdst0, *pdst1, *pdst2;
+
+        pdst0 = ptr0 + 8*i;
+        pdst1 = ptr1 + 8*i;
+        pdst2 = ptr2 + 8*i;
+
+        uint8x8x3_t _rgb = vld3_u8(rgb + 3*8*i);
+        uint16x8_t _r16  = vmovl_u8(_rgb.val[0]);
+        uint16x8_t _g16  = vmovl_u8(_rgb.val[1]);
+        uint16x8_t _b16  = vmovl_u8(_rgb.val[2]);
+
+        float32x4_t _rlow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_r16)));
+        float32x4_t _rhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_r16)));
+        float32x4_t _glow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_g16)));
+        float32x4_t _ghigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_g16)));
+        float32x4_t _blow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_b16)));
+        float32x4_t _bhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_b16)));
+
+        _rlow  = vsubq_f32(_rlow, mean32x4_r);
+        _rhigh = vsubq_f32(_rhigh, mean32x4_r);
+        _glow  = vsubq_f32(_glow, mean32x4_g);
+        _ghigh = vsubq_f32(_ghigh, mean32x4_g);
+        _blow  = vsubq_f32(_blow, mean32x4_b);
+        _bhigh = vsubq_f32(_bhigh, mean32x4_b);
+
+        if (bgr)
+        {
+            vst1q_f32(pdst0, _blow);
+            vst1q_f32(pdst0+4, _bhigh);
+            vst1q_f32(pdst1, _glow);
+            vst1q_f32(pdst1+4, _ghigh);
+            vst1q_f32(pdst2, _rlow);
+            vst1q_f32(pdst2+4, _rhigh);
+        }
+        else
+        {
+            vst1q_f32(pdst0, _rlow);
+            vst1q_f32(pdst0+4, _rhigh);
+            vst1q_f32(pdst1, _glow);
+            vst1q_f32(pdst1+4, _ghigh);
+            vst1q_f32(pdst2, _blow);
+            vst1q_f32(pdst2+4, _bhigh);
+        }
+    }
+
+    rgb  += 3*8*nn;
+    ptr0 += 8*nn;
+    ptr1 += 8*nn;
+    ptr2 += 8*nn;
+
+    for (i = 0; i < remain; i++)
+    {
+        if (bgr)
+        {
+            *ptr2++ = ((float)*rgb++ - mean[0]);
+            *ptr1++ = ((float)*rgb++ - mean[1]);
+            *ptr0++ = ((float)*rgb++ - mean[2]);
+        }
+        else
+        {
+            *ptr0++ = ((float)*rgb++ - mean[0]);
+            *ptr1++ = ((float)*rgb++ - mean[1]);
+            *ptr2++ = ((float)*rgb++ - mean[2]);
+        }
+    }
+
+    return;
+}
+
+void from_rgb_normal_separate(unsigned char* rgb, int w, int h, float* dst, float *mean, float *scale, int bgr)
+{
+    int size = w * h;
+
+    float* ptr0 = dst;
+    float* ptr1 = ptr0 + size;
+    float* ptr2 = ptr1 + size;
+
+    int nn = size >> 3;
+    int i = 0;
+    int remain = size & 7;
+
+    float32x4_t mean32x4_r  = vdupq_n_f32(mean[0]);
+    float32x4_t mean32x4_g  = vdupq_n_f32(mean[1]);
+    float32x4_t mean32x4_b  = vdupq_n_f32(mean[2]);
+
+    float32x4_t scale32x4_r = vdupq_n_f32(scale[0]);
+    float32x4_t scale32x4_g = vdupq_n_f32(scale[1]);
+    float32x4_t scale32x4_b = vdupq_n_f32(scale[2]);
+
+    #pragma omp parallel for num_threads(2)
+    for ( i = 0; i < nn; i++)
+    {
+        float *pdst0, *pdst1, *pdst2;
+
+        pdst0 = ptr0 + 8*i;
+        pdst1 = ptr1 + 8*i;
+        pdst2 = ptr2 + 8*i;
+
+        uint8x8x3_t _rgb = vld3_u8(rgb + 3*8*i);
+        uint16x8_t _r16  = vmovl_u8(_rgb.val[0]);
+        uint16x8_t _g16  = vmovl_u8(_rgb.val[1]);
+        uint16x8_t _b16  = vmovl_u8(_rgb.val[2]);
+
+        float32x4_t _rlow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_r16)));
+        float32x4_t _rhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_r16)));
+        float32x4_t _glow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_g16)));
+        float32x4_t _ghigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_g16)));
+        float32x4_t _blow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_b16)));
+        float32x4_t _bhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_b16)));
+
+        _rlow  = vsubq_f32(_rlow, mean32x4_r);
+        _rhigh = vsubq_f32(_rhigh, mean32x4_r);
+        _glow  = vsubq_f32(_glow, mean32x4_g);
+        _ghigh = vsubq_f32(_ghigh, mean32x4_g);
+        _blow  = vsubq_f32(_blow, mean32x4_b);
+        _bhigh = vsubq_f32(_bhigh, mean32x4_b);
+
+        _rlow  = vmulq_f32(_rlow, scale32x4_r);
+        _rhigh = vmulq_f32(_rhigh, scale32x4_r);
+        _glow  = vmulq_f32(_glow, scale32x4_g);
+        _ghigh = vmulq_f32(_ghigh, scale32x4_g);
+        _blow  = vmulq_f32(_blow, scale32x4_b);
+        _bhigh = vmulq_f32(_bhigh, scale32x4_b);
+
+        if (bgr)
+        {
+            vst1q_f32(pdst0, _blow);
+            vst1q_f32(pdst0+4, _bhigh);
+            vst1q_f32(pdst1, _glow);
+            vst1q_f32(pdst1+4, _ghigh);
+            vst1q_f32(pdst2, _rlow);
+            vst1q_f32(pdst2+4, _rhigh);
+        }
+        else
+        {
+            vst1q_f32(pdst0, _rlow);
+            vst1q_f32(pdst0+4, _rhigh);
+            vst1q_f32(pdst1, _glow);
+            vst1q_f32(pdst1+4, _ghigh);
+            vst1q_f32(pdst2, _blow);
+            vst1q_f32(pdst2+4, _bhigh);
+        }
+    }
+
+    rgb  += 3*8*nn;
+    ptr0 += 8*nn;
+    ptr1 += 8*nn;
+    ptr2 += 8*nn;
+
+    for (i = 0; i < remain; i++)
+    {
+        if (bgr)
+        {
+            *ptr2++ = ((float)*rgb++ - mean[0])*scale[0];
+            *ptr1++ = ((float)*rgb++ - mean[1])*scale[1];
+            *ptr0++ = ((float)*rgb++ - mean[2])*scale[2];
+        }
+        else
+        {
+            *ptr0++ = ((float)*rgb++ - mean[0])*scale[0];
+            *ptr1++ = ((float)*rgb++ - mean[1])*scale[1];
+            *ptr2++ = ((float)*rgb++ - mean[2])*scale[2];
+        }
+    }
+
+    return;
+}
+
 void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, float scale, int bgr)
 {
     int size = w * h;
@@ -79,29 +266,29 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
         pdst2 = ptr2 + 8*i;
 
         uint8x8x3_t _rgb = vld3_u8(rgb + 3*8*i);
-        uint16x8_t _r16 = vmovl_u8(_rgb.val[0]);
-        uint16x8_t _g16 = vmovl_u8(_rgb.val[1]);
-        uint16x8_t _b16 = vmovl_u8(_rgb.val[2]);
+        uint16x8_t _r16  = vmovl_u8(_rgb.val[0]);
+        uint16x8_t _g16  = vmovl_u8(_rgb.val[1]);
+        uint16x8_t _b16  = vmovl_u8(_rgb.val[2]);
 
-        float32x4_t _rlow = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_r16)));
+        float32x4_t _rlow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_r16)));
         float32x4_t _rhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_r16)));
-        float32x4_t _glow = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_g16)));
+        float32x4_t _glow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_g16)));
         float32x4_t _ghigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_g16)));
-        float32x4_t _blow = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_b16)));
+        float32x4_t _blow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_b16)));
         float32x4_t _bhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_b16)));
 
-        _rlow = vsubq_f32(_rlow, mean32x4);
+        _rlow  = vsubq_f32(_rlow, mean32x4);
         _rhigh = vsubq_f32(_rhigh, mean32x4);
-        _glow = vsubq_f32(_glow, mean32x4);
+        _glow  = vsubq_f32(_glow, mean32x4);
         _ghigh = vsubq_f32(_ghigh, mean32x4);
-        _blow = vsubq_f32(_blow, mean32x4);
+        _blow  = vsubq_f32(_blow, mean32x4);
         _bhigh = vsubq_f32(_bhigh, mean32x4);
 
-        _rlow = vmulq_f32(_rlow, scale32x4);
+        _rlow  = vmulq_f32(_rlow, scale32x4);
         _rhigh = vmulq_f32(_rhigh, scale32x4);
-        _glow = vmulq_f32(_glow, scale32x4);
+        _glow  = vmulq_f32(_glow, scale32x4);
         _ghigh = vmulq_f32(_ghigh, scale32x4);
-        _blow = vmulq_f32(_blow, scale32x4);
+        _blow  = vmulq_f32(_blow, scale32x4);
         _bhigh = vmulq_f32(_bhigh, scale32x4);
 
         if (bgr)

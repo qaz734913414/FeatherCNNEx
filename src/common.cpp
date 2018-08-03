@@ -180,7 +180,11 @@ void writeFileFloat(const char *pFname, float *pData, unsigned size)
         exit(-1);
     }
     for(int i =0; i < size; i++)
-        fprintf(pfile, "%f ", pData[i]);
+    {
+        if ((0 != i)&& (0 == (i%16)))
+            fprintf(pfile, "\n");
+        fprintf(pfile, "%10.6f ", pData[i]);
+    }
     fclose(pfile);
 }
 
