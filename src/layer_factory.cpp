@@ -60,44 +60,49 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
     if(group == 1 && kernel_height == 3 && kernel_width == 3 && stride_height == 1 && stride_width == 1 &&
             input_channels > 0 && output_channels < 512 && (0 == output_channels % 4))
     {
-        //printf("F63\n");
         conv_layer = (ConvLayer*) new ConvWinogradF63Layer(layer_param, rt_param);
-        conv_layer->_subType = "winograd F63";
-        //conv_layer = (ConvLayer*) new ConvWinogradLayer(layer_param, rt_param);
+        conv_layer->_subType = "winogradF63";
     }
     else if(group == 1 && kernel_height == 3 && kernel_width == 3 &&
             stride_height == 1 && stride_width == 1 &&
             input_channels > 4)
     {
-        //printf("F23\n");
         conv_layer = (ConvLayer*) new ConvWinogradLayer(layer_param, rt_param);
-        conv_layer->_subType = "winograd F23";
+        conv_layer->_subType = "winogradF23";
+    }
+    else if(group == 1 && kernel_height == 5 && kernel_width == 5 &&
+            ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)))
+    {
+        conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
+        conv_layer->_subType = "Direct5x5";
+    }
+    else if(group == 1 && kernel_height == 7 && kernel_width == 7 &&
+            ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)))
+    {
+        conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
+        conv_layer->_subType = "Direct7x7";
     }
     else if(group == 1 && kernel_height == 3 && kernel_width == 3 &&
             ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)) &&
             input_channels <= 4)
     {
-        //printf("Direct\n");
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
-        conv_layer->_subType = "Direct";
+        conv_layer->_subType = "Direct3x3";
     }
     else if(CONV_TYPE_DIRECT == rt_param->type && group == 1 && kernel_height == 1 && kernel_width == 1 &&
             stride_height == 1 && stride_width == 1 &&
             input_channels <= 64 && output_channels <= 64)
     {
-        //printf("Direct\n");
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
-        conv_layer->_subType = "Direct";
+        conv_layer->_subType = "Direct1x1";
     }
     else if(group == 1)
     {
-        //printf("im2col\n");
         conv_layer = (ConvLayer*) new ConvIm2colLayer(layer_param, rt_param);
         conv_layer->_subType = "sgemm";
     }
     else
     {
-        //printf("Depthwise\n");
         conv_layer = new ConvDepthwiseLayer(layer_param, rt_param);
         conv_layer->_subType = "depthwise";
     }

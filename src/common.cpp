@@ -29,11 +29,10 @@
 void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned h, unsigned padw, unsigned padh, unsigned channelAlignSize, float val, unsigned num_threads)
 {
     int dstChannelSize = alignSize((w+2*padw)*(h+2*padh), channelAlignSize);
-    float *pDst;
     #pragma omp parallel for if (channels > 4) num_threads(num_threads)
     for(int i = 0; i < channels; i++)
     {
-        pDst = dst + i*dstChannelSize;
+        float *pDst = dst + i*dstChannelSize;
         for(int k = 0; k < padh; k++)
             fill(pDst+k*(w+2*padw), w + 2*padw, val);
 

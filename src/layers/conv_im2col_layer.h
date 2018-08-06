@@ -81,15 +81,16 @@ public:
                kernel_width, kernel_height, stride_width, stride_height, bias_term, this->fractions, group,
                input_channels, input_height, input_width, output_channels, output_height, output_width, num_threads, fuse_prelu, bias_data, slopeDataPrelu, sharedPrelu);
 #endif
-        if(kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1)
+        if(kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1 && padding_left == 0 && padding_right == 0 && padding_top == 0 && padding_bottom == 0)
         {
             if (output_channels % 8 == 0) //Todo
             {
                 if (0 == this->fractions)
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                                                            (float *)packed_kernel, input, output, (int)num_threads, packB,
+                                                            packed_kernel, input, output, (int)num_threads, packB,
                                                             bias_data, slopeDataPrelu, sharedPrelu);
+
                 else if (8 == this->fractions)
                     block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
@@ -122,7 +123,7 @@ public:
                 for(int k=0; k<group; k++)
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels/group * (int)kernel_width * (int)kernel_height,
-                                                            (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, packB,
+                                                            packed_kernel, img_buffer + k*block, output, (int)num_threads, packB,
                                                             bias_data, slopeDataPrelu, sharedPrelu);
             }
             else
@@ -313,9 +314,13 @@ public:
 
         if (0 == fractions) /* float32 */
         {
-            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(float) * eM * K));
+            unsigned elemSize = sizeof(float);
+#ifdef SGEMM_FP16_ENABLE
+            if (M % 8 == 0) elemSize = sizeof(fix16_t);
+#endif
+            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, elemSize * eM * K));
             for(int i = 0; i< num_threads; i++)
-                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(float) * kc * (int)output_width * (int)output_height));
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], elemSize * kc * (int)output_width * (int)output_height));
         }
         else if (8 == fractions) /* int8 */
         {
@@ -323,15 +328,15 @@ public:
             for(int i = 0; i< num_threads; i++)
                 MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(int8_t) * kc * (int)output_width * (int)output_height));
         }
-        else /* fix16 or fp16 */
+        else /* fix16 */
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(fix16_t) * eM * K));
             for(int i = 0; i< num_threads; i++)
                 MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(fix16_t) * kc * (int)output_width * (int)output_height));
         }
 
-        /* only not 1x1 sgemmm need im2col buffer */
-        if (kernel_width != 1 || kernel_height != 1 || stride_height != 1 || stride_width != 1)
+        if (kernel_width != 1 || kernel_height != 1 || stride_height != 1 || stride_width != 1 ||
+                padding_left != 0 || padding_right != 0 || padding_top != 0 || padding_bottom != 0)
         {
             /* im2col buffer */
             MEMPOOL_CHECK_RETURN(common_mempool->Request(sizeof(float)*(input_channels*kernel_height*kernel_width)*(output_width*output_height),
@@ -341,7 +346,13 @@ public:
         if (0 == this->fractions) /* float32 */
         {
             if (M % 8 == 0)
+            {
+#ifdef SGEMM_FP16_ENABLE
+                externalPackA8_FP16(M, K, (short *)packed_kernel, kernel_data, K);
+#else
                 externalPackA8<float>(M, K, (float *)packed_kernel, kernel_data, K);
+#endif
+            }
             else /* if not align to 8, then we align to 4 */
                 externalPackA(M, K, (float *)packed_kernel, kernel_data, K);
         }
@@ -352,7 +363,7 @@ public:
             else
                 externalPackA(M, K, (int8_t *)packed_kernel, kernel_data_fix8, K);
         }
-        else /* fix16 or fp16 */
+        else /* fix16 */
         {
             if (M % 8 == 0)
                 externalPackA8<short>(M, K, (short *)packed_kernel, kernel_data_fix, K);
