@@ -341,7 +341,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
             float* r2 = ing + inw * (i + 2);
 
             float* og = outg + outw * i;
-            float32x4_t sum1, sum2;
+            int32x4_t sum1, sum2;
             for(; nout > 0; nout--)
             {
                 float32x4_t r00      = vld1q_f32(r0);
@@ -1099,7 +1099,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
             float* r2 = ing + inw * (i + 2);
 
             float* og = outg + outw * i;
-            float32x4_t sum1, sum2;
+            int32x4_t sum1, sum2;
             for(; nout > 0; nout--)
             {
                 float32x4_t r00      = vld1q_f32(r0);

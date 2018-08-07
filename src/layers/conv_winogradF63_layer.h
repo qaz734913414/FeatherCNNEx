@@ -35,6 +35,7 @@ public:
         fuse_relu = false;
         fuse_prelu = false;
         _fusible = true;
+        winogradLowPrecision = rt_param->winogradLowPrecision;
         packInputSize = 0;
     }
 
@@ -50,17 +51,20 @@ public:
 
         float *VT = common_mem; 								   //input 8x8 blocks
         float *WT = VT + 64 * nBlocks * input_channels;            //output
-        float *packInput = WT + 64 * nBlocks * output_channels;   //Offset by sizeof WT
-        float *padded_input = packInput + packInputSize;          //Offset by sizeof WT
+        float *packInput = WT + 64 * nBlocks * output_channels;    //Offset by sizeof WT
+        float *padded_input = packInput + packInputSize;           //Offset by sizeof WT
         if (0 != (padding_left + padding_top + padding_right + padding_bottom))
-            pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
+        {
+            makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, 1, .0f, num_threads);
+            //pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
+        }
         else
             padded_input = input;
-#ifdef WINOGRAD_FP16_ENABLE
-        winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT_FIX, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, packInput, num_threads, slopeDataPrelu, sharedPrelu);
-#else
-        winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, packInput, num_threads, slopeDataPrelu, sharedPrelu);
-#endif
+
+        if (winogradLowPrecision)
+            winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT_FIX, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, packInput, num_threads, slopeDataPrelu, sharedPrelu);
+        else
+            winogradNonFusedTransform_F6x6_3x3(output, output_channels, WT, VT, UT, padded_input, input_channels, inputh, inputw, winograd_out_type, bias_data, packInput, num_threads, slopeDataPrelu, sharedPrelu);
 
         Layer::Forward();
         return 0;
@@ -68,7 +72,7 @@ public:
 
     int Fuse(Layer *next_layer)
     {
-        if(next_layer->type().compare("ReLU") == 0)
+        if (next_layer->type().compare("ReLU") == 0)
         {
             fuse_relu = true;
             return 1;
@@ -108,11 +112,12 @@ public:
         MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&UT, 64 * input_channels * output_channels * sizeof(float)));
         /* fix convet in transform stage not in model convert */
         transformKernel_F6x6_3x3(UT, kernel_data, input_channels, output_channels);
-#ifdef WINOGRAD_FP16_ENABLE
-        UT_FIX = (fix16_t*)UT; //inplace transofrm
-        for(unsigned i = 0; i < 64 * input_channels * output_channels; i += 4)
-            vst1q_f16_f32((void*)&UT_FIX[i], vld1q_f32(UT+i));
-#endif
+        if (winogradLowPrecision)
+        {
+            UT_FIX = (fix16_t*)UT; //inplace transofrm
+            for(unsigned i = 0; i < 64 * input_channels * output_channels; i += 4)
+                vst1q_f16_f32((void*)&UT_FIX[i], vld1q_f32(UT+i));
+        }
         if(bias_term && fuse_relu)
             winograd_out_type = BiasReLU;
         else if(bias_term && fuse_prelu)
@@ -137,10 +142,9 @@ public:
         return 0;
     }
 private:
+    bool winogradLowPrecision;
     float* UT;
-#ifdef WINOGRAD_FP16_ENABLE
     fix16_t *UT_FIX;
-#endif
     size_t packInputSize;
     bool fuse_relu;
     WinogradOutType winograd_out_type;

@@ -454,7 +454,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             if (layer_type.compare("Convolution")==0)
             {
                 auto caffe_conv_param = caffe_layer.convolution_param();
-                unsigned k_w, k_h;
+                unsigned k_w, k_h, pad_w, pad_h;
                 if(caffe_conv_param.kernel_size_size() == 1)
                 {
                     k_w = k_h = caffe_conv_param.kernel_size(0);
@@ -478,7 +478,26 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     }
                 }
 
-                if ((1 == k_h) && (1 == k_w))
+                if(caffe_conv_param.pad_size() == 1)
+                {
+                    pad_h = pad_w = caffe_conv_param.pad(0);
+                }
+                else if(caffe_conv_param.pad_size() == 2)
+                {
+                    pad_h = caffe_conv_param.pad(0);
+                    pad_w = caffe_conv_param.pad(1);
+                }
+                else if(caffe_conv_param.pad_size() == 0 && caffe_conv_param.has_pad_h() && caffe_conv_param.has_pad_w())
+                {
+                    pad_h = caffe_conv_param.pad_h();
+                    pad_w = caffe_conv_param.pad_w();
+                }
+                else
+                {
+                    pad_h = pad_w = 0;
+                }
+
+                if ((1 == k_h) && (1 == k_w) && (0 == pad_h) && (0 == pad_w))
                 {
                     fractions = frac;
                 }

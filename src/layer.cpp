@@ -192,10 +192,10 @@ int Layer::Init(float *ginput, float *goutput)
 int Layer::Forward()
 {
 #if 0
-    printf("Bottom:");
+    printf("B:");
     for(unsigned i = 0; i < _bottom.size(); i++)
-        printf(" %p", bottom_blob(0)->data());
-    printf(" Top:");
+        printf(" %p", bottom_blob(i)->data());
+    printf(" T:");
     for(unsigned i = 0; i < _top.size(); i++)
         printf(" %p", top_blob(i)->data());
     printf(" ");
@@ -209,11 +209,28 @@ int Layer::Forward()
             if (it->second != top_blob(0)->data())
             {
                 memcpy(it->second, top_blob(0)->data(), outSize);
-                //printf("copy %p to %p ", top_blob(0)->data(), it->second);
+                //printf("[%p -> %p] ", top_blob(0)->data(), it->second);
             }
             it++;
         }
     }
+#if 0
+    printf("[%10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f]\n[%10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f]\n",
+           bottom_blob(0)->data()[0], bottom_blob(0)->data()[1], bottom_blob(0)->data()[2], bottom_blob(0)->data()[3],
+           bottom_blob(0)->data()[4], bottom_blob(0)->data()[5], bottom_blob(0)->data()[6], bottom_blob(0)->data()[7],
+           top_blob(0)->data()[0], top_blob(0)->data()[1], top_blob(0)->data()[2], top_blob(0)->data()[3],
+           top_blob(0)->data()[4], top_blob(0)->data()[5], top_blob(0)->data()[6], top_blob(0)->data()[7]);
+#endif
+
+#ifdef DUMP_DATA
+    {
+        char fileName[256];
+        sprintf(fileName, "./dump/ok_%s.txt", this->name().c_str());
+        printf("dump to file %s\n", fileName);
+        writeFileFloat(fileName, top_blob(0)->data(), top_blob(0)->data_size());
+    }
+#endif
+
     return true;
 }
 std::string Layer::name()

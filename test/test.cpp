@@ -22,6 +22,7 @@
 #include <opencv2/opencv.hpp>
 #include <utils.h>
 #include <arm_neon.h>
+#include "label1000.h"
 
 using namespace std;
 using namespace cv;
@@ -113,10 +114,10 @@ int main(int argc, char *argv[])
     int colIdx = 0, maxabscol = 0, maxratiocol = 0;
     int i = 1, loopCnt = 1;
     const char * pSerialFile = NULL;
-#if 0
-    char *pFname = (char *)"12.jpg";
-    char *pModel = (char*)"12net_prob1_0.feathermodel";
-    char *pBlob = (char *)"prob1";
+#if 1
+    char *pFname = (char *)"227_fork.jpg";
+    char *pModel = (char*)"squeeze_prob_0.feathermodel";
+    char *pBlob = (char *)"prob";
 #else
     char *pFname = (char *)"dataset/112x96/Azra_Akin_Azra_Akin_0001.jpg";//"96_112.jpg";
     char *pModel = (char*)"mbface_fc5_0.feathermodel";
@@ -213,25 +214,27 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    float *pImgBuff = (float *)malloc(img.cols * img.rows * img.channels() *sizeof(float));
-
     Net forward_net(num_threads);
     forward_net.config1x1ConvType(CONV_TYPE_SGEMM);
+    forward_net.configWinogradLowPrecision(false);
     forward_net.configCrypto(pSerialFile);
     forward_net.inChannels = 3;
     forward_net.inWidth = img.cols;
     forward_net.inHeight = img.rows;
     forward_net.InitFromPath(pModel);
-
+    printf("c: %d, w: %d, h : %d\n", img.channels(), img.cols, img.rows);
     size_t data_size = 0;
     forward_net.GetBlobDataSize(&data_size, pBlob);
     float *pOut = NULL;
+    float *pIn = forward_net.GetInputBuffer();
+    float means[] = {104.0f, 117.0f, 123.0f};
+
     gettimeofday(&beg, NULL);
 
-    float *pIn = forward_net.GetInputBuffer();
     for(int loop = 0; loop < loopCnt; loop++)
     {
-        from_rgb_normal(img.data, img.cols, img.rows, pIn, 127.5f, 0.0078125f, 0);
+        from_rgb_submeans(img.data, img.cols, img.rows, pIn, means, 0);
+        //from_rgb_normal(img.data, img.cols, img.rows, pIn, 127.5f, 0.0078125f, 0);
         int ret = forward_net.Forward();
         pOut = forward_net.ExtractBlob(pBlob);
         printf("[%03d/%03d] ret: %d,(in: %p out: %p)\n", loop, loopCnt, ret, pIn, pOut);
@@ -239,7 +242,6 @@ int main(int argc, char *argv[])
 
     gettimeofday(&end, NULL);
     printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d\n\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads);
-    free(pImgBuff);
 
     printf("out blob size: %u\n", (unsigned int)data_size);
     for(int i = 0 ; i < data_size; i++)
@@ -249,6 +251,20 @@ int main(int argc, char *argv[])
         printf("%9.6f, ", pOut[i]);
     }
     printf("\n");
+
+    int top_class = 0;
+    float max_score = .0f;
+    for (size_t i=0; i<data_size; i++)
+    {
+        float s = pOut[i];
+        if (s > max_score)
+        {
+            top_class = i;
+            max_score = s;
+        }
+    }
+
+    printf("\nid: %d, label:%s, score: %f\n", top_class, label[top_class], max_score);
 #if 0
     float maxDiff      = .0f;
     float maxDiffRefC  =.0f, maxDiffAsm = .0f;

@@ -77,6 +77,7 @@ void* _mm_malloc(size_t sz, size_t align);
 void _mm_free(void* ptr);
 void writeFile(unsigned char *data, unsigned size, const char *pFileName);
 void writeFileFloat(const char *pFname, float *pData, unsigned size);
+void writeFileFloat16(const char *pFname, fix16_t *pData, unsigned size);
 unsigned char* readFile(const char *pFileName);
 float distanceCos(float *a, float *b, unsigned size);
 int conv3x3s1_pc(float *in, int inch, int w, int h, float *out, int outch, int outw, int outh, float* kernel);

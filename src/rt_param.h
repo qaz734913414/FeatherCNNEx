@@ -29,6 +29,7 @@ public:
     {
         input_width = input_height = 0;
         type = CONV_TYPE_SGEMM;
+        winogradLowPrecision = true;
         pNet = NULL;
     }
     RuntimeParameter(CommonMemPool<Dtype> *common_mempool, size_t num_threads)
@@ -49,6 +50,7 @@ public:
     unsigned input_width;
     unsigned input_height;
     CONV_TYPE_E type;
+    bool winogradLowPrecision;
     void *pNet;
 
 private:

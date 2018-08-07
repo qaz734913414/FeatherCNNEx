@@ -29,11 +29,6 @@
 #include <dispatch/dispatch.h>
 #endif
 
-extern "C" void TensorGEMMInnerKernel4x4x4_fix16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
-extern "C" void TensorGEMMInnerKernel4x3x4_fix16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
-extern "C" void TensorGEMMInnerKernel4x2x4_fix16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
-extern "C" void TensorGEMMInnerKernel4x1x4_fix16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
-
 /* pay attention to this arm32 api diff with arm64 need be call twice */
 extern "C" void TensorGEMMInnerKernel4x4x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels);
 
@@ -721,7 +716,7 @@ void winogradInputFrameTransformSeq_fix16(fix16_t *VT, int inChannels, float *in
             const float32x4_t f5_25 = vaddq_f32(f1_25, f4);
             const float32x4_t f2_5 = vmulq_n_f32(f0_5, 5.0f);
 #endif
-            float ext[64];
+            float ext[64] __attribute((aligned (16)));
 
             float32x4_t l0, l1, l2, l3, l4, l5, l6, l7;
             float32x4_t r0, r1, r2, r3, r4, r5, r6, r7;
@@ -812,56 +807,50 @@ void winogradInputFrameTransformSeq_fix16(fix16_t *VT, int inChannels, float *in
                 input_transform(l4,l5,l6,l7,r4,r5,r6,r7,//Target
                                 t1,t2,s1,s2,m1,m2,//Auxiliary
                                 f5_25,f4_25,f4,f2_5,f2,f1_25,f0_5,f0_25);//Constants
-#if 1
-#define FLOATX4_S16X4 vst1q_f16_f32
-#else
-#define FLOATX4_S16X4(b, a) int32x4_t a##_I32 = vcvtq_n_s32_f32(a, 7); \
-                                                int16x4_t a##_I16 = vmovn_s32(a##_I32); \
-                                                vst1_s16(b, a##_I16);
-#endif
+
                 if(bid < nBlocksAligned)
                 {
-                    FLOATX4_S16X4(outp, l0);
-                    FLOATX4_S16X4(outp + 16, l4);
-                    FLOATX4_S16X4(outp + 32, l1);
-                    FLOATX4_S16X4(outp + 48, l5);
+                    vst1q_f16_f32(outp, l0);
+                    vst1q_f16_f32(outp + 16, l4);
+                    vst1q_f16_f32(outp + 32, l1);
+                    vst1q_f16_f32(outp + 48, l5);
 
-                    FLOATX4_S16X4(outp + 64, l2);
-                    FLOATX4_S16X4(outp + 80, l6);
-                    FLOATX4_S16X4(outp + 96, l3);
-                    FLOATX4_S16X4(outp + 112, l7);
+                    vst1q_f16_f32(outp + 64, l2);
+                    vst1q_f16_f32(outp + 80, l6);
+                    vst1q_f16_f32(outp + 96, l3);
+                    vst1q_f16_f32(outp + 112, l7);
 
-                    FLOATX4_S16X4(outp + 128, r0);
-                    FLOATX4_S16X4(outp + 144, r4);
-                    FLOATX4_S16X4(outp + 160, r1);
-                    FLOATX4_S16X4(outp + 176, r5);
+                    vst1q_f16_f32(outp + 128, r0);
+                    vst1q_f16_f32(outp + 144, r4);
+                    vst1q_f16_f32(outp + 160, r1);
+                    vst1q_f16_f32(outp + 176, r5);
 
-                    FLOATX4_S16X4(outp + 192, r2);
-                    FLOATX4_S16X4(outp + 208, r6);
-                    FLOATX4_S16X4(outp + 224, r3);
-                    FLOATX4_S16X4(outp + 240, r7);
+                    vst1q_f16_f32(outp + 192, r2);
+                    vst1q_f16_f32(outp + 208, r6);
+                    vst1q_f16_f32(outp + 224, r3);
+                    vst1q_f16_f32(outp + 240, r7);
                 }
                 else
                 {
-                    FLOATX4_S16X4(outp, l0);
-                    FLOATX4_S16X4(outp + rem * 4, l4);
-                    FLOATX4_S16X4(outp + rem * 8, l1);
-                    FLOATX4_S16X4(outp + rem * 12, l5);
+                    vst1q_f16_f32(outp, l0);
+                    vst1q_f16_f32(outp + rem * 4, l4);
+                    vst1q_f16_f32(outp + rem * 8, l1);
+                    vst1q_f16_f32(outp + rem * 12, l5);
 
-                    FLOATX4_S16X4(outp + rem * 16, l2);
-                    FLOATX4_S16X4(outp + rem * 20, l6);
-                    FLOATX4_S16X4(outp + rem * 24, l3);
-                    FLOATX4_S16X4(outp + rem * 28, l7);
+                    vst1q_f16_f32(outp + rem * 16, l2);
+                    vst1q_f16_f32(outp + rem * 20, l6);
+                    vst1q_f16_f32(outp + rem * 24, l3);
+                    vst1q_f16_f32(outp + rem * 28, l7);
 
-                    FLOATX4_S16X4(outp + rem * 32, r0);
-                    FLOATX4_S16X4(outp + rem * 36, r4);
-                    FLOATX4_S16X4(outp + rem * 40, r1);
-                    FLOATX4_S16X4(outp + rem * 44, r5);
+                    vst1q_f16_f32(outp + rem * 32, r0);
+                    vst1q_f16_f32(outp + rem * 36, r4);
+                    vst1q_f16_f32(outp + rem * 40, r1);
+                    vst1q_f16_f32(outp + rem * 44, r5);
 
-                    FLOATX4_S16X4(outp + rem * 48, r2);
-                    FLOATX4_S16X4(outp + rem * 52, r6);
-                    FLOATX4_S16X4(outp + rem * 56, r3);
-                    FLOATX4_S16X4(outp + rem * 60, r7);
+                    vst1q_f16_f32(outp + rem * 48, r2);
+                    vst1q_f16_f32(outp + rem * 52, r6);
+                    vst1q_f16_f32(outp + rem * 56, r3);
+                    vst1q_f16_f32(outp + rem * 60, r7);
                 }
             }
         }
@@ -991,7 +980,7 @@ void TensorGEMM_fix16
                             const fix16_t *vp = pack_arr + (i - start_block_id) * inChannels * depth * 4
                                                 + d * depth * inChannels * (4 * len) / 16;
                             float *WTp = WT + oc * wstride + i * depth * 4 + d * 4 * len + (i % 4) * 4;
-                            //if (0 != len) printf("[%d]---\n", len);
+                            //if ((0 != len) && (1 != len)) printf("[%d]---\n", len);
                             if (len == 1)
                                 TensorGEMMInnerKernel4x1x4_fp16(WTp, wstride, UTp, vp, inChannels);
                             else if (len == 2)
@@ -1031,7 +1020,6 @@ void TensorGEMM(float *WT, const float *VT, const float *UT, const int depth, co
         int end_block_id_aligned = end_block_id & 0xFFFFFFFC;
         const int rem = end_block_id % 4;
 
-        /*I have no idea which packing method is faster, seems that they are not the major bottleneck after loop swapping*/
 #ifdef _OPENMP
         #pragma omp parallel num_threads(num_threads)
 #endif
@@ -1113,6 +1101,7 @@ void TensorGEMM(float *WT, const float *VT, const float *UT, const int depth, co
                             const float *vp = pack_arr + (i - start_block_id) * inChannels * depth * 4
                                               + d * depth * inChannels * (4 * len) / 16;
                             float *WTp = WT + oc * wstride + i * depth * 4 + d * 4 * len + (i % 4) * 4;
+                            //if ((0 != len) && (1 != len)) printf("len: %d\n", len);
                             if (len == 1)
                             {
                                 TensorGEMMInnerKernel4x1x4(WTp, wstride, UTp, vp, inChannels);
@@ -1441,6 +1430,16 @@ void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float 
     if (4 == sizeof(UT[0]))
     {
         winogradInputFrameTransformSeq(VT, inChannels, input, inputh, inputw, frameStride, ldin, nRowBlocks, nColBlocks, num_threads);
+
+#if 0
+        {
+            char fileName[256];
+            sprintf(fileName, "./dump/infp32.txt");
+            printf("dump to file %s\n", fileName);
+            writeFileFloat(fileName, VT, 100);
+        }
+#endif
+
         TensorGEMM(WT, VT, (float*)UT, 16, inChannels, outChannels, nRowBlocks, nColBlocks, num_threads, pack_array, num_threads * 32);
     }
     else if (2 == sizeof(UT[0]))
@@ -1452,11 +1451,30 @@ void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float 
         winogradInputFrameTransformSeq_fix16((fix16_t*)VT, inChannels, input, inputh, inputw, frameStride, ldin, nRowBlocks, nColBlocks, num_threads);
 #ifdef TIME_PROFILE
         t.endBench("winogradInputFrameTransformSeq_fix16");
-#endif
-#ifdef TIME_PROFILE
         t.startBench();
 #endif
+
+#if 0
+        {
+            char fileName[256];
+            sprintf(fileName, "./dump/infp16.txt");
+            printf("dump to file %s\n", fileName);
+            writeFileFloat16(fileName, (fix16_t*)VT, 100);
+        }
+#endif
+
         TensorGEMM_fix16(WT, (fix16_t*)VT, (fix16_t*)UT, 16, inChannels, outChannels, nRowBlocks, nColBlocks, num_threads, (fix16_t*)pack_array, num_threads * 32);
+
+#if 0
+        {
+            char fileName[256];
+            sprintf(fileName, "./dump/out.txt");
+            printf("dump to file %s\n", fileName);
+            writeFileFloat(fileName, top_blob(0)->data(), top_blob(0)->data_size());
+        }
+#endif
+
+
 #ifdef TIME_PROFILE
         t.endBench("TensorGEMM_fix16");
 #endif

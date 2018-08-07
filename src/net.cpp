@@ -100,6 +100,12 @@ int Net::config1x1ConvType(CONV_TYPE_E type)
     return 0;
 }
 
+int Net::configWinogradLowPrecision(bool flag)
+{
+    this->rt_param->winogradLowPrecision = flag;
+    return 0;
+}
+
 int Net::ExtractBlob(float* output_ptr, std::string name)
 {
     if (blob_map.find(std::string(name)) == blob_map.end())
@@ -208,6 +214,7 @@ int Net::Forward()
         //if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
         t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
 #endif
+        //printf(" [%03d] %s %s %s\n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
     }
     return 0;
 }
@@ -351,7 +358,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
 #endif
         }
 
-        if (cur_top_blob_size >= max_top_blob_size)
+        if (cur_top_blob_size > max_top_blob_size)
         {
             max_top_blob_size = cur_top_blob_size;
             strcpy(max_top_blob_name, layers[i]->name().c_str());
@@ -364,9 +371,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
             blob_map[blob_name] = layers[i]->top_blob(blob_name);
         }
     }
-#ifdef MEM_USAGE_PRINT
-    printf("Top max blobs size: %5.3f KB (%5.3f MB)\n", max_top_blob_size/1024.0f, max_top_blob_size/(1024.0f *1024.0f));
-#endif
+
     //printf("Top blobs create ok\n");
     uint32_t total_weight_size = 0;
     for (int i = 1; i < layers.size(); ++i)
@@ -497,11 +502,12 @@ bool Net::InitFromBuffer(const void *net_buffer)
             blob_map[blob_name] = layers[i]->top_blob(blob_name);
         }
 
-        //printf("\n[%03d] %-45s %-15s [%d]", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->branchId);
+        //printf("\n[%02d] %-25s %-12s %-12s [%d]", i, layers[i]->name().c_str(), layers[i]->_subType.c_str(), layers[i]->type().c_str(), layers[i]->branchId);
 
         /* in branchId */
         if (0 != i)
         {
+            //printf(" in");
             std::map<std::string,unsigned>::iterator it = layers[i]->inBranchIdVec.begin();
             while(it != layers[i]->inBranchIdVec.end())
             {
@@ -521,7 +527,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
                 }
                 layers[i]->inputVec[it->first] = pingpang[branchId][branchPingPang[branchId]];
                 assert(layers[i]->_bottom_blobs[blobName]->data() == layers[i]->inputVec[it->first]);
-                //printf(" in  [%d], %p", branchId, layers[i]->inputVec[it->first]);
+                //printf(" [%d] %p", branchId, layers[i]->inputVec[it->first]);
 
                 it++;
             }
@@ -535,10 +541,11 @@ bool Net::InitFromBuffer(const void *net_buffer)
             float *out = pingpang[branchId][branchPingPang[branchId]];
             ((Blob<float> *)layers[i]->_top_blobs[layers[i]->_top[0]])->setData(out);
             //printf(" setdata: %s %p ", layers[i]->_top[0].c_str(), out);
-            //printf(" out- [%d], %p", branchId, out);
+            //printf(" out- [%d] %p\n", branchId, out);
         }
         else
         {
+            //printf(" out");
             unsigned idx = 0;
             for(auto consumer:layers[i]->consumers)
             {
@@ -566,7 +573,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
                     layer_map[consumer]->SetupBottomBlob((const Blob<float>*)layers[i]->_top_blobs[newBlobName], layers[i]->top(0));
                     blob_map[newBlobName] = (const Blob<float>*)layers[i]->_top_blobs[newBlobName];
                 }
-                //printf(" out [%d], %p", branchId, layers[i]->outputVec[consumer]);
+                //printf(" [%d] %p", branchId, layers[i]->outputVec[consumer]);
                 idx++;
             }
         }

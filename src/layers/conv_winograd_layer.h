@@ -34,6 +34,7 @@ public:
         : ConvLayer(layer_param, rt_param)
     {
         _fusible = true;
+        winogradLowPrecision = rt_param->winogradLowPrecision;
     }
 
 
@@ -55,11 +56,10 @@ public:
             int outputw = inputw - kernel_width + 1;
             int outputh = inputh - kernel_height + 1;
             float *tmp_out = padded_input + inputw * inputh * input_channels;
-#ifdef WINOGRAD_FP16_ENABLE
-            winogradNonFusedTransform(tmp_out, output_channels, WT, (fix16_t*)VT, UT_FIX, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
-#else
-            winogradNonFusedTransform(tmp_out, output_channels, WT, VT, UT, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
-#endif
+            if (winogradLowPrecision)
+                winogradNonFusedTransform(tmp_out, output_channels, WT, (fix16_t*)VT, UT_FIX, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
+            else
+                winogradNonFusedTransform(tmp_out, output_channels, WT, VT, UT, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
             int tw = outputw - ext_pad_w;
             int th = outputh - ext_pad_h;
             for (int c = 0; c < output_channels; ++c)
@@ -72,11 +72,10 @@ public:
         }
         else
         {
-#ifdef WINOGRAD_FP16_ENABLE
-            winogradNonFusedTransform(output, output_channels, WT, (fix16_t*)VT, UT_FIX, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
-#else
-            winogradNonFusedTransform(output, output_channels, WT, VT, UT, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
-#endif
+            if (winogradLowPrecision)
+                winogradNonFusedTransform(output, output_channels, WT, (fix16_t*)VT, UT_FIX, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
+            else
+                winogradNonFusedTransform(output, output_channels, WT, VT, UT, padded_input, input_channels, inputw, inputh, winograd_out_type, bias_data, num_threads);
         }
 
         Layer::Forward();
@@ -122,11 +121,12 @@ public:
         MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&tmp, 16 * input_channels * output_channels * sizeof(float)));
         transformKernel(UT, kernel_data, input_channels, output_channels, tmp);
         MEMPOOL_CHECK_RETURN(private_mempool->Free((void**)&tmp));
-#ifdef WINOGRAD_FP16_ENABLE
-        UT_FIX = (fix16_t*)UT; //inplace transofrm
-        for(unsigned i = 0; i < 16 * input_channels * output_channels; i += 4)
-            vst1q_f16_f32((void*)&UT_FIX[i], vld1q_f32(UT+i));
-#endif
+        if (winogradLowPrecision)
+        {
+            UT_FIX = (fix16_t*)UT; //inplace transofrm
+            for(unsigned i = 0; i < 16 * input_channels * output_channels; i += 4)
+                vst1q_f16_f32((void*)&UT_FIX[i], vld1q_f32(UT+i));
+        }
         if(bias_term && fuse_relu)
             winograd_out_type = BiasReLU;
         else if(bias_term)
@@ -148,9 +148,8 @@ public:
     }
 private:
     float* UT;
-#ifdef WINOGRAD_FP16_ENABLE
     fix16_t *UT_FIX;
-#endif
+    bool winogradLowPrecision;
     size_t ext_pad_w;
     size_t ext_pad_h;
 
