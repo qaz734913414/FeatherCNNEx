@@ -61,6 +61,7 @@ public:
         p_blob->CopyShape(_bottom_blobs[_bottom[0]]);
         //p_blob->Alloc();  //no need malloc, use net global input/output memory
         _top_blobs[_top[0]] = p_blob;
+        _top_blobs[_top[0]]->_name = "Top";
         return 0;
     }
 

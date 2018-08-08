@@ -79,6 +79,7 @@ Net::~Net()
 {
     for(unsigned i = 0; i < MAXBRANCHNUM; i++)
     {
+        //if (NULL != pingpang[i][0]) printf("del branch id %d\n", i);
         _mm_free(pingpang[i][0]);
         pingpang[i][0] = NULL;
         _mm_free(pingpang[i][1]);
@@ -89,10 +90,14 @@ Net::~Net()
     delete rt_param;
 
     for(auto loop:layers)
+    {
+        //printf("delete layer: %s\n", loop->name().c_str());
         delete loop;
+    }
 
     blob_map.clear();
     layer_map.clear();
+    //printf("Net deinit\n");
 }
 
 int Net::config1x1ConvType(CONV_TYPE_E type)
@@ -423,6 +428,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
                 }
                 //printf("Erasing layer %d %-40s\n", j, next_layer->name().c_str());
                 layers.erase(layers.begin() + j);
+                delete next_layer;
                 next_layer = layers[j];
                 //printf("Layer %d after erasing: %-40s type %s\n", j, next_layer->name().c_str(), next_layer->type().c_str());
 

@@ -286,6 +286,7 @@ public:
             fusedWeightBlobId = _weight_blobs.size();
             Blob<float>* p_blob = new Blob<float>();
             p_blob->Copy(next_layer->weight_blob(0));
+            p_blob->_name = next_layer->weight_blob(0)->_name;
             _weight_blobs.push_back(p_blob);
 
             fuse_prelu = true;

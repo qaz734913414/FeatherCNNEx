@@ -41,7 +41,8 @@ public:
 
     ~Blob()
     {
-        if ((0 != globalData) && (this->_data))
+        //printf("blob del: %s %d %p ok\n", _name.c_str(), globalData, this->_data);
+        if ((0 == globalData) && (this->_data))
             _mm_free(this->_data);
     }
 
@@ -84,6 +85,7 @@ public:
     {
         globalData = 1;
         _data = pData;
+        _name = "SetData";
     }
 
     Dtype* data() const
@@ -149,7 +151,7 @@ public:
     }
 
     void *pNet;
-
+    std::string _name;
 private:
     Dtype* _data;
     size_t _num;
@@ -161,6 +163,5 @@ private:
     size_t _validSize;
     size_t _data_length;
     unsigned char globalData;
-    std::string _name;
 };
 };

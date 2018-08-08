@@ -36,6 +36,7 @@ int BatchNormLayer::Fuse(Layer *next_layer)
         {
             Blob<float>* p_blob = new Blob<float>();
             p_blob->Copy(next_layer->weight_blob(i));
+            p_blob->_name = next_layer->weight_blob(i)->_name;
             _weight_blobs.push_back(p_blob);
         }
         scale_bias_term = ((ScaleLayer*) next_layer)->bias_term();

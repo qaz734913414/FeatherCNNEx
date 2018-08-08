@@ -133,7 +133,10 @@ int SliceLayer::GenerateTopBlobs()
     }
 
     for(int i = 0; i < _top.size(); ++i)
+    {
         _top_blobs[_top[i]]->Alloc();
+        printf("fix me, %s %d\n", __FILE__, __LINE__);
+    }
     return 0;
 }
 

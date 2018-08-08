@@ -20,11 +20,24 @@ namespace feather
 {
 Layer::~Layer()
 {
+    //printf("layer beg\n");
     delete private_mempool;
 
+    //printf("del weight blob beg\n");
+
+    for(auto loop:_weight_blobs)
+        delete loop;
     _weight_blobs.clear();
+
+    for(auto loop:_weight_blobs_fix)
+        delete loop;
     _weight_blobs_fix.clear();
+
+    for(auto loop:_weight_blobs_fix8)
+        delete loop;
     _weight_blobs_fix8.clear();
+
+    //printf("del weight blob end\n");
 
     products.clear();
     consumers.clear();
@@ -32,12 +45,33 @@ Layer::~Layer()
     _bottom.clear();
     _top.clear();
 
+    //printf("\ndel data blob beg\n");
+    {
+        std::map<std::string, Blob<float>*>::iterator it = _top_blobs.begin();
+        while(it != _top_blobs.end())
+        {
+            delete it->second;
+            it++;
+        }
+    }
     _top_blobs.clear();
+#if 0
+    {
+        std::map<std::string, const Blob<float>*>::iterator it = _bottom_blobs.begin();
+        while(it != _bottom_blobs.end())
+        {
+            delete it->second;
+            it++;
+        }
+    }
+#endif
     _bottom_blobs.clear();
+    //printf("del data blob end\n");
 
     inBranchIdVec.clear();
     inputVec.clear();
     outputVec.clear();
+    //printf("layer end\n");
 }
 
 Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param)
@@ -76,7 +110,6 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     _weight_blobs_fix8.clear();
     _top_blobs.clear();
     _bottom_blobs.clear();
-
     /* Construct weight blobs */
     for(int i = 0; i < blob_num; ++i)
     {
@@ -86,6 +119,7 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
             Blob<float>* p_blob = new Blob<float>();
             p_blob->pNet = this->pNet;
             p_blob->FromProto(proto);
+            p_blob->_name = _name;
             _weight_blobs.push_back(p_blob);
         }
         else if (8 == proto->fractions())
@@ -93,6 +127,7 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
             Blob<int8_t>* p_blob = new Blob<int8_t>();
             p_blob->pNet = this->pNet;
             p_blob->FromProto(proto);
+            p_blob->_name = _name;
             _weight_blobs_fix8.push_back(p_blob);
         }
         else
@@ -100,6 +135,7 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
             Blob<short>* p_blob = new Blob<short>();
             p_blob->pNet = this->pNet;
             p_blob->FromProto(proto);
+            p_blob->_name = _name;
             _weight_blobs_fix.push_back(p_blob);
         }
     }
@@ -164,7 +200,8 @@ int Layer::GenerateTopBlobs()
         return -1;
     Blob<float>* p_blob = new Blob<float>();
     p_blob->CopyShape(_bottom_blobs[_bottom[0]]);
-    //p_blob->Alloc(); //no need malloc, use net global ping pang memory
+    p_blob->_name = "Top";
+    //p_blob->Alloc(); //no need malloc, use net global input/output memory
     _top_blobs[_top[0]] = p_blob;
     return 0;
 }
@@ -174,6 +211,7 @@ std::string Layer::GenerateNewTopBlobs(float *pData)
     std::string newBlobName;
     Blob<float>* p_blob = new Blob<float>();
     p_blob->CopyShape(_top_blobs[_top[0]]);
+    p_blob->_name = "NewTop";
     p_blob->setData(pData);
     char tmp[16]= {0};
     snprintf(tmp, sizeof(tmp)-1, "%d", ++newTopId);

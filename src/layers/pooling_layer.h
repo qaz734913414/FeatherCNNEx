@@ -582,6 +582,7 @@ public:
             output_width = static_cast<int>(ceil(static_cast<float>(input_width + 2 * pad_width - kernel_width) / stride_width)) + 1;
         }
         _top_blobs[_top[0]] = new Blob<float>(1, output_channels, output_height, output_width);
+        _top_blobs[_top[0]]->_name = "Top";
         //_top_blobs[_top[0]]->Alloc(); //no need malloc, use net global input/output memory
         //printf("global_pooling: %d, [%d %d %d] [%d %d] [%d %d] [%d %d %d]\n", global_pooling, input_height, input_width, input_channels,  kernel_height, kernel_width, pad_height, pad_width, output_width, output_height, output_channels);
 
