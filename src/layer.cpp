@@ -285,7 +285,7 @@ Blob<float>* Layer::bottom_blob(size_t idx)
     std::string name = this->bottom(idx);
     return bottom_blob(name);
 }
-const size_t Layer::weight_blob_num() const
+size_t Layer::weight_blob_num() const
 {
     return _weight_blobs.size();
 }

@@ -57,7 +57,7 @@ public:
     Blob<float>* bottom_blob(std::string name);
     Blob<float>* bottom_blob(size_t idx);
     //For fusing
-    const size_t weight_blob_num() const;
+    size_t weight_blob_num() const;
     const Blob<float>* weight_blob(size_t i) const;
     bool fusible() const;
     void printPrivateMempool();

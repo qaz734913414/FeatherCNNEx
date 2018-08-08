@@ -64,7 +64,7 @@ int Net::configCrypto(const char * pSerialFile)
 
 int Net::configCryptoBuffer(uint8_t* pKeyBuff)
 {
-    if (NULL != pKeyBuff)
+    if (NULL == pKeyBuff)
     {
         printf("Null pointer at %s %d\n", __func__, __LINE__);
         return -1;
