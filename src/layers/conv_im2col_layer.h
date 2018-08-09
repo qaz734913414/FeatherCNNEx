@@ -90,18 +90,18 @@ public:
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels * (int)kernel_width * (int)kernel_height,
                                                             packed_kernel, input, output, (int)num_threads, packB,
-                                                            bias_data, slopeDataPrelu, sharedPrelu, sgemmLowPrecision);
+                                                            bias_data, slopeDataPrelu, sharedPrelu, sgemmLowPrecision, fuse_relu);
 
                 else if (8 == this->fractions)
                     block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
                             (int8_t *)packed_kernel, input, output, (int)num_threads, int8scaleW, int8scaleIn, int8scaleOut, packB,
-                            bias_data, slopeDataPrelu, sharedPrelu);
+                            bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
                 else
                     block_sgemm_external_pack_threading_8x8Fix((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
                             (short *)packed_kernel, input, output, (int)num_threads, packB,
-                            bias_data, slopeDataPrelu, sharedPrelu);
+                            bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
 
             }
             else
@@ -109,7 +109,7 @@ public:
                 block_sgemm_external_pack_threading((int)output_channels, (int)output_width * (int)output_height,
                                                     (int)input_channels * (int)kernel_width * (int)kernel_height,
                                                     (float *)packed_kernel, input, output, (int)num_threads, packB,
-                                                    bias_data, slopeDataPrelu, sharedPrelu);
+                                                    bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
             }
         }
         else
@@ -125,7 +125,7 @@ public:
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels/group * (int)kernel_width * (int)kernel_height,
                                                             packed_kernel, img_buffer + k*block, output, (int)num_threads, packB,
-                                                            bias_data, slopeDataPrelu, sharedPrelu, sgemmLowPrecision);
+                                                            bias_data, slopeDataPrelu, sharedPrelu, sgemmLowPrecision, fuse_relu);
             }
             else
             {
@@ -133,13 +133,13 @@ public:
                     block_sgemm_external_pack_threading((int)output_channels, (int)output_width * (int)output_height,
                                                         (int)input_channels/group * (int)kernel_width * (int)kernel_height,
                                                         (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, packB,
-                                                        bias_data, slopeDataPrelu, sharedPrelu);
+                                                        bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
             }
         }
-
-        if (fuse_relu)
+#if 0
+        if ((fuse_relu) && (output_channels % 8 == 0))
             relu_inplace(output, num_threads);
-
+#endif
         Layer::Forward();
         return 0;
     }

@@ -217,11 +217,13 @@ int main(int argc, char *argv[])
     }
     printf("c: %d, w: %d, h : %d\n", img.channels(), img.cols, img.rows);
 
-    for(int k = 0; k < 1000; k++)
+    for(int k = 0; k < 1; k++)
     {
         Net *forward_net = new Net(num_threads);
         forward_net->config1x1ConvType(CONV_TYPE_SGEMM);
         forward_net->configWinogradLowPrecision(false);
+        forward_net->configSgemmLowPrecision(true);
+        forward_net->configDropoutWork(true);
         forward_net->configCrypto(pSerialFile);
         forward_net->inChannels = 3;
         forward_net->inWidth = img.cols;

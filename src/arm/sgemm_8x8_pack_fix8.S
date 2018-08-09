@@ -30,6 +30,7 @@ COPYRIGHT_HOLDER:
 
 #define CHANNELX          X8
 #define SLOPEX            X9
+#define RELU              W10
 
 /* RSV V8~V15 */
 #define VSRC_8B_A      V0.8B
@@ -107,7 +108,9 @@ COPYRIGHT_HOLDER:
 #define VSRC_4S_SLOPE_1_2 V31.S[2]
 #define VSRC_4S_SLOPE_1_3 V31.S[3]
 
-/* void sgemm_8x8_pack_fix8( int L, char *a, int8_t *b, float *c, int ldc, float* int8scaleW, float *int8scaleIn, float *int8scaleOut, int ch, float *slopeDataPrelu ) */
+#define VSRC_16B_ZERO     V0.16B
+
+/* void sgemm_8x8_pack_fix8( int L, char *a, int8_t *b, float *c, int ldc, float* int8scaleW, float *int8scaleIn, float *int8scaleOut, int ch, float *slopeDataPrelu, int fuse_relu) */
 	.text
 	.align 5
 #ifdef __APPLE__
@@ -128,6 +131,7 @@ sgemm_8x8_pack_fix8:
 	ldr CHANNELX, [sp]      /* load param from stack */
         fmul VSRC_4S_SCALEIN, VSRC_4S_SCALEIN, VSRC_4S_SCALEW
 	ldr SLOPEX,   [sp, #8]  /* load param from stack */
+	ldr RELU,     [sp, #16] /* load param from stack */
         frecpe VSRC_4S_SCALEIN, VSRC_4S_SCALEIN
 	cbz L, __END
 
@@ -181,7 +185,7 @@ __LOOP:
 
 	cbnz L, __LOOP
 
-        cbz SLOPEX, __NOSLOPE
+        cbz SLOPEX, __RELU
 
         add SLOPEX, SLOPEX, CHANNELX
         ld1 {VSRC_4S_SLOPE_0, VSRC_4S_SLOPE_1}, [SLOPEX]
@@ -212,7 +216,35 @@ __LOOP:
 	SLOPE_STORE_MACRO VSRC_4S_C7, VSRC_4S_CF, VSRC_16B_C7, VSRC_16B_CF, VSRC_4S_SLOPE_1_3
 	b __END
 
-__NOSLOPE:
+__RELU:
+        cbz RELU, __NORMAL_CASE
+        eor VSRC_16B_ZERO, VSRC_16B_ZERO, VSRC_16B_ZERO
+.macro RELU_STORE_MACRO, src_0:req, src_1:req, src_0_16b:req, src_1_16b:req
+	ld1 {VSRC_4S_C_LOW, VSRC_4S_C_HIGH}, [C]
+	scvtf \src_0, \src_0
+	fmul \src_0, \src_0, VSRC_4S_SCALEIN
+	scvtf \src_1, \src_1
+        fmul \src_1, \src_1, VSRC_4S_SCALEIN
+	add \src_0, \src_0, VSRC_4S_C_LOW
+        fcmle VSRC_4S_MASK_0, \src_0, #0.0
+	add \src_1, \src_1, VSRC_4S_C_HIGH
+        fcmle VSRC_4S_MASK_1, \src_1, #0.0
+        bsl VSRC_4S_MASK_0_16B, VSRC_16B_ZERO, \src_0_16b
+        bsl VSRC_4S_MASK_1_16B, VSRC_16B_ZERO, \src_1_16b
+        st1 {VSRC_4S_MASK_0, VSRC_4S_MASK_1}, [C], LDCX
+.endm
+	RELU_STORE_MACRO VSRC_4S_C0, VSRC_4S_C8, VSRC_16B_C0, VSRC_16B_C8
+	RELU_STORE_MACRO VSRC_4S_C1, VSRC_4S_C9, VSRC_16B_C1, VSRC_16B_C9
+	RELU_STORE_MACRO VSRC_4S_C2, VSRC_4S_CA, VSRC_16B_C2, VSRC_16B_CA
+	RELU_STORE_MACRO VSRC_4S_C3, VSRC_4S_CB, VSRC_16B_C3, VSRC_16B_CB
+	RELU_STORE_MACRO VSRC_4S_C4, VSRC_4S_CC, VSRC_16B_C4, VSRC_16B_CC
+	RELU_STORE_MACRO VSRC_4S_C5, VSRC_4S_CD, VSRC_16B_C5, VSRC_16B_CD
+	RELU_STORE_MACRO VSRC_4S_C6, VSRC_4S_CE, VSRC_16B_C6, VSRC_16B_CE
+	RELU_STORE_MACRO VSRC_4S_C7, VSRC_4S_CF, VSRC_16B_C7, VSRC_16B_CF
+
+	b __END
+
+__NORMAL_CASE:
 .macro STORE_MACRO, src_0:req, src_1:req
 	ld1 {VSRC_4S_C_LOW, VSRC_4S_C_HIGH}, [C]
 	scvtf \src_0, \src_0
@@ -252,6 +284,7 @@ __END:
 #define INT8SCALEOUT     r7
 #define CHANNEL          r8
 #define SLOPE            r9
+#define RELU             r9
 
 /************ Stack Param ***********/
 #define ST_LDC            [fp, #0]
@@ -260,6 +293,7 @@ __END:
 #define ST_INT8SCALEOUT   [fp, #12]
 #define ST_CHANNEL        [fp, #16]
 #define ST_SLOPE          [fp, #20]
+#define ST_RELU           [fp, #24]
 
 /************ Vector Regs ***********/
 /* RSV Q0~Q7 */
@@ -332,7 +366,7 @@ ABI: hard    r0 r1 r2 r3  [fp,#0]  [fp,#4]  [s0]      [s0]      [fp,#8]   [fp,#1
 ABI: softfp  r0 r1 r2 r3  [fp,#0]  [fp,#4]  [fp,#8]   [fp,#12]  [fp,#16]  [fp,#20]
 */
 
-/* void sgemm_8x8_pack_fix8( int L, char *a, int8_t *b, float *c, int ldc, float *int8scaleW, float *int8scaleIn, float *int8scaleOut, int ch, float *slopeDataPrelu) */
+/* void sgemm_8x8_pack_fix8( int L, char *a, int8_t *b, float *c, int ldc, float *int8scaleW, float *int8scaleIn, float *int8scaleOut, int ch, float *slopeDataPrelu, int fuse_relu) */
 	.text
 	.align 5
 #ifdef __APPLE__
@@ -398,7 +432,7 @@ __LOOP:
 
 __SLOPE:
         cmp SLOPE, #0
-        beq __NO_SLOPE
+        beq __RELU
 
         add SLOPE, SLOPE, CHANNEL
         vld1.32 {VSRC_4S_SLOPE}, [SLOPE]!
@@ -423,7 +457,31 @@ __SLOPE:
         SLOPE_STORE_MACRO VSRC_4S_C6, VSRC_4S_SLOPE_2
         SLOPE_STORE_MACRO VSRC_4S_C7, VSRC_4S_SLOPE_3
         b __END
-__NO_SLOPE:
+
+__RELU:
+        ldr RELU, ST_RELU                 /* load param from stack */
+        cmp RELU, #0
+        beq __NORMAL_CASE
+.macro RELU_STORE_MACRO, src_0:req
+        vld1.32 {VSRC_4S_C_LOW}, [C]
+	vcvt.f32.s32 \src_0, \src_0
+	vmul.f32 \src_0, \src_0, VSRC_4S_SCALEIN
+	vadd.f32 \src_0, \src_0, VSRC_4S_C_LOW
+        vcle.f32 VSRC_4S_MASK, \src_0, VSRC_4S_ZERO
+        vbsl VSRC_4S_MASK, VSRC_4S_ZERO, \src_0
+        vst1.32 {VSRC_4S_MASK}, [C], LDC
+.endm
+        RELU_STORE_MACRO VSRC_4S_C0
+        RELU_STORE_MACRO VSRC_4S_C1
+        RELU_STORE_MACRO VSRC_4S_C2
+        RELU_STORE_MACRO VSRC_4S_C3
+        RELU_STORE_MACRO VSRC_4S_C4
+        RELU_STORE_MACRO VSRC_4S_C5
+        RELU_STORE_MACRO VSRC_4S_C6
+        RELU_STORE_MACRO VSRC_4S_C7
+        b __END
+
+__NORMAL_CASE:
 .macro STORE_MACRO, src_0:req
         vld1.32 {VSRC_4S_C_LOW}, [C]
 	vcvt.f32.s32 \src_0, \src_0
