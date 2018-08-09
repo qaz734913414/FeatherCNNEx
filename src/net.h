@@ -44,6 +44,8 @@ public:
     int ExtractBlob(float* output_ptr, std::string blob_name);//Don't forget to free this memory.
     int config1x1ConvType(CONV_TYPE_E type);
     int configWinogradLowPrecision(bool flag);
+    int configSgemmLowPrecision(bool flag);
+    int configDropoutWork(bool flag);
     int configCrypto(const char * pSerialFile);
     int configCryptoBuffer(uint8_t* pKeyBuff);
     float* ExtractBlob(std::string blob_name);

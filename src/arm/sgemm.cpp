@@ -6329,6 +6329,7 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *
     {
         for(int j=0; j<fN; j+=8 )
         {
+#define SGEMM_FP16_ENABLE
 #ifdef SGEMM_FP16_ENABLE
             if(i == 0) internalPackB8FP16(L, packB + j * eL, b + j, ldb);
             // TODO: only support sharedPrelu == false case
@@ -6661,9 +6662,9 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
     }
 }
 
-void block_sgemm_external_pack_threading_8x8( int M, int N, int L, void *a, float *b, float *c, int num_threads, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu)
+void block_sgemm_external_pack_threading_8x8( int M, int N, int L, void *a, float *b, float *c, int num_threads, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool sgemmLowPrecision)
 {
-    if (M % 8 == 0)
+    if ((sgemmLowPrecision) && (M % 8 == 0))
     {
         sgemm_tiny_scale_fix_func sgemm_tiny_scale_fix;
 
@@ -6727,7 +6728,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, void *a, floa
         sgemm_tiny_scale_func sgemm_tiny_scale;
 
         int eM = M + (8 - M % 8) % 8;
-        printf("-%d (%d %d)-\n", N % 8, M, eM);
+        //printf("fp32 %d (%d %d)-\n", N % 8, M, eM);
         switch(N % 8)
         {
         case 1:

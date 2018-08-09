@@ -113,6 +113,18 @@ int Net::configWinogradLowPrecision(bool flag)
     return 0;
 }
 
+int Net::configSgemmLowPrecision(bool flag)
+{
+    this->rt_param->sgemmLowPrecision = flag;
+    return 0;
+}
+
+int Net::configDropoutWork(bool flag)
+{
+    this->rt_param->dropoutWork = flag;
+    return 0;
+}
+
 int Net::ExtractBlob(float* output_ptr, std::string name)
 {
     if (blob_map.find(std::string(name)) == blob_map.end())

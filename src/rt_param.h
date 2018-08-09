@@ -30,6 +30,8 @@ public:
         input_width = input_height = 0;
         type = CONV_TYPE_SGEMM;
         winogradLowPrecision = true;
+        sgemmLowPrecision = true;
+        dropoutWork = true;
         pNet = NULL;
     }
     RuntimeParameter(CommonMemPool<Dtype> *common_mempool, size_t num_threads)
@@ -51,6 +53,8 @@ public:
     unsigned input_height;
     CONV_TYPE_E type;
     bool winogradLowPrecision;
+    bool sgemmLowPrecision;
+    bool dropoutWork;
     void *pNet;
 
 private:

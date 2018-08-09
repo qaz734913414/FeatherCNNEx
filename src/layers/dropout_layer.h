@@ -26,15 +26,16 @@ public:
         : Layer(layer_param, rt_param)
     {
         const DropoutParameter *dropout_param = layer_param->dropout_param();
-        //scale = 1.0 - dropout_param->dropout_ratio();
-        scale = 1.0; /* dropout layer do no work just a dumy layer */
+        dropoutWork = rt_param->dropoutWork;
+        scale = 1.0 - dropout_param->dropout_ratio();
+        //scale = 1.0; /* dropout layer do no work just a dumy layer */
     }
 
     int Forward()
     {
         int size = w * h;
 
-        if (scale == 1.0f)
+        if (!dropoutWork || (scale == 1.0f))
         {
             memcpy(output, input, c*size*sizeof(float));
             Layer::Forward();
@@ -87,5 +88,6 @@ public:
 protected:
     float scale;
     int n, c, w, h;
+    bool dropoutWork;
 };
 };

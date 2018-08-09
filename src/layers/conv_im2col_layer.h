@@ -45,6 +45,7 @@ public:
         slopeDataPrelu = NULL;
         img_buffer = NULL;
         fuse_relu = false;
+        sgemmLowPrecision = rt_param->sgemmLowPrecision;
     }
 
     void relu_inplace(float *input, unsigned num_threads)
@@ -89,7 +90,7 @@ public:
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels * (int)kernel_width * (int)kernel_height,
                                                             packed_kernel, input, output, (int)num_threads, packB,
-                                                            bias_data, slopeDataPrelu, sharedPrelu);
+                                                            bias_data, slopeDataPrelu, sharedPrelu, sgemmLowPrecision);
 
                 else if (8 == this->fractions)
                     block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
@@ -124,7 +125,7 @@ public:
                     block_sgemm_external_pack_threading_8x8((int)output_channels, (int)output_width * (int)output_height,
                                                             (int)input_channels/group * (int)kernel_width * (int)kernel_height,
                                                             packed_kernel, img_buffer + k*block, output, (int)num_threads, packB,
-                                                            bias_data, slopeDataPrelu, sharedPrelu);
+                                                            bias_data, slopeDataPrelu, sharedPrelu, sgemmLowPrecision);
             }
             else
             {
@@ -316,9 +317,8 @@ public:
         if (0 == fractions) /* float32 */
         {
             unsigned elemSize = sizeof(float);
-#ifdef SGEMM_FP16_ENABLE
-            if (M % 8 == 0) elemSize = sizeof(fix16_t);
-#endif
+            if ((sgemmLowPrecision) && (M % 8 == 0)) elemSize = sizeof(fix16_t);
+
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, elemSize * eM * K));
             for(int i = 0; i< num_threads; i++)
                 MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], elemSize * kc * (int)output_width * (int)output_height));
@@ -348,11 +348,10 @@ public:
         {
             if (M % 8 == 0)
             {
-#ifdef SGEMM_FP16_ENABLE
-                externalPackA8_FP16(M, K, (short *)packed_kernel, kernel_data, K);
-#else
-                externalPackA8<float>(M, K, (float *)packed_kernel, kernel_data, K);
-#endif
+                if (sgemmLowPrecision)
+                    externalPackA8_FP16(M, K, (short *)packed_kernel, kernel_data, K);
+                else
+                    externalPackA8<float>(M, K, (float *)packed_kernel, kernel_data, K);
             }
             else /* if not align to 8, then we align to 4 */
                 externalPackA(M, K, (float *)packed_kernel, kernel_data, K);
@@ -392,5 +391,6 @@ private:
     bool sharedPrelu;
     float *slopeDataPrelu;
     bool fuse_relu;
+    bool sgemmLowPrecision;
 };
 };
