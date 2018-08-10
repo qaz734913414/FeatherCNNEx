@@ -187,6 +187,7 @@ void writeFileFloat(const char *pFname, float *pData, unsigned size)
     fclose(pfile);
 }
 
+#ifndef X86_PC
 void writeFileFloat16(const char *pFname, fix16_t *pData, unsigned size)
 {
     FILE* pfile = fopen(pFname, "wb");
@@ -204,6 +205,7 @@ void writeFileFloat16(const char *pFname, fix16_t *pData, unsigned size)
     }
     fclose(pfile);
 }
+#endif
 
 unsigned char* readFile(const char *pFileName)
 {
