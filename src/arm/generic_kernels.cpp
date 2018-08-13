@@ -83,21 +83,30 @@ template<bool fuse_relu>
 void add_relu(float* dst, const float* A, const float* B, const size_t len, const size_t num_threads)
 {
     float32x4_t vZero = vdupq_n_f32(0.0f);
-    #pragma omp parallel for num_threads(num_threads) schedule(static)
-    for(int i = 0; i < len; i+=4)
+
+    if (fuse_relu)
     {
-        float32x4_t vA = vld1q_f32(A + i);
-        float32x4_t vB = vld1q_f32(B + i);
-        float32x4_t vS = vaddq_f32(vA, vB);
-        if(fuse_relu)
+        #pragma omp parallel for num_threads(num_threads) schedule(static)
+        for(int i = 0; i < len; i+=4)
         {
+            float32x4_t vA = vld1q_f32(A + i);
+            float32x4_t vB = vld1q_f32(B + i);
+            float32x4_t vS = vaddq_f32(vA, vB);
             vst1q_f32(dst + i, vmaxq_f32(vS, vZero));
         }
-        else
+    }
+    else
+    {
+        #pragma omp parallel for num_threads(num_threads) schedule(static)
+        for(int i = 0; i < len; i+=4)
         {
+            float32x4_t vA = vld1q_f32(A + i);
+            float32x4_t vB = vld1q_f32(B + i);
+            float32x4_t vS = vaddq_f32(vA, vB);
             vst1q_f32(dst + i, vS);
         }
     }
+
     for(int i = len - len % 4; i < len; ++i)
     {
         float S = A[i] + B[i];
@@ -178,49 +187,52 @@ template void scale<false>(const size_t, const size_t, const float*, const float
 template<bool has_bias, bool has_scale, bool has_relu>
 void batchnorm(const size_t channels, const size_t stride, const float* alpha, const float* beta, const float* bias_data, const float* scale_data, const float* input, float* output, const size_t num_threads)
 {
+    uint32x4_t vzero;
+    vzero = veorq_u32(vzero, vzero);
+
     #pragma omp parallel for num_threads(num_threads)
     for (int i = 0; i < channels; i++)
     {
         int j = 0;
-#if 0
-        float32x4_t v_alpha = vdupq_n_f32(alpha[i]);
-        float32x4_t v_beta  = vdupq_n_f32(beta[i]);
-        float32x4_t v_scale = vdupq_n_f32(0.f);
-        float32x4_t v_bias = v_scale;
-        float32x4_t v_zero = v_scale;
+        float alpha_ch = alpha[i];
+        float beta_ch  = beta[i];
+        float scale_ch;
+        if(has_scale) scale_ch = scale_data[i];
+        float bias_ch;
+        if(has_bias) bias_ch = bias_data[i];
 
-        if(has_scale) v_scale = vdupq_n_f32(scale_data[i]);
-        if(has_bias) v_bias = vdupq_n_f32(bias_data[i]);
+#if 1
+        float32x4_t v_alpha = vdupq_n_f32(alpha_ch);
+        float32x4_t v_beta  = vdupq_n_f32(beta_ch);
+        float32x4_t v_scale, v_bias, v_zero;
 
-        const float *inputCur = input + i * stride;
-        float *outputCur = output + i * stride;
+        if(has_scale) v_scale = vdupq_n_f32(scale_ch);
+        if(has_bias)  v_bias  = vdupq_n_f32(bias_ch);
+        if(has_relu)  v_zero  = vreinterpretq_f32_u32(vzero);
 
+        const float *inputCh = input + i * stride;
+        float *outputCh = output + i * stride;
         for(; j < (int)stride - 4; j += 4)
         {
-            float32x4_t v_input = vld1q_f32(inputCur + j);
+            float32x4_t v_input = vld1q_f32(inputCh + j);
 #ifdef __aarch64__
             float32x4_t v_norm = vfmaq_f32(v_alpha, v_beta, v_input);
 #else
             float32x4_t v_norm = vmlaq_f32(v_alpha, v_beta, v_input);
 #endif
-            if(has_scale)
-                v_norm = v_norm * v_scale;
-            if(has_bias)
-                v_norm = v_norm + v_bias;
-            if(has_relu)
-                v_norm = vmaxq_f32(v_norm, v_zero);
-            vst1q_f32(outputCur + j, v_norm);
+            if(has_scale) v_norm = vmulq_f32(v_norm, v_scale);
+            if(has_bias)  v_norm = vaddq_f32(v_norm, v_bias);
+            if(has_relu)  v_norm = vmaxq_f32(v_norm, v_zero);
+            vst1q_f32(outputCh + j, v_norm);
         }
 #endif
+
         for(; j < stride; j++)
         {
-            float norm = beta[i] * input[i * stride +j] + alpha[i];
-            if(has_scale)
-                norm = norm * scale_data[i];
-            if(has_bias)
-                norm = norm + bias_data[i];
-            if(has_relu)
-                norm = (norm > 0) ? norm : 0;
+            float norm = beta_ch * input[i * stride +j] + alpha_ch;
+            if(has_scale) norm = norm * scale_ch;
+            if(has_bias)  norm = norm + bias_ch;
+            if(has_relu)  norm = (norm > 0) ? norm : 0;
             output[i * stride +j] = norm;
         }
     }

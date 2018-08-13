@@ -82,14 +82,14 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
         conv_layer->_subType = "Direct7x7";
     }
-    else if(group == 1 && kernel_height == 3 && kernel_width == 3 &&
+    else if(CONV_TYPE_DIRECT == rt_param->conv3x3Type && group == 1 && kernel_height == 3 && kernel_width == 3 &&
             ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)) &&
             input_channels <= 4)
     {
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
         conv_layer->_subType = "Direct3x3";
     }
-    else if(CONV_TYPE_DIRECT == rt_param->type && group == 1 && kernel_height == 1 && kernel_width == 1 &&
+    else if(CONV_TYPE_DIRECT == rt_param->conv1x1Type && group == 1 && kernel_height == 1 && kernel_width == 1 &&
             stride_height == 1 && stride_width == 1 &&
             input_channels <= 64 && output_channels <= 64)
     {

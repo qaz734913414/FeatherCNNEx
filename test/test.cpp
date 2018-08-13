@@ -221,7 +221,8 @@ int main(int argc, char *argv[])
     {
         Net *forward_net = new Net(num_threads);
         forward_net->config1x1ConvType(CONV_TYPE_SGEMM);
-        forward_net->configWinogradLowPrecision(false);
+        forward_net->config3x3ConvType(CONV_TYPE_SGEMM);
+        forward_net->configWinogradLowPrecision(true);
         forward_net->configSgemmLowPrecision(true);
         forward_net->configDropoutWork(true);
         forward_net->configCrypto(pSerialFile);

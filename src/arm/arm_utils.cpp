@@ -142,6 +142,47 @@ void from_rgb_submeans(unsigned char* rgb, int w, int h, float* dst, float *mean
     return;
 }
 
+void from_y_normal(unsigned char* pY, int w, int h, float* dst, float mean, float scale)
+{
+    int size = w * h;
+    int nn = size >> 3;
+    int i = 0;
+    int remain = size & 7;
+
+    float32x4_t mean32x4  = vdupq_n_f32(mean);
+    float32x4_t scale32x4 = vdupq_n_f32(scale);
+    float* ptr0 = dst;
+
+    #pragma omp parallel for num_threads(2)
+    for ( i = 0; i < nn; i++)
+    {
+        float *pdst = ptr0 + 8*i;
+
+        uint8x8_t _y = vld1_u8(pY + 8*i);
+        uint16x8_t _y16  = vmovl_u8(_y);
+
+        float32x4_t _ylow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_y16)));
+        float32x4_t _yhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_y16)));
+
+        _ylow  = vsubq_f32(_ylow, mean32x4);
+        _yhigh = vsubq_f32(_yhigh, mean32x4);
+
+        _ylow  = vmulq_f32(_ylow, scale32x4);
+        _yhigh = vmulq_f32(_yhigh, scale32x4);
+
+        vst1q_f32(pdst,   _ylow);
+        vst1q_f32(pdst+4, _yhigh);
+    }
+
+    pY   += 8*nn;
+    ptr0 += 8*nn;
+
+    for (i = 0; i < remain; i++)
+        *ptr0++ = ((float)*pY++ - mean)*scale;
+
+    return;
+}
+
 void from_rgb_normal_separate(unsigned char* rgb, int w, int h, float* dst, float *mean, float *scale, int bgr)
 {
     int size = w * h;

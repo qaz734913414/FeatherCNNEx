@@ -42,7 +42,8 @@ public:
     float*GetInputBuffer();
     int GetBlobDataSize(size_t* data_size, std::string blob_name);
     int ExtractBlob(float* output_ptr, std::string blob_name);//Don't forget to free this memory.
-    int config1x1ConvType(CONV_TYPE_E type);
+    int config1x1ConvType(CONV_TYPE_E conv1x1Type);
+    int config3x3ConvType(CONV_TYPE_E conv3x3Type);
     int configWinogradLowPrecision(bool flag);
     int configSgemmLowPrecision(bool flag);
     int configDropoutWork(bool flag);
@@ -58,7 +59,6 @@ public:
     unsigned max_top_blob_size;
     char max_top_blob_name[256];
     char net_name[256];
-    CONV_TYPE_E type;
     struct AES_ctx AESCtx;
     uint8_t key[16];
     uint32_t globalBranchIdx;

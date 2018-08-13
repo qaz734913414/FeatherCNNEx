@@ -127,6 +127,9 @@ public:
             for(unsigned i = 0; i < 16 * input_channels * output_channels; i += 4)
                 vst1q_f16_f32((void*)&UT_FIX[i], vld1q_f32(UT+i));
         }
+        /* free old conv weight */
+        delete _weight_blobs[0];
+        _weight_blobs.erase(_weight_blobs.begin()+0);
         if(bias_term && fuse_relu)
             winograd_out_type = BiasReLU;
         else if(bias_term)

@@ -62,10 +62,9 @@ int BatchNormLayer::Init(float *ginput, float *goutput)
     MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&alpha, input_channels* sizeof(float)));
     MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&beta, input_channels* sizeof(float)));
 
-    float *mean_data, *var_data;
-    mean_data  = _weight_blobs[0]->data();
-    var_data   = _weight_blobs[1]->data();
-    float scale_factor = 1 / *(_weight_blobs[2]->data());
+    float *mean_data  = _weight_blobs[0]->data();
+    float *var_data   = _weight_blobs[1]->data();
+    float scale_factor = 1.0f / *(_weight_blobs[2]->data());
     float eps = 1e-5;
     for (int i=0; i<input_channels; i++)
     {
@@ -97,10 +96,10 @@ int BatchNormLayer::Init(float *ginput, float *goutput)
 
 int BatchNormLayer::SetKernel()
 {
-    int pat_code = 0;
-    pat_code += (scale_bias_term) ? 0x1 : 0;
-    pat_code += (fuse_scale) ? 0x10 : 0;
-    pat_code += (fuse_relu) ? 0x100 : 0;
+    unsigned pat_code = 0;
+    pat_code |= (scale_bias_term) ? 0x1 : 0;
+    pat_code |= (fuse_scale) ? 0x10 : 0;
+    pat_code |= (fuse_relu) ? 0x100 : 0;
     //printf("pat_code %x\n", pat_code);
     switch(pat_code)
     {
@@ -129,7 +128,7 @@ int BatchNormLayer::SetKernel()
         bn_kernel = batchnorm<true, true, true>;
         break;
     default:
-        fprintf(stderr, "Invalid pattern code 0x%x for batchnorm kernel\n", pat_code);
+        printf("Invalid pattern code 0x%x for batchnorm kernel\n", pat_code);
         return -1;
     }
     return 0;

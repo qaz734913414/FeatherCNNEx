@@ -55,8 +55,8 @@ public:
         float *padded_input = packInput + packInputSize;           //Offset by sizeof WT
         if (0 != (padding_left + padding_top + padding_right + padding_bottom))
         {
-            makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, 1, .0f, num_threads);
-            //pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
+            //makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, 1, .0f, num_threads);
+            pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
         }
         else
             padded_input = input;
@@ -111,7 +111,7 @@ public:
             winograd_mem_size += inputw * inputh * input_channels; //Padded Input
         MEMPOOL_CHECK_RETURN(common_mempool->Request(winograd_mem_size * sizeof(float), this->name()+" ["+this->type()+"]"));
         MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&UT, 64 * input_channels * output_channels * sizeof(float)));
-        /* fix convet in transform stage not in model convert */
+        /* fp16 convet in transform stage not in model convert */
         transformKernel_F6x6_3x3(UT, kernel_data, input_channels, output_channels);
         if (winogradLowPrecision)
         {
@@ -119,6 +119,10 @@ public:
             for(unsigned i = 0; i < 64 * input_channels * output_channels; i += 4)
                 vst1q_f16_f32((void*)&UT_FIX[i], vld1q_f32(UT+i));
         }
+        /* free old conv weight */
+        delete _weight_blobs[0];
+        _weight_blobs.erase(_weight_blobs.begin()+0);
+
         if(bias_term && fuse_relu)
             winograd_out_type = BiasReLU;
         else if(bias_term && fuse_prelu)

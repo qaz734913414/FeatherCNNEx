@@ -282,7 +282,7 @@ __END:
 #define ST_LDC     [fp, #0]
 #define ST_CHANNEL [fp, #4]
 #define ST_SLOPE   [fp, #8]
-#define ST_RELU    [fp, #8]
+#define ST_RELU    [fp, #12]
 
 /* RSV Q0~Q7 */
 #define VSRC_4H_A0     d0
@@ -366,11 +366,11 @@ _sgemm_8x8_pack_fix:
 	.global sgemm_8x8_pack_fix
 sgemm_8x8_pack_fix:
 #endif
-	push {r4-r7, fp}
-	add fp, sp, #20
+	push {r4-r8, fp}
+	add fp, sp, #24
 	sub sp, sp, #STACK_SIZE
 
-	sub r4, fp, #148   /* [fp, -148] */
+	sub r4, fp, #152   /* [fp, -152] */
 	vstm r4, {s0-s15}
 
 	str C, ST_C        /* backup C into ST_C */

@@ -41,7 +41,6 @@ Net::Net(size_t num_threads)
     max_top_blob_size = 0;
     net_name[0] = 0;
     globalBranchIdx = 0;
-    type = CONV_TYPE_SGEMM;
 }
 
 int Net::configCrypto(const char * pSerialFile)
@@ -100,10 +99,15 @@ Net::~Net()
     //printf("Net deinit\n");
 }
 
-int Net::config1x1ConvType(CONV_TYPE_E type)
+int Net::config1x1ConvType(CONV_TYPE_E conv1x1Type)
 {
-    this->type = type;
-    this->rt_param->type = type;
+    this->rt_param->conv1x1Type = conv1x1Type;
+    return 0;
+}
+
+int Net::config3x3ConvType(CONV_TYPE_E conv3x3Type)
+{
+    this->rt_param->conv3x3Type = conv3x3Type;
     return 0;
 }
 
@@ -233,7 +237,11 @@ int Net::Forward()
         //if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
         t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
 #endif
-        //printf(" [%03d] %s %s %s\n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
+
+#if 0
+        if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
+            printf(" [%03d] %s %s %s\n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
+#endif
     }
     return 0;
 }

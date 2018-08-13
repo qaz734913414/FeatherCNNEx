@@ -78,9 +78,10 @@ public:
     int Forward()
     {
 #if 0
-        printf("[%d %d] [%d %d] [b: %d f: %d g: %d] [%d %d %d] [%d %d %d] [%d] [fuse: %d] %p %p %d\n",
+        printf("[%d %d] [%d %d] [b: %d f: %d g: %d] [%d %d %d] [%d %d %d] [%d] [fuse: %d] %p %p %d pad[%d %d %d %d]\n",
                kernel_width, kernel_height, stride_width, stride_height, bias_term, this->fractions, group,
-               input_channels, input_height, input_width, output_channels, output_height, output_width, num_threads, fuse_prelu, bias_data, slopeDataPrelu, sharedPrelu);
+               input_channels, input_height, input_width, output_channels, output_height, output_width,
+               num_threads, fuse_prelu, bias_data, slopeDataPrelu, sharedPrelu, padding_left, padding_right, padding_top, padding_bottom);
 #endif
         if(kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1 && padding_left == 0 && padding_right == 0 && padding_top == 0 && padding_bottom == 0)
         {
@@ -101,15 +102,21 @@ public:
                     block_sgemm_external_pack_threading_8x8Fix((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
                             (short *)packed_kernel, input, output, (int)num_threads, packB,
-                            bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
+                            bias_data, slopeDataPrelu, sharedPrelu, fuse_relu, this->fractions);
 
             }
             else
             {
-                block_sgemm_external_pack_threading((int)output_channels, (int)output_width * (int)output_height,
-                                                    (int)input_channels * (int)kernel_width * (int)kernel_height,
-                                                    (float *)packed_kernel, input, output, (int)num_threads, packB,
-                                                    bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
+                if (!sgemmLowPrecision)
+                    block_sgemm_external_pack_threading<float>((int)output_channels, (int)output_width * (int)output_height,
+                            (int)input_channels * (int)kernel_width * (int)kernel_height,
+                            (float *)packed_kernel, input, output, (int)num_threads, (float**)packB,
+                            bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
+                else
+                    block_sgemm_external_pack_threading<float16_t>((int)output_channels, (int)output_width * (int)output_height,
+                            (int)input_channels * (int)kernel_width * (int)kernel_height,
+                            (float16_t *)packed_kernel, input, output, (int)num_threads, (float16_t**)packB,
+                            bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
             }
         }
         else
@@ -129,17 +136,21 @@ public:
             }
             else
             {
-                for(int k=0; k<group; k++)
-                    block_sgemm_external_pack_threading((int)output_channels, (int)output_width * (int)output_height,
-                                                        (int)input_channels/group * (int)kernel_width * (int)kernel_height,
-                                                        (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, packB,
-                                                        bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
+                if (!sgemmLowPrecision)
+                    for(int k=0; k<group; k++)
+                        block_sgemm_external_pack_threading<float>((int)output_channels, (int)output_width * (int)output_height,
+                                (int)input_channels/group * (int)kernel_width * (int)kernel_height,
+                                (float *)packed_kernel, img_buffer + k*block, output, (int)num_threads, (float**)packB,
+                                bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
+                else
+                    for(int k=0; k<group; k++)
+                        block_sgemm_external_pack_threading<float16_t>((int)output_channels, (int)output_width * (int)output_height,
+                                (int)input_channels/group * (int)kernel_width * (int)kernel_height,
+                                (float16_t *)packed_kernel, img_buffer + k*block, output, (int)num_threads, (float16_t**)packB,
+                                bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
             }
         }
-#if 0
-        if ((fuse_relu) && (output_channels % 8 == 0))
-            relu_inplace(output, num_threads);
-#endif
+
         Layer::Forward();
         return 0;
     }
@@ -317,7 +328,7 @@ public:
         if (0 == fractions) /* float32 */
         {
             unsigned elemSize = sizeof(float);
-            if ((sgemmLowPrecision) && (M % 8 == 0)) elemSize = sizeof(fix16_t);
+            if (sgemmLowPrecision) elemSize = sizeof(float16_t);
 
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, elemSize * eM * K));
             for(int i = 0; i< num_threads; i++)
@@ -354,21 +365,35 @@ public:
                     externalPackA8<float>(M, K, (float *)packed_kernel, kernel_data, K);
             }
             else /* if not align to 8, then we align to 4 */
-                externalPackA(M, K, (float *)packed_kernel, kernel_data, K);
+            {
+                if (sgemmLowPrecision)
+                    externalPackA_FP16(M, K, (float16_t *)packed_kernel, kernel_data, K);
+                else
+                    externalPackA<float>(M, K, (float *)packed_kernel, kernel_data, K);
+            }
+            /* free old conv weight */
+            delete _weight_blobs[0];
+            _weight_blobs.erase(_weight_blobs.begin()+0);
         }
         else if (8 == this->fractions) /* int8 */
         {
             if (M % 8 == 0)
                 externalPackA8<int8_t>(M, K, (int8_t *)packed_kernel, kernel_data_fix8, K);
             else
-                externalPackA(M, K, (int8_t *)packed_kernel, kernel_data_fix8, K);
+                externalPackA<int8_t>(M, K, (int8_t *)packed_kernel, kernel_data_fix8, K);
+            /* free old conv weight */
+            delete _weight_blobs_fix8[0];
+            _weight_blobs_fix8.erase(_weight_blobs_fix8.begin()+0);
         }
         else /* fix16 */
         {
             if (M % 8 == 0)
                 externalPackA8<short>(M, K, (short *)packed_kernel, kernel_data_fix, K);
             else
-                externalPackA(M, K, (short *)packed_kernel, kernel_data_fix, K);
+                externalPackA<short>(M, K, (short *)packed_kernel, kernel_data_fix, K);
+            /* free old conv weight */
+            delete _weight_blobs_fix[0];
+            _weight_blobs_fix.erase(_weight_blobs_fix.begin()+0);
         }
 
         if ((NULL != ginput) && (NULL != goutput))
