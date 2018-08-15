@@ -269,7 +269,11 @@ static void entropy(float *P, unsigned size)
 void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, uint32_t crypto)
 {
     struct AES_ctx ctx;
-    if (0 != crypto) AES_init_ctx_iv(&ctx, key, iv);
+    if (0 != crypto)
+    {
+        AES_init_ctx_iv(&ctx, key, iv);
+        printf("Encrpty init ok\n");
+    }
 
     std::string OutputLayerName;
     {
@@ -454,7 +458,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             if (layer_type.compare("Convolution")==0)
             {
                 auto caffe_conv_param = caffe_layer.convolution_param();
-                unsigned k_w, k_h;
+                unsigned k_w, k_h, pad_w, pad_h, step_h, step_w;;
                 if(caffe_conv_param.kernel_size_size() == 1)
                 {
                     k_w = k_h = caffe_conv_param.kernel_size(0);
@@ -478,7 +482,46 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     }
                 }
 
-                if ((1 == k_h) && (1 == k_w))
+                if(caffe_conv_param.pad_size() == 1)
+                {
+                    pad_h = pad_w = caffe_conv_param.pad(0);
+                }
+                else if(caffe_conv_param.pad_size() == 2)
+                {
+                    pad_h = caffe_conv_param.pad(0);
+                    pad_w = caffe_conv_param.pad(1);
+                }
+                else if(caffe_conv_param.pad_size() == 0 && caffe_conv_param.has_pad_h() && caffe_conv_param.has_pad_w())
+                {
+                    pad_h = caffe_conv_param.pad_h();
+                    pad_w = caffe_conv_param.pad_w();
+                }
+                else
+                {
+                    pad_h = pad_w = 0;
+                }
+
+                if(caffe_conv_param.stride_size() == 1)
+                {
+                    step_h = step_w = caffe_conv_param.stride(0);
+                }
+                else if(caffe_conv_param.stride_size() == 2)
+                {
+                    step_h = caffe_conv_param.stride(0);
+                    step_w = caffe_conv_param.stride(1);
+                }
+                else if(caffe_conv_param.stride_size() == 0)
+                {
+                    step_h = step_w = 1;
+                }
+                else
+                {
+                    PRINTF("\nERR: code should not reach here as wrong stride size\n");
+                    exit(-1);
+                }
+
+                if ((1 == k_h) && (1 == k_w) && (0 == pad_h) && (0 == pad_w) &&
+                    (1 == step_h) && (1 == step_w) && (0 == (caffe_conv_param.num_output()%8)))
                 {
                     fractions = frac;
                 }
@@ -538,8 +581,6 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 for(int k = 0; k != caffe_blob.data_size(); ++k)
                 {
                     float data = caffe_blob.data(k);
-                    if(layer_type.compare("PReLU")==0)
-                        ;//PRINTF("PRelu [%02d/%02d] %f\n", k, caffe_blob.data_size(), data);
                     /* only weight blob of Conv layer do fix16 change (bias ignore) */
                     if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
                     {
@@ -570,6 +611,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 {
                     //entropy(&blob_data_vec[0], blob_data_vec.size());
                     //scaleThre = getOptimalThreshold(&blob_data_vec[0], blob_data_vec.size());
+                    if (int8scaleMap.count(layer_name+"_param_0") <= 0)
+                        printf("Int8 table, key %s not found\n", layer_name.c_str());
                     float int8scalew = int8scaleMap[layer_name+"_param_0"]; //get int8scalew from int8 table file
                     for(int k = 0; k != caffe_blob.data_size(); ++k)
                     {
@@ -642,6 +685,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                         }
                         realSize = blob_data_vec_fix8.size();
                         blob_data_fbvec_fix8 = fbb.CreateVector<int8_t>(blob_data_vec_fix8);
+                        printf("%d %d %d %d\n", blob_data_vec_fix8[0], blob_data_vec_fix8[1], blob_data_vec_fix8[2], blob_data_vec_fix8[3]);
                     }
                     else
                     {
@@ -776,14 +820,14 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     blob_builder.add_fractions(0);
                     blob_builder.add_crypto(crypto);
                     PRINTF(" 0]\n");
-                    printf("crypto: %d validSize: %d, realSize: %d\n", crypto, validSize, realSize);
+                    PRINTF("crypto: %d validSize: %d, realSize: %d\n", crypto, validSize, realSize);
                 }
                 else
                 {
                     blob_builder.add_fractions(0);
                     blob_builder.add_crypto(0);
                     PRINTF(" 0]\n");
-                    printf("crypto: %d validSize: %d, realSize: %d\n", 0, validSize, realSize);
+                    PRINTF("crypto: %d validSize: %d, realSize: %d\n", 0, validSize, realSize);
                 }
                 blob_builder.add_num(num);
                 blob_builder.add_channels(channels);
@@ -920,15 +964,20 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 PRINTF("+ fractions %u\n", fractions);
                 if (8 == fractions)
                 {
+                    if (int8scaleMap.count(layer_name+"_param_0") <= 0)
+                        printf("Int8 table, weight key %s not found\n", (layer_name+"_param_0").c_str());
+                    if (int8scaleMap.count(layer_name) <= 0)
+                        printf("Int8 table, input key %s not found\n", layer_name.c_str());
+
                     float int8scalew = int8scaleMap[layer_name+"_param_0"];
-                    float int8scaleIn = int8scaleMap[caffe_layer.bottom(0)];
+                    float int8scaleIn = int8scaleMap[layer_name];
                     float int8scaleOut = .0;
                     conv_param_builder.add_int8scaleW(int8scalew);
                     conv_param_builder.add_int8scaleIn(int8scaleIn);
                     conv_param_builder.add_int8scaleOut(int8scaleOut);
-                    PRINTF("+ int8scaleW %f\n", int8scalew);
-                    PRINTF("+ int8scaleIn %f\n", int8scaleIn);
-                    PRINTF("+ int8scaleOut %f\n", int8scaleOut);
+                    printf("+ int8scaleW %f\n", int8scalew);
+                    printf("+ int8scaleIn %f\n", int8scaleIn);
+                    printf("+ int8scaleOut %f\n", int8scaleOut);
                 }
                 else
                 {
@@ -1213,12 +1262,12 @@ int main(int argc, char *argv[])
     float threshold = 0.02f;
     if (argc < 3 || argc > 9)
     {
-        printf("Usage: ./caffe_model_convert $1(caffe_prototxt) $2(caffe_model_name) [$3(output_model_name_prefix)] [$4(fractions)] [$5(threshold)] [$6(crypto)] [$7(SerialFile)] [$7(Int8ScaleFile)]\n");
+        printf("Usage: ./caffe_model_convert $1(caffe_prototxt) $2(caffe_model_name) [$3(output_model_name_prefix)] [$4(fractions)] [$5(threshold)] [$6(crpty)] [$7(SNFile)] [$9(Int8ScaleFile)]\n");
         return -1;
     }
+    std::string output_model_name = "out";
     std::string caffe_prototxt_name = argv[1];
     std::string caffe_model_name = argv[2];
-    std::string output_model_name = "out";
     if (argc > 3) output_model_name = (argv[3]);
     if (argc > 4) fractions = atoi(argv[4]);
     if (argc > 5) threshold = atof(argv[5]);
@@ -1227,22 +1276,26 @@ int main(int argc, char *argv[])
     if (argc > 8) pInt8ScaleFile = argv[8];
 
     printf("%s caffe proto: %s caffe model: %s featherCNN: %s fractions:%d threshold:%.3f crypto:%d SerialFile: %s Int8ScaleFile: %s\n", argv[0], argv[1], argv[2], output_model_name.c_str(), fractions, threshold, crypto, pSerialFile, pInt8ScaleFile);
-    unsigned char *pFileBuff = readFile(pSerialFile);
-    if (NULL != pFileBuff)
+    if ((NULL != pSerialFile) && (0 != crypto))
     {
-        memcpy(key, pFileBuff, 16);
-        free(pFileBuff);
-        printf("Key:\n");
-        for(int i = 0 ; i < 16; i++)
-        {
-            if ((0 != i)&& (0 == i % 16))
-                printf("\n");
-            printf("0x%x, ", key[i]);
-        }
-        printf("\n");
+	    unsigned char *pFileBuff = readFile(pSerialFile);
+	    if (NULL != pFileBuff)
+	    {
+	        memcpy(key, pFileBuff, 16);
+	        free(pFileBuff);
+	        printf("Key:\n");
+	        for(int i = 0 ; i < 16; i++)
+	        {
+	            if ((0 != i)&& (0 == i % 16))
+	                printf("\n");
+	            printf("0x%x, ", key[i]);
+	        }
+	        printf("\n");
+	    }
     }
 
-    parseInt8ScaleFile(int8scaleMap, pInt8ScaleFile);
+    if (NULL != pInt8ScaleFile)
+        parseInt8ScaleFile(int8scaleMap, pInt8ScaleFile);
 
     CaffeModelWeightsConvert convert(caffe_prototxt_name, caffe_model_name, output_model_name);
     if (false == convert.Convert())
@@ -1250,6 +1303,7 @@ int main(int argc, char *argv[])
         printf("Read file failed\n");
         return -2;
     }
+
     convert.SaveModelWeights(fractions, threshold, crypto);
     return 0;
 }
