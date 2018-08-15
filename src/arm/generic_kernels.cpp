@@ -87,37 +87,32 @@ void add_relu(float* dst, const float* A, const float* B, const size_t len, cons
     if (fuse_relu)
     {
         #pragma omp parallel for num_threads(num_threads) schedule(static)
-        for(int i = 0; i < len; i+=4)
+        for(int i = 0; i < len; i += 4)
         {
             float32x4_t vA = vld1q_f32(A + i);
             float32x4_t vB = vld1q_f32(B + i);
             float32x4_t vS = vaddq_f32(vA, vB);
             vst1q_f32(dst + i, vmaxq_f32(vS, vZero));
         }
+        for(int i = len - len % 4; i < len; ++i)
+        {
+            float S = A[i] + B[i];
+            dst[i] = S > 0.0f ? S : 0.0f;
+        }
     }
     else
     {
         #pragma omp parallel for num_threads(num_threads) schedule(static)
-        for(int i = 0; i < len; i+=4)
+        for(int i = 0; i < len; i += 4)
         {
             float32x4_t vA = vld1q_f32(A + i);
             float32x4_t vB = vld1q_f32(B + i);
             float32x4_t vS = vaddq_f32(vA, vB);
             vst1q_f32(dst + i, vS);
         }
-    }
 
-    for(int i = len - len % 4; i < len; ++i)
-    {
-        float S = A[i] + B[i];
-        if(fuse_relu)
-        {
-            dst[i] = S > 0.0f ? S : 0.0f;
-        }
-        else
-        {
-            dst[i] = S;
-        }
+        for(int i = len - len % 4; i < len; ++i)
+            dst[i] = A[i] + B[i];
     }
 }
 template void add_relu<true>(float* dst, const float* A, const float* B, const size_t len, const size_t num_threads);
@@ -187,8 +182,10 @@ template void scale<false>(const size_t, const size_t, const float*, const float
 template<bool has_bias, bool has_scale, bool has_relu>
 void batchnorm(const size_t channels, const size_t stride, const float* alpha, const float* beta, const float* bias_data, const float* scale_data, const float* input, float* output, const size_t num_threads)
 {
+#if 0
     uint32x4_t vzero;
     vzero = veorq_u32(vzero, vzero);
+#endif
 
     #pragma omp parallel for num_threads(num_threads)
     for (int i = 0; i < channels; i++)
@@ -201,7 +198,7 @@ void batchnorm(const size_t channels, const size_t stride, const float* alpha, c
         float bias_ch;
         if(has_bias) bias_ch = bias_data[i];
 
-#if 1
+#if 0
         float32x4_t v_alpha = vdupq_n_f32(alpha_ch);
         float32x4_t v_beta  = vdupq_n_f32(beta_ch);
         float32x4_t v_scale, v_bias, v_zero;

@@ -310,6 +310,7 @@ __END:
 
 #define VSRC_8H_B     q1
 #define VSRC_8B_B     d2
+#define VSRC_4B_B     s4
 #define VSRC_4H_B     d2
 
 #define VSRC_4S_SCALEW  q0
@@ -385,7 +386,9 @@ sgemm_8x8_pack_fix8:
 	ldr LDC, ST_LDC                   /* load param from stack */
 	lsl LDC, LDC, #2
 	ldr INT8SCALEW, ST_INT8SCALEW     /* load param from stack */
+	ldr INT8SCALEW, [INT8SCALEW]
 	ldr INT8SCALEIN, ST_INT8SCALEIN   /* load param from stack */
+	ldr INT8SCALEIN, [INT8SCALEIN]
 	ldr CHANNEL, ST_CHANNEL           /* load param from stack */
 	ldr SLOPE, ST_SLOPE               /* load param from stack */
 
@@ -405,12 +408,14 @@ sgemm_8x8_pack_fix8:
 __LOOP:
 	vld1.8 {VSRC_8B_A}, [A]!
 	subs L, L, #1
-	vld1.8 {VSRC_8B_B}, [B]!
+	//vld1.8 {VSRC_8B_B}, [B]!
+	fldmias B, {VSRC_4B_B}
         vmovl.s8 VSRC_8H_A, VSRC_8B_A
 	pld [B, #8]
         vmovl.s8 VSRC_8H_B, VSRC_8B_B
 
 	vmlal.s16 VSRC_4S_C0, VSRC_4H_B, VSRC_8H_A_0
+	add B, B, #8
 	vmlal.s16 VSRC_4S_C1, VSRC_4H_B, VSRC_8H_A_1
 	pld [A, #8]
 	vmlal.s16 VSRC_4S_C2, VSRC_4H_B, VSRC_8H_A_2

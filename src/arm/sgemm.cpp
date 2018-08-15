@@ -22,7 +22,7 @@
 
 extern "C" void internalPackB8FP16(int L, short* packB, float* B, int ldb);
 extern "C" void internalPackB8Fix(int L, short* packB, float* B, int ldb);
-extern "C" void internalPackB8Fix8(int L, int8_t* packB, float* B, int ldb, float int8scaleIn);
+extern "C" void internalPackB8Fix8(int L, int8_t* packB, float* B, int ldb, float *int8scaleIn);
 
 extern "C" void sgemm_8x8_pack_fix8( int L, int8_t *a, int8_t *b, float *c, int ldc, float* int8scaleW, float *int8scaleIn, float *int8scaleOut, int ch, float *slopeDataPrelu, bool fuse_relu);
 /* pay attention to follow api, arm32 api diff with arm64 need be call twice */
@@ -1510,6 +1510,8 @@ static void sgemm_8x1_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     cptr += ldc;
     vcE[3] = *cptr;
 
+    int8scaleW = 1.0/int8scaleW;
+
     for(int p = 0; p < L; ++p)
     {
         b4  = *(bptr);
@@ -2061,6 +2063,8 @@ static void sgemm_8x2_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     cptr += ldc;
     vcE[3] = *cptr;
     vcF[3] = *(cptr+1);
+
+    int8scaleW = 1.0/int8scaleW;
 
     for(int p = 0; p < L; ++p)
     {
@@ -2829,6 +2833,8 @@ static void sgemm_8x3_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     vcE[3] = *cptr;
     vcF[3] = *(cptr+1);
     vcG[3] = *(cptr+2);
+
+    int8scaleW = 1.0/int8scaleW;
 
     for(int p = 0; p < L; ++p)
     {
@@ -3783,6 +3789,8 @@ static void sgemm_8x4_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     cptr += ldc;
     vcD = vld1q_f32(cptr);
 
+    int8scaleW = 1.0/int8scaleW;
+
     for(int p = 0; p < L; ++p)
     {
         vb  = vld1q_f32(bptr);
@@ -3806,15 +3814,15 @@ static void sgemm_8x4_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         vcC = vfmaq_laneq_f32(vcC, vb, va1, 2);
         vcD = vfmaq_laneq_f32(vcD, vb, va1, 3);
 #else
-        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
-        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
-        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
-        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
+        vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va0),  0);
+        vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va0),  1);
+        vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va0), 0);
+        vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va0), 1);
 
-        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
-        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
-        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
-        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
+        vcA = vmlaq_lane_f32(vcA, vb, vget_low_f32(va1),  0);
+        vcB = vmlaq_lane_f32(vcB, vb, vget_low_f32(va1),  1);
+        vcC = vmlaq_lane_f32(vcC, vb, vget_high_f32(va1), 0);
+        vcD = vmlaq_lane_f32(vcD, vb, vget_high_f32(va1), 1);
 #endif // __aarch64__
 
         bptr += ldb;
@@ -4528,6 +4536,8 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     vcD = vld1q_f32(cptr);
     vcE[3] = *(cptr + 4);
 
+    int8scaleW = 1.0/int8scaleW;
+
     for(int p = 0; p < L; ++p)
     {
         vb  = vld1q_f32(bptr);
@@ -4557,15 +4567,15 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
 
         vcE = vfmaq_n_f32(vcE, va1, b4);
 #else
-        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
-        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
-        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
-        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
+        vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va0),  0);
+        vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va0),  1);
+        vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va0), 0);
+        vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va0), 1);
 
-        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
-        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
-        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
-        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
+        vcA = vmlaq_lane_f32(vcA, vb, vget_low_f32(va1),  0);
+        vcB = vmlaq_lane_f32(vcB, vb, vget_low_f32(va1),  1);
+        vcC = vmlaq_lane_f32(vcC, vb, vget_high_f32(va1), 0);
+        vcD = vmlaq_lane_f32(vcD, vb, vget_high_f32(va1), 1);
 
         //A row in A multiplies a single value in B by column
         vc4 = vmlaq_n_f32(vc4, va0, b4);
@@ -5497,6 +5507,8 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     vcE[3] = *(cptr + 4);
     vcF[3] = *(cptr + 5);
 
+    int8scaleW = 1.0/int8scaleW;
+
     for(int p = 0; p < L; ++p)
     {
         vb  = vld1q_f32(bptr);
@@ -5529,15 +5541,15 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         vcE = vfmaq_n_f32(vcE, va1, b4);
         vcF = vfmaq_n_f32(vcF, va1, b5);
 #else
-        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
-        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 0));
-        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 0));
-        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 0));
+        vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va0),  0);
+        vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va0),  1);
+        vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va0), 0);
+        vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va0), 1);
 
-        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
-        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
-        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
-        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
+        vcA = vmlaq_lane_f32(vcA, vb, vget_low_f32(va1),  0);
+        vcB = vmlaq_lane_f32(vcB, vb, vget_low_f32(va1),  1);
+        vcC = vmlaq_lane_f32(vcC, vb, vget_high_f32(va1), 0);
+        vcD = vmlaq_lane_f32(vcD, vb, vget_high_f32(va1), 1);
 
         //A row in A multiplies a single value in B by column
         vc4 = vmlaq_n_f32(vc4, va0, b4);
@@ -6677,6 +6689,8 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     vcF[3] = *(cptr + 5);
     vcG[3] = *(cptr + 6);
 
+    int8scaleW = 1.0/int8scaleW;
+
     for(int p = 0; p < L; ++p)
     {
         vb  = vld1q_f32(bptr);
@@ -6712,15 +6726,15 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         vcF = vfmaq_n_f32(vcF, va1, b5);
         vcG = vfmaq_n_f32(vcG, va1, b6);
 #else
-        vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
-        vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
-        vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
-        vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
+        vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va0),  0);
+        vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va0),  1);
+        vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va0), 0);
+        vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va0), 1);
 
-        vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
-        vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
-        vcC = vmlaq_f32(vcC, vb, vld1q_dup_f32(aptr + 6));
-        vcD = vmlaq_f32(vcD, vb, vld1q_dup_f32(aptr + 7));
+        vcA = vmlaq_lane_f32(vcA, vb, vget_low_f32(va1),  0);
+        vcB = vmlaq_lane_f32(vcB, vb, vget_low_f32(va1),  1);
+        vcC = vmlaq_lane_f32(vcC, vb, vget_high_f32(va1), 0);
+        vcD = vmlaq_lane_f32(vcD, vb, vget_high_f32(va1), 1);
 
         //A row in A multiplies a single value in B by column
         vc4 = vmlaq_n_f32(vc4, va0, b4);
@@ -8610,12 +8624,14 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t
     (void)packA;
     (void)bias_data;
 
+    //printf("-%s %d %f %f %f %d %p %p %d %d-\n", __func__, __LINE__, int8scaleW, int8scaleIn, int8scaleOut, remN, bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
+
     for(int i=0; i<M; i+=8 )
     {
         for(int j=0; j<fN; j+=8 )
         {
             if(i == 0)
-                internalPackB8Fix8(L, packB + j * eL, b + j, ldb, int8scaleIn);
+                internalPackB8Fix8(L, packB + j * eL, b + j, ldb, &int8scaleIn);
             sgemm_8x8_pack_fix8(L, a + i * L, packB + j * eL, c + i * ldc + j, ldc, &int8scaleW, &int8scaleIn, &int8scaleOut, i, slopeDataPrelu, fuse_relu);
 #ifndef __aarch64__
             /* arm32 split into two stage for better performance */
@@ -8625,6 +8641,7 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t
         if(remN)
             sgemm_tiny_scale_fix8(L, a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc, int8scaleW, int8scaleIn, int8scaleOut, i, bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
     }
+    //printf("-%s %d-\n", __func__, __LINE__);
 }
 
 static void SGEBP_externalPackA_tiny_scale_8x8( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, float* packB, sgemm_tiny_scale_func sgemm_tiny_scale, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
@@ -8797,7 +8814,7 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
 {
     sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8;
     int eM = M + (8 - M % 8) % 8;
-    //printf("-%d-\n", N % 8);
+    //printf("-N %% 8 %d-\n", N % 8);
     switch(N % 8)
     {
     case 1:

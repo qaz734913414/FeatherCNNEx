@@ -92,12 +92,13 @@ public:
                                                             (int)input_channels * (int)kernel_width * (int)kernel_height,
                                                             packed_kernel, input, output, (int)num_threads, packB,
                                                             bias_data, slopeDataPrelu, sharedPrelu, sgemmLowPrecision, fuse_relu);
-
                 else if (8 == this->fractions)
+                {
                     block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
                             (int8_t *)packed_kernel, input, output, (int)num_threads, int8scaleW, int8scaleIn, int8scaleOut, packB,
                             bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
+                }
                 else
                     block_sgemm_external_pack_threading_8x8Fix((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
@@ -289,6 +290,29 @@ public:
             }
         }
         return true;
+    }
+
+    int GenerateTopBlobs()
+    {
+        const Blob<float> *bottom_blob = _bottom_blobs[_bottom[0]];
+        input_width = bottom_blob->width();
+        input_height = bottom_blob->height();
+        input_channels = bottom_blob->channels();
+        if (stride_width == 0 || stride_height == 0)
+        {
+            stride_width = 1;
+            stride_height = 1;
+        }
+        output_width = (input_width + padding_left + padding_right - kernel_width) / stride_width + 1;
+        output_height = (input_height + padding_top + padding_bottom - kernel_height) / stride_height + 1;
+
+        int M = (int)output_channels;
+        int eM = M + (8 - M % 8) % 8; /* extend M make sure 8 aligned */
+
+        _top_blobs[_top[0]] = new Blob<float>(1, eM, output_height, output_width);
+        _top_blobs[_top[0]]->_name = "Top";
+        //_top_blobs[_top[0]]->Alloc(); //no need malloc, use net global input/output memory
+        return 0;
     }
 
     int Fuse(Layer *next_layer)
