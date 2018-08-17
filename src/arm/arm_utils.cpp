@@ -406,16 +406,24 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
     roiWDiv16 = (roiW - offsetW)>>4;
     roiWHas8  = (roiW - offsetW)&8;
     roiWLeft  = (roiW - offsetW)&7;
-
+#ifdef __aarch64__
     int16x8_t vsrc16x8_16  = vdupq_n_s16(16);
     int16x8_t vsrc16x8_128 = vdupq_n_s16(128);
     int32x4_t vsrc32x4_128 = vdupq_n_s32(128);
     int16x8_t vsrc16x8_0   = vdupq_n_s16(0);
     int16x8_t vsrc16x8_255 = vdupq_n_s16(255);
+#endif
 
     #pragma omp parallel for num_threads(num_threads)
     for( j = 0; j < roiH; j++)
     {
+#ifndef __aarch64__
+        int16x8_t vsrc16x8_16  = vdupq_n_s16(16);
+        int16x8_t vsrc16x8_128 = vdupq_n_s16(128);
+        int32x4_t vsrc32x4_128 = vdupq_n_s32(128);
+        int16x8_t vsrc16x8_0   = vdupq_n_s16(0);
+        int16x8_t vsrc16x8_255 = vdupq_n_s16(255);
+#endif
         const unsigned char *pCurY  = y + j*stride;
         const unsigned char *pCurUV = uv + ((j+offsetH)/2)*stride;
         unsigned char *pDstCur      = pDst + j*roiW*3;
