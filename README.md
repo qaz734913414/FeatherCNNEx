@@ -21,5 +21,7 @@ QQ Group: 420089534
 Wechat: iuaufnael
 
 ## BenchMark
-<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/FeatherCNNExVSNCNN.jpeg">
-<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/MeiZu_Benchmark.jpeg">
+<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/squeeze_resnet18.jpeg">
+<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/mobile.jpeg">
+<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/isnet.jpeg">
+<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/mtcnn.jpeg">
