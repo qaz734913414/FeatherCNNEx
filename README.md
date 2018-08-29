@@ -7,18 +7,16 @@ This project fork from Tencent FeatherCNN(https://github.com/Tencent/FeatherCNN)
 4. model encrpty (AES CBC encrpty)
 5. add some common cv img process arm neon api(such as img resize, submean, bgr2rgb. nv122rgb_roi)
 6. introduce NCNN(https://github.com/Tencent/ncnn) direct conv op into this framework to get better performance for some special model.
-7. int8 SGEMM feature support(not test yet).
+7. int8 SGEMM feature support(only 1x1 sgemm support, future we will support more conv model).
 
 Thanks Tencent FeatherCNN & NCNN team.
 
 ## Future Work:
-We are now trying int8 SGEMM, hoping for good performance, :)
+More int8 conv model support.
 
 ## Contact Info:
-Hoping for your contribution
-Author Email: tianylijun@163.com
-QQ Group: 420089534
-Wechat: iuaufnael
+1. Author Email: tianylijun@163.com 
+2. QQ Group: 420089534 
 
 ## BenchMark
 <img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/squeeze_resnet18.jpeg">
