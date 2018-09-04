@@ -52,10 +52,10 @@ int BatchNormLayer::Fuse(Layer *next_layer)
         return 0;
 }
 
-int BatchNormLayer::Init(float *ginput, float *goutput)
+int BatchNormLayer::Init()
 {
     const Blob<float>* p_blob = _bottom_blobs[_bottom[0]];
-    input_channels = p_blob->channels();
+    input_channels = p_blob->validChannels();
     input_height   = p_blob->height();
     input_width    = p_blob->width();
 
@@ -81,12 +81,6 @@ int BatchNormLayer::Init(float *ginput, float *goutput)
             scale_bias_data = NULL;
     }
     SetKernel();
-
-    if ((NULL != ginput) && (NULL != goutput))
-    {
-        ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-        ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
-    }
 
     input = _bottom_blobs[_bottom[0]]->data();
     output = _top_blobs[_top[0]]->data();

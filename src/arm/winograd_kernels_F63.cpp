@@ -43,6 +43,8 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
     float32x4x4_t vc32x4x4_2;
     float32x4x4_t vc32x4x4_3;
 
+    ARM_LOAD_PREFETCH_64(vp);
+
     vc32x4x4_0.val[0] = vdupq_n_f32(0.f);
     vc32x4x4_0.val[1] = vc32x4x4_0.val[0];
     vc32x4x4_0.val[2] = vc32x4x4_0.val[0];
@@ -62,9 +64,11 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
         u32x4x4 = vld1q_f32_x4(up);
 
         vc32x4x4_0.val[0] = vfmaq_f32(vc32x4x4_0.val[0], u32x4x4.val[0], v32x4x4.val[0]);
+        ARM_LOAD_PREFETCH_64(up+16);
         vc32x4x4_0.val[1] = vfmaq_f32(vc32x4x4_0.val[1], u32x4x4.val[0], v32x4x4.val[1]);
         vc32x4x4_0.val[2] = vfmaq_f32(vc32x4x4_0.val[2], u32x4x4.val[0], v32x4x4.val[2]);
         vc32x4x4_0.val[3] = vfmaq_f32(vc32x4x4_0.val[3], u32x4x4.val[0], v32x4x4.val[3]);
+        ARM_LOAD_PREFETCH_64(vp+16);
 
         vc32x4x4_1.val[0] = vfmaq_f32(vc32x4x4_1.val[0], u32x4x4.val[1], v32x4x4.val[0]);
         vc32x4x4_1.val[1] = vfmaq_f32(vc32x4x4_1.val[1], u32x4x4.val[1], v32x4x4.val[1]);
@@ -92,9 +96,11 @@ static inline void TensorGEMMInnerKernel4x4x4(float* &WTp, const int &wstride, c
         u32x4x4.val[3] = vld1q_f32(up+12);
 
         vc32x4x4_0.val[0] = vmlaq_f32(vc32x4x4_0.val[0], u32x4x4.val[0], v32x4x4.val[0]);
+        ARM_LOAD_PREFETCH_64(up+16);
         vc32x4x4_0.val[1] = vmlaq_f32(vc32x4x4_0.val[1], u32x4x4.val[0], v32x4x4.val[1]);
         vc32x4x4_0.val[2] = vmlaq_f32(vc32x4x4_0.val[2], u32x4x4.val[0], v32x4x4.val[2]);
         vc32x4x4_0.val[3] = vmlaq_f32(vc32x4x4_0.val[3], u32x4x4.val[0], v32x4x4.val[3]);
+        ARM_LOAD_PREFETCH_64(vp+16);
 
         vc32x4x4_1.val[0] = vmlaq_f32(vc32x4x4_1.val[0], u32x4x4.val[1], v32x4x4.val[0]);
         vc32x4x4_1.val[1] = vmlaq_f32(vc32x4x4_1.val[1], u32x4x4.val[1], v32x4x4.val[1]);
@@ -150,6 +156,8 @@ static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, c
     float32x4x4_t u32x4x4;
     float32x4x3_t v32x4x3;
 
+    ARM_LOAD_PREFETCH_64(vp);
+
     vc32x4x3_0.val[0] = vdupq_n_f32(0.f);
     vc32x4x3_0.val[1] = vc32x4x3_0.val[0];
     vc32x4x3_0.val[2] = vc32x4x3_0.val[0];
@@ -167,10 +175,12 @@ static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, c
         vc32x4x3_0.val[0] = vfmaq_f32(vc32x4x3_0.val[0], u32x4x4.val[0], v32x4x3.val[0]);
         vc32x4x3_0.val[1] = vfmaq_f32(vc32x4x3_0.val[1], u32x4x4.val[0], v32x4x3.val[1]);
         vc32x4x3_0.val[2] = vfmaq_f32(vc32x4x3_0.val[2], u32x4x4.val[0], v32x4x3.val[2]);
+        ARM_LOAD_PREFETCH_64(vp+12);
 
         vc32x4x3_1.val[0] = vfmaq_f32(vc32x4x3_1.val[0], u32x4x4.val[1], v32x4x3.val[0]);
         vc32x4x3_1.val[1] = vfmaq_f32(vc32x4x3_1.val[1], u32x4x4.val[1], v32x4x3.val[1]);
         vc32x4x3_1.val[2] = vfmaq_f32(vc32x4x3_1.val[2], u32x4x4.val[1], v32x4x3.val[2]);
+        ARM_LOAD_PREFETCH_64(up+16);
 
         vc32x4x3_2.val[0] = vfmaq_f32(vc32x4x3_2.val[0], u32x4x4.val[2], v32x4x3.val[0]);
         vc32x4x3_2.val[1] = vfmaq_f32(vc32x4x3_2.val[1], u32x4x4.val[2], v32x4x3.val[1]);
@@ -192,10 +202,12 @@ static inline void TensorGEMMInnerKernel4x3x4(float* &WTp, const int &wstride, c
         vc32x4x3_0.val[0] = vmlaq_f32(vc32x4x3_0.val[0], u32x4x4.val[0], v32x4x3.val[0]);
         vc32x4x3_0.val[1] = vmlaq_f32(vc32x4x3_0.val[1], u32x4x4.val[0], v32x4x3.val[1]);
         vc32x4x3_0.val[2] = vmlaq_f32(vc32x4x3_0.val[2], u32x4x4.val[0], v32x4x3.val[2]);
+        ARM_LOAD_PREFETCH_64(vp+12);
 
         vc32x4x3_1.val[0] = vmlaq_f32(vc32x4x3_1.val[0], u32x4x4.val[1], v32x4x3.val[0]);
         vc32x4x3_1.val[1] = vmlaq_f32(vc32x4x3_1.val[1], u32x4x4.val[1], v32x4x3.val[1]);
         vc32x4x3_1.val[2] = vmlaq_f32(vc32x4x3_1.val[2], u32x4x4.val[1], v32x4x3.val[2]);
+        ARM_LOAD_PREFETCH_64(up+16);
 
         vc32x4x3_2.val[0] = vmlaq_f32(vc32x4x3_2.val[0], u32x4x4.val[2], v32x4x3.val[0]);
         vc32x4x3_2.val[1] = vmlaq_f32(vc32x4x3_2.val[1], u32x4x4.val[2], v32x4x3.val[1]);
@@ -237,6 +249,8 @@ static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, c
     float32x4x4_t u32x4x4;
     float32x4x2_t v32x4x2;
 
+    ARM_LOAD_PREFETCH_32(vp);
+
     vc32x4x2_0.val[0] = vdupq_n_f32(0.f);
     vc32x4x2_0.val[1] = vc32x4x2_0.val[0];
     vc32x4x2_1 = vc32x4x2_0;
@@ -251,7 +265,9 @@ static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, c
         u32x4x4 = vld1q_f32_x4(up);
 
         vc32x4x2_0.val[0] = vfmaq_f32(vc32x4x2_0.val[0], u32x4x4.val[0], v32x4x2.val[0]);
+        ARM_LOAD_PREFETCH_32(vp+8);
         vc32x4x2_0.val[1] = vfmaq_f32(vc32x4x2_0.val[1], u32x4x4.val[0], v32x4x2.val[1]);
+        ARM_LOAD_PREFETCH_64(up+16);
         vc32x4x2_1.val[0] = vfmaq_f32(vc32x4x2_1.val[0], u32x4x4.val[1], v32x4x2.val[0]);
         vc32x4x2_1.val[1] = vfmaq_f32(vc32x4x2_1.val[1], u32x4x4.val[1], v32x4x2.val[1]);
         vc32x4x2_2.val[0] = vfmaq_f32(vc32x4x2_2.val[0], u32x4x4.val[2], v32x4x2.val[0]);
@@ -268,7 +284,11 @@ static inline void TensorGEMMInnerKernel4x2x4(float* &WTp, const int &wstride, c
         u32x4x4.val[3] = vld1q_f32(up+12);
 
         vc32x4x2_0.val[0] = vmlaq_f32(vc32x4x2_0.val[0], u32x4x4.val[0], v32x4x2.val[0]);
+        ARM_LOAD_PREFETCH_32(vp+8);
+
         vc32x4x2_0.val[1] = vmlaq_f32(vc32x4x2_0.val[1], u32x4x4.val[0], v32x4x2.val[1]);
+        ARM_LOAD_PREFETCH_64(up+16);
+
         vc32x4x2_1.val[0] = vmlaq_f32(vc32x4x2_1.val[0], u32x4x4.val[1], v32x4x2.val[0]);
         vc32x4x2_1.val[1] = vmlaq_f32(vc32x4x2_1.val[1], u32x4x4.val[1], v32x4x2.val[1]);
         vc32x4x2_2.val[0] = vmlaq_f32(vc32x4x2_2.val[0], u32x4x4.val[2], v32x4x2.val[0]);
@@ -307,6 +327,8 @@ static inline void TensorGEMMInnerKernel4x1x4(float* &WTp, const int &wstride, c
     float32x4x4_t u32x4x4;
     float32x4_t v0;
 
+    ARM_LOAD_PREFETCH_64(UTp);
+
     vc00 = vdupq_n_f32(0.f);
     vc10 = vc00;
     vc20 = vc00;
@@ -320,6 +342,8 @@ static inline void TensorGEMMInnerKernel4x1x4(float* &WTp, const int &wstride, c
         u32x4x4 = vld1q_f32_x4(up);
 
         vc00 = vfmaq_f32(vc00, u32x4x4.val[0], v0);
+        ARM_LOAD_PREFETCH_64(up+16);
+
         vc10 = vfmaq_f32(vc10, u32x4x4.val[1], v0);
         vc20 = vfmaq_f32(vc20, u32x4x4.val[2], v0);
         vc30 = vfmaq_f32(vc30, u32x4x4.val[3], v0);
@@ -330,6 +354,8 @@ static inline void TensorGEMMInnerKernel4x1x4(float* &WTp, const int &wstride, c
         u32x4x4.val[3] = vld1q_f32(up+12);
 
         vc00 = vmlaq_f32(vc00, u32x4x4.val[0], v0);
+        ARM_LOAD_PREFETCH_32(up+16);
+
         vc10 = vmlaq_f32(vc10, u32x4x4.val[1], v0);
         vc20 = vmlaq_f32(vc20, u32x4x4.val[2], v0);
         vc30 = vmlaq_f32(vc30, u32x4x4.val[3], v0);
@@ -511,7 +537,7 @@ void winogradInputFrameTransformSeq(float *VT, int inChannels, float *input, int
     const int nBlocks = nRowBlocks * nColBlocks;
     const int nBlocksAligned = nBlocks & 0xFFFFFFFC;
     const int rem = nBlocks & 0x3;
-    memset(VT, 0, sizeof(float) * 64 * nBlocks * inChannels);
+    //memset(VT, 0, sizeof(float) * 64 * nBlocks * inChannels);
     int hdiff = nColBlocks * 6 + 2- inputh;
     int wdiff = nRowBlocks * 6 + 2- inputw;
 
@@ -534,7 +560,7 @@ void winogradInputFrameTransformSeq(float *VT, int inChannels, float *input, int
             const float32x4_t f5_25 = vaddq_f32(f1_25, f4);
             const float32x4_t f2_5 = vmulq_n_f32(f0_5, 5.0f);
 #endif
-            float ext[64];
+            float ext[64] ALIGMENT(16);
             float32x4_t l0, l1, l2, l3, l4, l5, l6, l7;
             float32x4_t r0, r1, r2, r3, r4, r5, r6, r7;
             float32x4_t m1, m2, s1, s2, t1, t2;//Auxiliary registers
@@ -553,8 +579,7 @@ void winogradInputFrameTransformSeq(float *VT, int inChannels, float *input, int
                 float *outp = VT + (ic * nBlocks + (bid & 0xFFFFFFFC)) * 64 + (bid & 0x3) * 4;
                 if(((j * 6 + 8) > inputh) || ((i * 6 + 8) > inputw))
                 {
-                    for(int t = 0; t < 16; ++t)
-                        vst1q_f32(ext + t * 4, vZero);
+                    memset(ext, 0, sizeof(ext));
 
                     int step_h = inputh - j * 6;
                     int step_w = inputw - i * 6;
@@ -612,20 +637,28 @@ void winogradInputFrameTransformSeq(float *VT, int inChannels, float *input, int
                 input_transform(l0,l1,l2,l3,l4,l5,l6,l7,//Target
                                 t1,t2,s1,s2,m1,m2,//Auxiliary
                                 f5_25,f4_25,f4,f2_5,f2,f1_25,f0_5,f0_25);//Constants
+                ARM_LOAD_PREFETCH_32(p0);
                 neon_transpose4x4_inplace_f32_cpp(l0, l1, l2, l3);
+                ARM_LOAD_PREFETCH_32(p1);
                 neon_transpose4x4_inplace_f32_cpp(l4, l5, l6, l7);
+                ARM_LOAD_PREFETCH_32(p2);
                 input_transform(r0,r1,r2,r3,r4,r5,r6,r7,//Target
                                 t1,t2,s1,s2,m1,m2,//Auxiliary
                                 f5_25,f4_25,f4,f2_5,f2,f1_25,f0_5,f0_25);//Constants
+                ARM_LOAD_PREFETCH_32(p3);
                 neon_transpose4x4_inplace_f32_cpp(r0, r1, r2, r3);
+                ARM_LOAD_PREFETCH_32(p4);
                 neon_transpose4x4_inplace_f32_cpp(r4, r5, r6, r7);
+                ARM_LOAD_PREFETCH_32(p5);
+                ARM_STORE_PREFETCH_256(outp);
                 input_transform(l0,l1,l2,l3,r0,r1,r2,r3,//Target
                                 t1,t2,s1,s2,m1,m2,//Auxiliary
                                 f5_25,f4_25,f4,f2_5,f2,f1_25,f0_5,f0_25);//Constants
+                ARM_LOAD_PREFETCH_32(p6);
                 input_transform(l4,l5,l6,l7,r4,r5,r6,r7,//Target
                                 t1,t2,s1,s2,m1,m2,//Auxiliary
                                 f5_25,f4_25,f4,f2_5,f2,f1_25,f0_5,f0_25);//Constants
-
+                ARM_LOAD_PREFETCH_32(p7);
                 if(bid < nBlocksAligned)
                 {
                     vst1q_f32(outp, l0);
@@ -716,7 +749,7 @@ void winogradInputFrameTransformSeq_fix16(fix16_t *VT, int inChannels, float *in
             const float32x4_t f5_25 = vaddq_f32(f1_25, f4);
             const float32x4_t f2_5 = vmulq_n_f32(f0_5, 5.0f);
 #endif
-            float ext[64] __attribute((aligned (16)));
+            float ext[64] ALIGMENT(16);
 
             float32x4_t l0, l1, l2, l3, l4, l5, l6, l7;
             float32x4_t r0, r1, r2, r3, r4, r5, r6, r7;
@@ -794,19 +827,29 @@ void winogradInputFrameTransformSeq_fix16(fix16_t *VT, int inChannels, float *in
                 input_transform(l0,l1,l2,l3,l4,l5,l6,l7,//Target
                                 t1,t2,s1,s2,m1,m2,//Auxiliary
                                 f5_25,f4_25,f4,f2_5,f2,f1_25,f0_5,f0_25);//Constants
+                ARM_LOAD_PREFETCH_32(p0);
                 neon_transpose4x4_inplace_f32_cpp(l0, l1, l2, l3);
+                ARM_LOAD_PREFETCH_32(p1);
                 neon_transpose4x4_inplace_f32_cpp(l4, l5, l6, l7);
+                ARM_LOAD_PREFETCH_32(p2);
                 input_transform(r0,r1,r2,r3,r4,r5,r6,r7,//Target
                                 t1,t2,s1,s2,m1,m2,//Auxiliary
                                 f5_25,f4_25,f4,f2_5,f2,f1_25,f0_5,f0_25);//Constants
+                ARM_LOAD_PREFETCH_32(p3);
                 neon_transpose4x4_inplace_f32_cpp(r0, r1, r2, r3);
+                ARM_LOAD_PREFETCH_32(p4);
                 neon_transpose4x4_inplace_f32_cpp(r4, r5, r6, r7);
+                ARM_LOAD_PREFETCH_32(p5);
+                ARM_STORE_PREFETCH_256(outp);
                 input_transform(l0,l1,l2,l3,r0,r1,r2,r3,//Target
                                 t1,t2,s1,s2,m1,m2,//Auxiliary
                                 f5_25,f4_25,f4,f2_5,f2,f1_25,f0_5,f0_25);//Constants
+                ARM_LOAD_PREFETCH_32(p6);
+                ARM_LOAD_PREFETCH_32(ext);
                 input_transform(l4,l5,l6,l7,r4,r5,r6,r7,//Target
                                 t1,t2,s1,s2,m1,m2,//Auxiliary
                                 f5_25,f4_25,f4,f2_5,f2,f1_25,f0_5,f0_25);//Constants
+                ARM_LOAD_PREFETCH_32(p7);
 
                 if(bid < nBlocksAligned)
                 {
@@ -1202,8 +1245,8 @@ static inline void winograd_f6k3_output_transform_inplace(
     m3 = vmlaq_f32(m3, m5_sub_m6, const_4);
 #endif
 
-    m6 = veorq_u32(m6, m6);
-    m7 = veorq_u32(m7, m7);
+    m6 = (float32x4_t)veorq_u32((uint32x4_t)m6, (uint32x4_t)m6);
+    m7 = (float32x4_t)veorq_u32((uint32x4_t)m7, (uint32x4_t)m7);
 }
 
 template<bool HAS_RELU, bool HAS_BIAS>
@@ -1227,7 +1270,8 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
             {
                 int bid = nRowBlocks * j + i;
                 float *wp = WT + oc * nBlocks * 64 + (bid & 0xFFFFFFFC) * 64 + (bid & 0x3) * 4;
-                float32x4_t l0, l1, l2, l3, l4, l5, l6, l7, r0, r1, r2, r3, r4, r5, r6, r7;
+                float32x4_t l0, l1, l2, l3, l4, l5, l6, l7;
+                float32x4_t r0, r1, r2, r3, r4, r5, r6, r7;
                 if(bid < nBlocksAligned)
                 {
                     l0 = vld1q_f32(wp);
@@ -1267,13 +1311,32 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
                     r7 = vld1q_f32(wp + rem * 60);
                 }
 
+                float *outFrame = output + oc * outputw * outputh + j * outputw * 6 + i * 6;
+
                 winograd_f6k3_output_transform_inplace(l0, l1, l2, l3, l4, l5, l6, l7);
+                {
+                    int new_bid = bid + 1;
+                    float *new_wp = WT + oc * nBlocks * 64 + (new_bid & 0xFFFFFFFC) * 64 + (new_bid & 0x3) * 4;
+                    ARM_LOAD_PREFETCH_256(new_wp);
+                }
                 winograd_f6k3_output_transform_inplace(r0, r1, r2, r3, r4, r5, r6, r7);
+                ARM_STORE_PREFETCH_32(outFrame);
+
                 neon_transpose4x4_inplace_f32_cpp(l0, l1, l2, l3);
+                ARM_STORE_PREFETCH_32(outFrame+ldout);
+
                 neon_transpose4x4_inplace_f32_cpp(l4, l5, l6, l7);
+                ARM_STORE_PREFETCH_32(outFrame+2*ldout);
+
                 neon_transpose4x4_inplace_f32_cpp(r0, r1, r2, r3);
+                ARM_STORE_PREFETCH_32(outFrame+3*ldout);
+
                 neon_transpose4x4_inplace_f32_cpp(r4, r5, r6, r7);
+                ARM_STORE_PREFETCH_32(outFrame+4*ldout);
+
                 winograd_f6k3_output_transform_inplace(l0, l1, l2, l3, r0, r1, r2, r3);
+                ARM_STORE_PREFETCH_32(outFrame+5*ldout);
+
                 winograd_f6k3_output_transform_inplace(l4, l5, l6, l7, r4, r5, r6, r7);
 
                 if(HAS_BIAS)
@@ -1297,6 +1360,7 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
                 {
                     if ((BiasPReLU == outType) || (PReLU == outType))
                     {
+                        uint32x4_t r3;
                         float slope = sharedPrelu ? preluData[0]:preluData[oc];
 
                         r2 = vdupq_n_f32(slope); //r2 is vslopef32x4
@@ -1366,12 +1430,10 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
                     }
                 }
 
-                float *outFrame = output + oc * outputw * outputh + j * outputw * 6 + i * 6;
                 if(((j * 6 + 6) > outputh) || ((i * 6 + 6) > outputw))
                 {
-                    float ext[48];
-                    for(int t = 0; t < 12; ++t)
-                        vst1q_f32(ext + t * 4, vZero);
+                    float ext[48] ALIGMENT(16);
+                    memset(ext, 0, sizeof(ext));
                     int step_h = outputh - j * 6;
                     int step_w = outputw - i * 6;
                     if(step_h > 6) step_h = 6;

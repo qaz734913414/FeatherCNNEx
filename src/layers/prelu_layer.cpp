@@ -3,18 +3,12 @@
 
 namespace feather
 {
-int PReluLayer::Init(float *ginput, float *goutput)
+int PReluLayer::Init()
 {
-    if ((NULL != ginput) && (NULL != goutput))
-    {
-        ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-        ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
-    }
-
     input  = _bottom_blobs[_bottom[0]]->data();
     output = _top_blobs[_top[0]]->data();
     n = _bottom_blobs[_bottom[0]]->num();
-    c = _bottom_blobs[_bottom[0]]->channels();
+    c = _bottom_blobs[_bottom[0]]->validChannels();
     h = _bottom_blobs[_bottom[0]]->height();
     w = _bottom_blobs[_bottom[0]]->width();
     return 0;

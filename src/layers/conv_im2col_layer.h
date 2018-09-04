@@ -94,9 +94,13 @@ public:
                                                             bias_data, slopeDataPrelu, sharedPrelu, sgemmLowPrecision, fuse_relu);
                 else if (8 == this->fractions)
                 {
+                    float int8scale[3];
+                    int8scale[0] = int8scaleW;
+                    int8scale[1] = int8scaleIn;
+                    int8scale[2] = int8scaleOut;
                     block_sgemm_external_pack_threading_8x8Fix8((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                            (int8_t *)packed_kernel, input, output, (int)num_threads, int8scaleW, int8scaleIn, int8scaleOut, packB,
+                            (int8_t *)packed_kernel, input, output, (int)num_threads, int8scale, packB,
                             bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
                 }
                 else
@@ -114,9 +118,9 @@ public:
                             (float *)packed_kernel, input, output, (int)num_threads, (float**)packB,
                             bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
                 else
-                    block_sgemm_external_pack_threading<float16_t>((int)output_channels, (int)output_width * (int)output_height,
+                    block_sgemm_external_pack_threading<fix16_t>((int)output_channels, (int)output_width * (int)output_height,
                             (int)input_channels * (int)kernel_width * (int)kernel_height,
-                            (float16_t *)packed_kernel, input, output, (int)num_threads, (float16_t**)packB,
+                            (fix16_t *)packed_kernel, input, output, (int)num_threads, (fix16_t**)packB,
                             bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
             }
         }
@@ -145,9 +149,9 @@ public:
                                 bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
                 else
                     for(int k=0; k<group; k++)
-                        block_sgemm_external_pack_threading<float16_t>((int)output_channels, (int)output_width * (int)output_height,
+                        block_sgemm_external_pack_threading<fix16_t>((int)output_channels, (int)output_width * (int)output_height,
                                 (int)input_channels/group * (int)kernel_width * (int)kernel_height,
-                                (float16_t *)packed_kernel, img_buffer + k*block, output, (int)num_threads, (float16_t**)packB,
+                                (fix16_t *)packed_kernel, img_buffer + k*block, output, (int)num_threads, (fix16_t**)packB,
                                 bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
             }
         }
@@ -297,7 +301,7 @@ public:
         const Blob<float> *bottom_blob = _bottom_blobs[_bottom[0]];
         input_width = bottom_blob->width();
         input_height = bottom_blob->height();
-        input_channels = bottom_blob->channels();
+        input_channels = bottom_blob->validChannels();
         if (stride_width == 0 || stride_height == 0)
         {
             stride_width = 1;
@@ -311,6 +315,7 @@ public:
 
         _top_blobs[_top[0]] = new Blob<float>(1, eM, output_height, output_width);
         _top_blobs[_top[0]]->_name = "Top";
+        _top_blobs[_top[0]]->setvalidChannels(M);
         //_top_blobs[_top[0]]->Alloc(); //no need malloc, use net global input/output memory
         return 0;
     }
@@ -340,7 +345,7 @@ public:
             return 0;
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init()
     {
         int M = (int)output_channels;
         int K = (int)input_channels * (int)kernel_height * (int)kernel_width;
@@ -352,7 +357,7 @@ public:
         if (0 == fractions) /* float32 */
         {
             unsigned elemSize = sizeof(float);
-            if (sgemmLowPrecision) elemSize = sizeof(float16_t);
+            if (sgemmLowPrecision) elemSize = sizeof(fix16_t);
 
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, elemSize * eM * K));
             for(int i = 0; i< num_threads; i++)
@@ -391,7 +396,7 @@ public:
             else /* if not align to 8, then we align to 4 */
             {
                 if (sgemmLowPrecision)
-                    externalPackA_FP16(M, K, (float16_t *)packed_kernel, kernel_data, K);
+                    externalPackA_FP16(M, K, (fix16_t *)packed_kernel, kernel_data, K);
                 else
                     externalPackA<float>(M, K, (float *)packed_kernel, kernel_data, K);
             }
@@ -418,12 +423,6 @@ public:
             /* free old conv weight */
             delete _weight_blobs_fix[0];
             _weight_blobs_fix.erase(_weight_blobs_fix.begin()+0);
-        }
-
-        if ((NULL != ginput) && (NULL != goutput))
-        {
-            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
         }
 
         input = _bottom_blobs[_bottom[0]]->data();

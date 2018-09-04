@@ -36,24 +36,18 @@ LRNLayer::LRNLayer(const LayerParameter* layer_param, const RuntimeParameter<flo
     printf("localsize %ld alpha %f beta %f k %f\n", local_size, alpha, beta, k);
 }
 
-int LRNLayer::Init(float *ginput, float *goutput)
+int LRNLayer::Init()
 {
     auto p_blob = _bottom_blobs[bottom(0)];
     width = p_blob->width();
     height = p_blob->height();
-    channels = p_blob->channels();
+    channels = p_blob->validChannels();
     alpha_over_size = alpha / local_size;
 
     size_t padded_size = width * height * (channels + 2 * _pre_pad);
     MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&_padded_sqr_data, sizeof(float) * padded_size));
     MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&_scale_data, sizeof(float) * width * height * channels));
     memset(_padded_sqr_data, 0, sizeof(float) * padded_size);
-
-    if ((NULL != ginput) && (NULL != goutput))
-    {
-        ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-        ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
-    }
 
     input = _bottom_blobs[_bottom[0]]->data();
     output = _top_blobs[_top[0]]->data();

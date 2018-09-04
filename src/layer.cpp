@@ -222,7 +222,7 @@ std::string Layer::GenerateNewTopBlobs(float *pData)
     return newBlobName;
 }
 
-int Layer::Init(float *ginput, float *goutput)
+int Layer::Init()
 {
     return 0;
 }

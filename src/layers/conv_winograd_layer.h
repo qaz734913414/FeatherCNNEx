@@ -93,7 +93,7 @@ public:
             return 0;
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init()
     {
         size_t inputw = input_width + padding_left + padding_right;
         size_t inputh = input_height + padding_top + padding_bottom;
@@ -138,12 +138,6 @@ public:
             winograd_out_type = ReLU;
         else
             winograd_out_type = None;
-
-        if ((NULL != ginput) && (NULL != goutput))
-        {
-            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
-        }
 
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();

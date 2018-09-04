@@ -48,6 +48,24 @@ void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned 
             fill(pDst+k*(w+2*padw), w + 2*padw, val);
     }
 }
+
+void writeFileFloat16(const char *pFname, fix16_t *pData, unsigned size)
+{
+    FILE* pfile = fopen(pFname, "wb");
+    if (!pfile)
+    {
+        printf("pFileOut open error \n");
+        exit(-1);
+    }
+    for(int i =0; i < size; i+=4)
+    {
+        if ((0 != i)&& (0 == (i%16)))
+            fprintf(pfile, "\n");
+        float32x4_t vsrv = vcvt_f32_f16((float16x4_t)vld1_s16(pData+i));
+        fprintf(pfile, "%10.6f %10.6f %10.6f %10.6f ", vsrv[0], vsrv[1], vsrv[2], vsrv[3]);
+    }
+    fclose(pfile);
+}
 #endif
 
 void padChannelBuffer(float *dst, float *src, unsigned channelSize, unsigned channelPad, unsigned channels, unsigned num_threads)
@@ -186,26 +204,6 @@ void writeFileFloat(const char *pFname, float *pData, unsigned size)
     }
     fclose(pfile);
 }
-
-#ifndef X86_PC
-void writeFileFloat16(const char *pFname, fix16_t *pData, unsigned size)
-{
-    FILE* pfile = fopen(pFname, "wb");
-    if (!pfile)
-    {
-        printf("pFileOut open error \n");
-        exit(-1);
-    }
-    for(int i =0; i < size; i+=4)
-    {
-        if ((0 != i)&& (0 == (i%16)))
-            fprintf(pfile, "\n");
-        float32x4_t vsrv = vcvt_f32_f16(vld1_s16(pData+i));
-        fprintf(pfile, "%10.6f %10.6f %10.6f %10.6f ", vsrv[0], vsrv[1], vsrv[2], vsrv[3]);
-    }
-    fclose(pfile);
-}
-#endif
 
 unsigned char* readFile(const char *pFileName)
 {

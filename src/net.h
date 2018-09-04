@@ -34,14 +34,13 @@ public:
     Net(size_t num_threads);
     ~Net();
 
-    void InitFromPath(const char *model_path);
-    void InitFromFile(FILE *fp);
-    bool InitFromBuffer(const void *net_buffer);
+    int InitFromPath(const char *model_path);
+    int InitFromFile(FILE *fp);
+    int InitFromBuffer(const void *net_buffer);
     int Forward(float* input);
     int Forward();
     float*GetInputBuffer();
     int GetBlobDataSize(size_t* data_size, std::string blob_name);
-    int ExtractBlob(float* output_ptr, std::string blob_name);//Don't forget to free this memory.
     int config1x1ConvType(CONV_TYPE_E conv1x1Type);
     int config3x3ConvType(CONV_TYPE_E conv3x3Type);
     int configWinogradLowPrecision(bool flag);

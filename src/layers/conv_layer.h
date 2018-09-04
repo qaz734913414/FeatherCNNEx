@@ -76,7 +76,7 @@ public:
         const Blob<float> *bottom_blob = _bottom_blobs[_bottom[0]];
         input_width = bottom_blob->width();
         input_height = bottom_blob->height();
-        input_channels = bottom_blob->channels();
+        input_channels = bottom_blob->validChannels();
         if (stride_width == 0 || stride_height == 0)
         {
             stride_width = 1;

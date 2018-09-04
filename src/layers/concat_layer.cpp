@@ -22,7 +22,7 @@ int ConcatLayer::GenerateTopBlobs()
 {
     auto first_blob = _bottom_blobs[_bottom[0]];
     size_t num = 1;
-    size_t channels = first_blob->channels();
+    size_t channels = first_blob->validChannels();
     size_t width = first_blob->width();
     size_t height = first_blob->height();
 
@@ -32,7 +32,7 @@ int ConcatLayer::GenerateTopBlobs()
         assert(num == p_blob->num());
         assert(width == p_blob->width());
         assert(height == p_blob->height());
-        channels += p_blob->channels();
+        channels += p_blob->validChannels();
     }
     //printf("Output shape %d %d %d\n", channels, height, width);
     _top_blobs[_top[0]] = new Blob<float>(num, channels, height, width);
@@ -41,7 +41,7 @@ int ConcatLayer::GenerateTopBlobs()
     return 0;
 }
 
-int ConcatLayer::Init(float *ginput, float *goutput)
+int ConcatLayer::Init()
 {
     float* top_data = _top_blobs[_top[0]]->data();
     for(int i = 0; i < _bottom.size(); ++i)
@@ -68,7 +68,7 @@ int ConcatLayer::Forward()
     float* top_data = _top_blobs[_top[0]]->data();
     auto first_blob = _bottom_blobs[_bottom[0]];
     size_t num = 1;
-    size_t channels = first_blob->channels();
+    size_t channels = first_blob->validChannels();
     size_t width = first_blob->width();
     size_t height = first_blob->height();
     for(int i = 1; i < _bottom.size(); ++i)
@@ -77,7 +77,7 @@ int ConcatLayer::Forward()
         assert(num == p_blob->num());
         assert(width == p_blob->width());
         assert(height == p_blob->height());
-        channels += p_blob->channels();
+        channels += p_blob->validChannels();
     }
     printf("\nconcate [%10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f] [%10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f]\n",
            top_data[0], top_data[1], top_data[2], top_data[3],

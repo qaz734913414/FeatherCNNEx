@@ -37,7 +37,7 @@ public:
         assert(_weight_blobs.size() > 0);
         kernel_data = this->_weight_blobs[0]->data();
         output_channels = this->_weight_blobs[0]->num();
-        input_channels = this->_weight_blobs[0]->channels();
+        input_channels = this->_weight_blobs[0]->validChannels();
         if (bias_term)
         {
             assert(this->_weight_blobs.size() == 2);
@@ -77,7 +77,7 @@ public:
         return 0;
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init()
     {
         float* buffer = NULL;
         MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&buffer, sizeof(float) * input_size * 8));
@@ -86,16 +86,7 @@ public:
             for(int i=0; i < output_size / 8; i++)
                 matrixTranspose(kernel_data + i * 8 * input_size, 8, input_size, buffer);
         }
-        else
-        {
-            //Naive implementation doesn't require preprocess
-        }
         MEMPOOL_CHECK_RETURN(private_mempool->Free((void**)&buffer));
-        if ((NULL != ginput) && (NULL != goutput))
-        {
-            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
-        }
 
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
@@ -107,7 +98,7 @@ public:
         const Blob<float> *bottom_blob = _bottom_blobs[_bottom[0]];
         input_width = bottom_blob->width();
         input_height = bottom_blob->height();
-        input_channels = bottom_blob->channels();
+        input_channels = bottom_blob->validChannels();
         input_size = bottom_blob->data_size();
 
         _top_blobs[_top[0]] = new Blob<float>(1, output_channels, 1, 1);

@@ -20,7 +20,7 @@
 
 #include <arm_neon.h>
 #include "common.h"
-
+#include "utils.h"
 #ifdef __APPLE__
 #else
 #include <omp.h>
@@ -78,6 +78,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r00nn = vld1q_f32(r0 + 8);
 
                 int32x4_t r00_I   = vcvtq_n_s32_f32(r00,  FRACTION);
+                ARM_LOAD_PREFETCH_64(r1);
                 int32x4_t r00n_I  = vcvtq_n_s32_f32(r00n, FRACTION);
                 int32x4_t r00nn_I = vcvtq_n_s32_f32(r00nn,FRACTION);
 
@@ -92,6 +93,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r10nn = vld1q_f32(r1 + 8);
 
                 int32x4_t r10_I   = vcvtq_n_s32_f32(r10,  FRACTION);
+                ARM_LOAD_PREFETCH_64(r2);
                 int32x4_t r10n_I  = vcvtq_n_s32_f32(r10n, FRACTION);
                 int32x4_t r10nn_I = vcvtq_n_s32_f32(r10nn,FRACTION);
 
@@ -106,6 +108,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r20nn = vld1q_f32(r2 + 8);
 
                 int32x4_t r20_I   = vcvtq_n_s32_f32(r20,  FRACTION);
+                ARM_LOAD_PREFETCH_64(r3);
                 int32x4_t r20n_I  = vcvtq_n_s32_f32(r20n, FRACTION);
                 int32x4_t r20nn_I = vcvtq_n_s32_f32(r20nn,FRACTION);
 
@@ -120,6 +123,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r30nn = vld1q_f32(r3 + 8);
 
                 int32x4_t r30_I   = vcvtq_n_s32_f32(r30,  FRACTION);
+                ARM_LOAD_PREFETCH_64(r0 + 8);
                 int32x4_t r30n_I  = vcvtq_n_s32_f32(r30n, FRACTION);
                 int32x4_t r30nn_I = vcvtq_n_s32_f32(r30nn,FRACTION);
 
@@ -138,6 +142,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 sum1 = vmlal_s16(sum1, r20_I16, k6);
                 sum1 = vmlal_s16(sum1, r21_I16, k7);
                 sum1 = vmlal_s16(sum1, r22_I16, k8);
+                ARM_STORE_PREFETCH_32(og);
 
                 sum2 = vmull_s16(r10_I16, k0);
                 sum2 = vmlal_s16(sum2, r11_I16, k1);
@@ -149,6 +154,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 sum2 = vmlal_s16(sum2, r31_I16, k7);
                 sum2 = vmlal_s16(sum2, r32_I16, k8);
 
+                ARM_STORE_PREFETCH_32(og3);
                 r01_I16 = vext_s16(r00n_I16, r00nn_I16, 1);
                 r02_I16 = vext_s16(r00n_I16, r00nn_I16, 2);
                 r11_I16 = vext_s16(r10n_I16, r10nn_I16, 1);
@@ -202,6 +208,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r00n = vld1q_f32(r0 + 4);
 
                 int32x4_t r00_I   = vcvtq_n_s32_f32(r00, FRACTION);
+                ARM_LOAD_PREFETCH_32(r1);
                 int32x4_t r00n_I  = vcvtq_n_s32_f32(r00n, FRACTION);
 
                 int16x4_t r00_I16   = vmovn_s32(r00_I);
@@ -213,6 +220,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r10n = vld1q_f32(r1 + 4);
 
                 int32x4_t r10_I   = vcvtq_n_s32_f32(r10, FRACTION);
+                ARM_LOAD_PREFETCH_32(r2);
                 int32x4_t r10n_I  = vcvtq_n_s32_f32(r10n, FRACTION);
 
                 int16x4_t r10_I16   = vmovn_s32(r10_I);
@@ -224,6 +232,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r20n = vld1q_f32(r2 + 4);
 
                 int32x4_t r20_I   = vcvtq_n_s32_f32(r20, FRACTION);
+                ARM_LOAD_PREFETCH_32(r3);
                 int32x4_t r20n_I  = vcvtq_n_s32_f32(r20n, FRACTION);
 
                 int16x4_t r20_I16   = vmovn_s32(r20_I);
@@ -235,12 +244,14 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r30n = vld1q_f32(r3 + 4);
 
                 int32x4_t r30_I   = vcvtq_n_s32_f32(r30, FRACTION);
+                ARM_LOAD_PREFETCH_32(r0 + 4);
                 int32x4_t r30n_I  = vcvtq_n_s32_f32(r30n, FRACTION);
 
                 int16x4_t r30_I16   = vmovn_s32(r30_I);
                 int16x4_t r30n_I16  = vmovn_s32(r30n_I);
                 int16x4_t r31_I16   = vext_s16(r30_I16, r30n_I16, 1);
                 int16x4_t r32_I16   = vext_s16(r30_I16, r30n_I16, 2);
+                ARM_STORE_PREFETCH_16(og);
 
                 sum1 = vmull_s16(r00_I16, k0);
                 sum1 = vmlal_s16(sum1, r01_I16, k1);
@@ -251,6 +262,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 sum1 = vmlal_s16(sum1, r20_I16, k6);
                 sum1 = vmlal_s16(sum1, r21_I16, k7);
                 sum1 = vmlal_s16(sum1, r22_I16, k8);
+                ARM_STORE_PREFETCH_16(og3);
 
                 sum2 = vmull_s16(r10_I16, k0);
                 sum2 = vmlal_s16(sum2, r11_I16, k1);
@@ -288,6 +300,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
 
                 int32x4_t r00_I  = vcvtq_n_s32_f32(r00, FRACTION);
                 int32x4_t r10_I  = vcvtq_n_s32_f32(r10, FRACTION);
+                ARM_LOAD_PREFETCH_16(r0 + 1);
                 int32x4_t r20_I  = vcvtq_n_s32_f32(r20, FRACTION);
                 int32x4_t r30_I  = vcvtq_n_s32_f32(r30, FRACTION);
 
@@ -299,7 +312,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 sum1 = vmull_s16(r00_I16, k0123);
                 sum1 = vmlal_s16(sum1, r10_I16, k3456);
                 sum1 = vmlal_s16(sum1, r20_I16, k6789);
-
+                ARM_LOAD_PREFETCH_16(r1 + 1);
                 sum2 = vmull_s16(r10_I16, k0123);
                 sum2 = vmlal_s16(sum2, r20_I16, k3456);
                 sum2 = vmlal_s16(sum2, r30_I16, k6789);
@@ -351,6 +364,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r00nnnn  = vld1q_f32(r0 + 16);
 
                 int32x4_t r00_I     = vcvtq_n_s32_f32(r00, FRACTION);
+                ARM_LOAD_PREFETCH_128(r1);
                 int32x4_t r00n_I    = vcvtq_n_s32_f32(r00n, FRACTION);
                 int32x4_t r00nn_I   = vcvtq_n_s32_f32(r00nn, FRACTION);
                 int32x4_t r00nnn_I  = vcvtq_n_s32_f32(r00nnn, FRACTION);
@@ -371,6 +385,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r10nnnn  = vld1q_f32(r1 + 16);
 
                 int32x4_t r10_I     = vcvtq_n_s32_f32(r10, FRACTION);
+                ARM_LOAD_PREFETCH_128(r2);
                 int32x4_t r10n_I    = vcvtq_n_s32_f32(r10n, FRACTION);
                 int32x4_t r10nn_I   = vcvtq_n_s32_f32(r10nn, FRACTION);
                 int32x4_t r10nnn_I  = vcvtq_n_s32_f32(r10nnn, FRACTION);
@@ -391,6 +406,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 float32x4_t r20nnnn  = vld1q_f32(r2 + 16);
 
                 int32x4_t r20_I     = vcvtq_n_s32_f32(r20, FRACTION);
+                ARM_LOAD_PREFETCH_128(r0 + 16);
                 int32x4_t r20n_I    = vcvtq_n_s32_f32(r20n, FRACTION);
                 int32x4_t r20nn_I   = vcvtq_n_s32_f32(r20nn, FRACTION);
                 int32x4_t r20nnn_I  = vcvtq_n_s32_f32(r20nnn, FRACTION);
@@ -420,6 +436,7 @@ static void dwConvs1_fix16_13(float* output, float* input, int inw, int inh, int
                 r12_I16 = vext_s16(r10n_I16, r10nn_I16, 2);
                 r21_I16 = vext_s16(r20n_I16, r20nn_I16, 1);
                 r22_I16 = vext_s16(r20n_I16, r20nn_I16, 2);
+                ARM_STORE_PREFETCH_64(og);
 
                 sum2 = vmull_s16(r00n_I16, k0);
                 sum2 = vmlal_s16(sum2, r01_I16, k1);
@@ -570,6 +587,7 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 //float32x4_t r02 = vextq_f32(r00, r0n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r0_I32_0   = vcvtq_n_s32_f32(r0.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_128(_r1);
                 int32x4_t r0_I32_1   = vcvtq_n_s32_f32(r0.val[1],   FRACTION);
                 int32x4_t r0n1_I32_0 = vcvtq_n_s32_f32(r0n1.val[0], FRACTION);
                 int32x4_t r0n1_I32_1 = vcvtq_n_s32_f32(r0n1.val[1], FRACTION);
@@ -592,6 +610,7 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 //float32x4_t r12    = vextq_f32(r10, r1n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r1_I32_0   = vcvtq_n_s32_f32(r1.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_128(_r2);
                 int32x4_t r1_I32_1   = vcvtq_n_s32_f32(r1.val[1],   FRACTION);
                 int32x4_t r1n1_I32_0 = vcvtq_n_s32_f32(r1n1.val[0], FRACTION);
                 int32x4_t r1n1_I32_1 = vcvtq_n_s32_f32(r1n1.val[1], FRACTION);
@@ -614,9 +633,11 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 //float32x4_t r22 = vextq_f32(r20, r2n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r2_I32_0   = vcvtq_n_s32_f32(r2.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_128(_r0 + 16);
                 int32x4_t r2_I32_1   = vcvtq_n_s32_f32(r2.val[1],   FRACTION);
                 int32x4_t r2n1_I32_0 = vcvtq_n_s32_f32(r2n1.val[0], FRACTION);
                 int32x4_t r2n1_I32_1 = vcvtq_n_s32_f32(r2n1.val[1], FRACTION);
+                ARM_STORE_PREFETCH_32(og);
                 int32x4_t r2n2_I32_0 = vcvtq_n_s32_f32(r2n2.val[0], FRACTION);
                 int32x4_t r2n2_I32_1 = vcvtq_n_s32_f32(r2n2.val[1], FRACTION);
 
@@ -668,7 +689,7 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 sum1f = vcvtq_n_f32_s32(sum1, FRACTIONBX2);
                 vst1q_f32(og + 4, sum1f);
 
-                _r0 +=16;
+                _r0 += 16;
                 _r1 += 16;
                 _r2 += 16;
                 og += 8;
@@ -684,6 +705,7 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 //float32x4_t r02 = vextq_f32(r00, r0n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r0_I32_0   = vcvtq_n_s32_f32(r0.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_64(_r1);
                 int32x4_t r0_I32_1   = vcvtq_n_s32_f32(r0.val[1],   FRACTION);
                 int32x4_t r0n1_I32_0 = vcvtq_n_s32_f32(r0n1.val[0], FRACTION);
                 int32x4_t r0n1_I32_1 = vcvtq_n_s32_f32(r0n1.val[1], FRACTION);
@@ -701,6 +723,7 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 //float32x4_t r12 = vextq_f32(r10, r1n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r1_I32_0   = vcvtq_n_s32_f32(r1.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_64(_r2);
                 int32x4_t r1_I32_1   = vcvtq_n_s32_f32(r1.val[1],   FRACTION);
                 int32x4_t r1n1_I32_0 = vcvtq_n_s32_f32(r1n1.val[0], FRACTION);
                 int32x4_t r1n1_I32_1 = vcvtq_n_s32_f32(r1n1.val[1], FRACTION);
@@ -718,7 +741,9 @@ static void dwConvs2_fix16_13(float* output, float* input, int inw, int inh, int
                 //float32x4_t r22 = vextq_f32(r20, r2n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r2_I32_0   = vcvtq_n_s32_f32(r2.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_64(_r0 + 8);
                 int32x4_t r2_I32_1   = vcvtq_n_s32_f32(r2.val[1],   FRACTION);
+                ARM_STORE_PREFETCH_16(og);
                 int32x4_t r2n1_I32_0 = vcvtq_n_s32_f32(r2n1.val[0], FRACTION);
                 int32x4_t r2n1_I32_1 = vcvtq_n_s32_f32(r2n1.val[1], FRACTION);
 
@@ -836,6 +861,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r00nn = vld1q_f32(r0 + 8);
 
                 int32x4_t r00_I   = vcvtq_n_s32_f32(r00,  FRACTION);
+                ARM_LOAD_PREFETCH_64(r1);
                 int32x4_t r00n_I  = vcvtq_n_s32_f32(r00n, FRACTION);
                 int32x4_t r00nn_I = vcvtq_n_s32_f32(r00nn,FRACTION);
 
@@ -850,6 +876,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r10nn = vld1q_f32(r1 + 8);
 
                 int32x4_t r10_I   = vcvtq_n_s32_f32(r10,  FRACTION);
+                ARM_LOAD_PREFETCH_64(r2);
                 int32x4_t r10n_I  = vcvtq_n_s32_f32(r10n, FRACTION);
                 int32x4_t r10nn_I = vcvtq_n_s32_f32(r10nn,FRACTION);
 
@@ -864,6 +891,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r20nn = vld1q_f32(r2 + 8);
 
                 int32x4_t r20_I   = vcvtq_n_s32_f32(r20,  FRACTION);
+                ARM_LOAD_PREFETCH_64(r3);
                 int32x4_t r20n_I  = vcvtq_n_s32_f32(r20n, FRACTION);
                 int32x4_t r20nn_I = vcvtq_n_s32_f32(r20nn,FRACTION);
 
@@ -878,6 +906,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r30nn = vld1q_f32(r3 + 8);
 
                 int32x4_t r30_I   = vcvtq_n_s32_f32(r30,  FRACTION);
+                ARM_LOAD_PREFETCH_64(r0 + 8);
                 int32x4_t r30n_I  = vcvtq_n_s32_f32(r30n, FRACTION);
                 int32x4_t r30nn_I = vcvtq_n_s32_f32(r30nn,FRACTION);
 
@@ -906,6 +935,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 sum2 = vmlal_s16(sum2, r30_I16, k6);
                 sum2 = vmlal_s16(sum2, r31_I16, k7);
                 sum2 = vmlal_s16(sum2, r32_I16, k8);
+                ARM_STORE_PREFETCH_32(og);
 
                 r01_I16 = vext_s16(r00n_I16, r00nn_I16, 1);
                 r02_I16 = vext_s16(r00n_I16, r00nn_I16, 2);
@@ -925,6 +955,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 sum3 = vmlal_s16(sum3, r20n_I16, k6);
                 sum3 = vmlal_s16(sum3, r21_I16, k7);
                 sum3 = vmlal_s16(sum3, r22_I16, k8);
+                ARM_STORE_PREFETCH_32(og3);
 
                 sum4 = vmull_s16(r10n_I16, k0);
                 sum4 = vmlal_s16(sum4, r11_I16, k1);
@@ -960,8 +991,8 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r00n = vld1q_f32(r0 + 4);
 
                 int32x4_t r00_I   = vcvtq_n_s32_f32(r00, FRACTION);
+                ARM_LOAD_PREFETCH_32(r1);
                 int32x4_t r00n_I  = vcvtq_n_s32_f32(r00n, FRACTION);
-
                 int16x4_t r00_I16   = vmovn_s32(r00_I);
                 int16x4_t r00n_I16  = vmovn_s32(r00n_I);
                 int16x4_t r01_I16   = vext_s16(r00_I16, r00n_I16, 1);
@@ -971,8 +1002,8 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r10n = vld1q_f32(r1 + 4);
 
                 int32x4_t r10_I   = vcvtq_n_s32_f32(r10, FRACTION);
+                ARM_LOAD_PREFETCH_32(r2);
                 int32x4_t r10n_I  = vcvtq_n_s32_f32(r10n, FRACTION);
-
                 int16x4_t r10_I16   = vmovn_s32(r10_I);
                 int16x4_t r10n_I16  = vmovn_s32(r10n_I);
                 int16x4_t r11_I16   = vext_s16(r10_I16, r10n_I16, 1);
@@ -982,8 +1013,8 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r20n = vld1q_f32(r2 + 4);
 
                 int32x4_t r20_I   = vcvtq_n_s32_f32(r20, FRACTION);
+                ARM_LOAD_PREFETCH_32(r3);
                 int32x4_t r20n_I  = vcvtq_n_s32_f32(r20n, FRACTION);
-
                 int16x4_t r20_I16   = vmovn_s32(r20_I);
                 int16x4_t r20n_I16  = vmovn_s32(r20n_I);
                 int16x4_t r21_I16   = vext_s16(r20_I16, r20n_I16, 1);
@@ -993,12 +1024,13 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r30n = vld1q_f32(r3 + 4);
 
                 int32x4_t r30_I   = vcvtq_n_s32_f32(r30, FRACTION);
+                ARM_LOAD_PREFETCH_32(r0 + 4);
                 int32x4_t r30n_I  = vcvtq_n_s32_f32(r30n, FRACTION);
-
                 int16x4_t r30_I16   = vmovn_s32(r30_I);
                 int16x4_t r30n_I16  = vmovn_s32(r30n_I);
                 int16x4_t r31_I16   = vext_s16(r30_I16, r30n_I16, 1);
                 int16x4_t r32_I16   = vext_s16(r30_I16, r30n_I16, 2);
+                ARM_STORE_PREFETCH_16(og);
 
                 sum1 = vmull_s16(r00_I16, k0);
                 sum1 = vmlal_s16(sum1, r01_I16, k1);
@@ -1009,6 +1041,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 sum1 = vmlal_s16(sum1, r20_I16, k6);
                 sum1 = vmlal_s16(sum1, r21_I16, k7);
                 sum1 = vmlal_s16(sum1, r22_I16, k8);
+                ARM_STORE_PREFETCH_16(og3);
 
                 sum2 = vmull_s16(r10_I16, k0);
                 sum2 = vmlal_s16(sum2, r11_I16, k1);
@@ -1046,16 +1079,19 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
 
                 int32x4_t r00_I  = vcvtq_n_s32_f32(r00, FRACTION);
                 int32x4_t r10_I  = vcvtq_n_s32_f32(r10, FRACTION);
+                ARM_LOAD_PREFETCH_16(r0+1);
                 int32x4_t r20_I  = vcvtq_n_s32_f32(r20, FRACTION);
                 int32x4_t r30_I  = vcvtq_n_s32_f32(r30, FRACTION);
 
                 int16x4_t r00_I16  = vmovn_s32(r00_I);
                 int16x4_t r10_I16  = vmovn_s32(r10_I);
+                ARM_LOAD_PREFETCH_16(r1+1);
                 int16x4_t r20_I16  = vmovn_s32(r20_I);
                 int16x4_t r30_I16  = vmovn_s32(r30_I);
 
                 sum1 = vmull_s16(r00_I16, k0123);
                 sum1 = vmlal_s16(sum1, r10_I16, k3456);
+                ARM_LOAD_PREFETCH_16(r2+1);
                 sum1 = vmlal_s16(sum1, r20_I16, k6789);
 
                 sum2 = vmull_s16(r10_I16, k0123);
@@ -1109,6 +1145,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r00nnnn  = vld1q_f32(r0 + 16);
 
                 int32x4_t r00_I     = vcvtq_n_s32_f32(r00, FRACTION);
+                ARM_LOAD_PREFETCH_128(r1);
                 int32x4_t r00n_I    = vcvtq_n_s32_f32(r00n, FRACTION);
                 int32x4_t r00nn_I   = vcvtq_n_s32_f32(r00nn, FRACTION);
                 int32x4_t r00nnn_I  = vcvtq_n_s32_f32(r00nnn, FRACTION);
@@ -1129,6 +1166,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r10nnnn  = vld1q_f32(r1 + 16);
 
                 int32x4_t r10_I     = vcvtq_n_s32_f32(r10, FRACTION);
+                ARM_LOAD_PREFETCH_128(r2);
                 int32x4_t r10n_I    = vcvtq_n_s32_f32(r10n, FRACTION);
                 int32x4_t r10nn_I   = vcvtq_n_s32_f32(r10nn, FRACTION);
                 int32x4_t r10nnn_I  = vcvtq_n_s32_f32(r10nnn, FRACTION);
@@ -1149,6 +1187,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 float32x4_t r20nnnn  = vld1q_f32(r2 + 16);
 
                 int32x4_t r20_I     = vcvtq_n_s32_f32(r20, FRACTION);
+                ARM_LOAD_PREFETCH_128(r0 + 16);
                 int32x4_t r20n_I    = vcvtq_n_s32_f32(r20n, FRACTION);
                 int32x4_t r20nn_I   = vcvtq_n_s32_f32(r20nn, FRACTION);
                 int32x4_t r20nnn_I  = vcvtq_n_s32_f32(r20nnn, FRACTION);
@@ -1171,6 +1210,7 @@ static void dwConvs1_fix16_14(float* output, float* input, int inw, int inh, int
                 sum1 = vmlal_s16(sum1, r20_I16, k6);
                 sum1 = vmlal_s16(sum1, r21_I16, k7);
                 sum1 = vmlal_s16(sum1, r22_I16, k8);
+                ARM_STORE_PREFETCH_64(og);
 
                 r01_I16 = vext_s16(r00n_I16, r00nn_I16, 1);
                 r02_I16 = vext_s16(r00n_I16, r00nn_I16, 2);
@@ -1292,9 +1332,9 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
         float32x4_t sum1f, sum2f;
         int32x4_t sum1, sum2;
 
-        short* kp = kernel + 9 * g;
+        short* kp   = kernel + 9 * g;
         float* outg = output + g * outw * outh;
-        float* ing = input + g * inw * inh;
+        float* ing  = input + g * inw * inh;
 
         int16x4_t k0 = vld1_dup_s16(kp);
         int16x4_t k1 = vld1_dup_s16(kp + 1);
@@ -1328,6 +1368,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 //float32x4_t r02 = vextq_f32(r00, r0n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r0_I32_0   = vcvtq_n_s32_f32(r0.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_128(_r1);
                 int32x4_t r0_I32_1   = vcvtq_n_s32_f32(r0.val[1],   FRACTION);
                 int32x4_t r0n1_I32_0 = vcvtq_n_s32_f32(r0n1.val[0], FRACTION);
                 int32x4_t r0n1_I32_1 = vcvtq_n_s32_f32(r0n1.val[1], FRACTION);
@@ -1350,6 +1391,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 //float32x4_t r12    = vextq_f32(r10, r1n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r1_I32_0   = vcvtq_n_s32_f32(r1.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_128(_r2);
                 int32x4_t r1_I32_1   = vcvtq_n_s32_f32(r1.val[1],   FRACTION);
                 int32x4_t r1n1_I32_0 = vcvtq_n_s32_f32(r1n1.val[0], FRACTION);
                 int32x4_t r1n1_I32_1 = vcvtq_n_s32_f32(r1n1.val[1], FRACTION);
@@ -1372,6 +1414,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 //float32x4_t r22 = vextq_f32(r20, r2n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r2_I32_0   = vcvtq_n_s32_f32(r2.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_128(_r0 + 16);
                 int32x4_t r2_I32_1   = vcvtq_n_s32_f32(r2.val[1],   FRACTION);
                 int32x4_t r2n1_I32_0 = vcvtq_n_s32_f32(r2n1.val[0], FRACTION);
                 int32x4_t r2n1_I32_1 = vcvtq_n_s32_f32(r2n1.val[1], FRACTION);
@@ -1385,6 +1428,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int16x4_t r2n2_I16_0 = vmovn_s32(r2n2_I32_0);
                 int16x4_t r2n2_I16_1 = vmovn_s32(r2n2_I32_1);
                 int16x4_t r22_I16    = vext_s16(r2_I16_0, r2n2_I16_0, 1);
+                ARM_STORE_PREFETCH_32(og);
 
                 sum1 = vmull_s16(r0_I16_0, k0);
                 sum2 = vmull_s16(r0_I16_1, k1);
@@ -1426,7 +1470,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 sum1f = vcvtq_n_f32_s32(sum1, FRACTIONBX2);
                 vst1q_f32(og + 4, sum1f);
 
-                _r0 +=16;
+                _r0 += 16;
                 _r1 += 16;
                 _r2 += 16;
                 og += 8;
@@ -1442,6 +1486,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 //float32x4_t r02 = vextq_f32(r00, r0n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r0_I32_0   = vcvtq_n_s32_f32(r0.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_64(_r1);
                 int32x4_t r0_I32_1   = vcvtq_n_s32_f32(r0.val[1],   FRACTION);
                 int32x4_t r0n1_I32_0 = vcvtq_n_s32_f32(r0n1.val[0], FRACTION);
                 int32x4_t r0n1_I32_1 = vcvtq_n_s32_f32(r0n1.val[1], FRACTION);
@@ -1459,6 +1504,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 //float32x4_t r12 = vextq_f32(r10, r1n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r1_I32_0   = vcvtq_n_s32_f32(r1.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_64(_r2);
                 int32x4_t r1_I32_1   = vcvtq_n_s32_f32(r1.val[1],   FRACTION);
                 int32x4_t r1n1_I32_0 = vcvtq_n_s32_f32(r1n1.val[0], FRACTION);
                 int32x4_t r1n1_I32_1 = vcvtq_n_s32_f32(r1n1.val[1], FRACTION);
@@ -1476,6 +1522,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 //float32x4_t r22 = vextq_f32(r20, r2n1.val[0], 1);  //2 4 6 8
 
                 int32x4_t r2_I32_0   = vcvtq_n_s32_f32(r2.val[0],   FRACTION);
+                ARM_LOAD_PREFETCH_64(_r0 + 8);
                 int32x4_t r2_I32_1   = vcvtq_n_s32_f32(r2.val[1],   FRACTION);
                 int32x4_t r2n1_I32_0 = vcvtq_n_s32_f32(r2n1.val[0], FRACTION);
                 int32x4_t r2n1_I32_1 = vcvtq_n_s32_f32(r2n1.val[1], FRACTION);
@@ -1485,6 +1532,7 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int16x4_t r2n1_I16_0 = vmovn_s32(r2n1_I32_0);
                 int16x4_t r2n1_I16_1 = vmovn_s32(r2n1_I32_1);
                 int16x4_t r22_I16    = vext_s16(r2_I16_0, r2n1_I16_0, 1);
+                ARM_STORE_PREFETCH_16(og);
 
                 sum1 = vmull_s16(r0_I16_0, k0);
                 sum2 = vmull_s16(r0_I16_1, k1);
@@ -1520,7 +1568,6 @@ static void dwConvs2_fix16_14(float* output, float* input, int inw, int inh, int
                 int32x4_t r00_I32 = vcvtq_n_s32_f32(r00, FRACTION);
                 int32x4_t r10_I32 = vcvtq_n_s32_f32(r10, FRACTION);
                 int32x4_t r20_I32 = vcvtq_n_s32_f32(r20, FRACTION);
-
                 int16x4_t r00_I16 = vmovn_s32(r00_I32);
                 int16x4_t r10_I16 = vmovn_s32(r10_I32);
                 int16x4_t r20_I16 = vmovn_s32(r20_I32);
@@ -1617,6 +1664,7 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4_t r30nn = vld1q_f32(r3 + 8);
                 float32x4_t r31 = vextq_f32(r30, r30n, 1);
                 float32x4_t r32 = vextq_f32(r30, r30n, 2);
+                ARM_LOAD_PREFETCH_64(r0 + 8);
 
                 sum1 = vmulq_f32(r00, k0);
                 sum1 = vfmaq_f32(sum1, r01, k1);
@@ -1627,6 +1675,7 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 sum1 = vfmaq_f32(sum1, r20, k6);
                 sum1 = vfmaq_f32(sum1, r21, k7);
                 sum1 = vfmaq_f32(sum1, r22, k8);
+                ARM_LOAD_PREFETCH_64(r1 + 8);
 
                 sum2 = vmulq_f32(r10, k0);
                 sum2 = vfmaq_f32(sum2, r11, k1);
@@ -1637,7 +1686,7 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 sum2 = vfmaq_f32(sum2, r30, k6);
                 sum2 = vfmaq_f32(sum2, r31, k7);
                 sum2 = vfmaq_f32(sum2, r32, k8);
-
+                ARM_LOAD_PREFETCH_64(r2 + 8);
 
                 r01 = vextq_f32(r00n, r00nn, 1);
                 r02 = vextq_f32(r00n, r00nn, 2);
@@ -1647,17 +1696,19 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 r22 = vextq_f32(r20n, r20nn, 2);
                 r31 = vextq_f32(r30n, r30nn, 1);
                 r32 = vextq_f32(r30n, r30nn, 2);
+                ARM_LOAD_PREFETCH_64(r3 + 8);
 
                 sum3 = vmulq_f32(r00n, k0);
                 sum3 = vfmaq_f32(sum3, r01, k1);
                 sum3 = vfmaq_f32(sum3, r02, k2);
                 sum3 = vfmaq_f32(sum3, r10n, k3);
+                ARM_STORE_PREFETCH_32(og);
                 sum3 = vfmaq_f32(sum3, r11, k4);
                 sum3 = vfmaq_f32(sum3, r12, k5);
                 sum3 = vfmaq_f32(sum3, r20n, k6);
                 sum3 = vfmaq_f32(sum3, r21, k7);
                 sum3 = vfmaq_f32(sum3, r22, k8);
-
+                ARM_STORE_PREFETCH_32(og3);
 
                 sum4 = vmulq_f32(r10n, k0);
                 sum4 = vfmaq_f32(sum4, r11, k1);
@@ -1703,19 +1754,25 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4_t r30n = vld1q_f32(r3 + 4);
                 float32x4_t r31 = vextq_f32(r30, r30n, 1);
                 float32x4_t r32 = vextq_f32(r30, r30n, 2);
+                ARM_LOAD_PREFETCH_32(r0 + 4);
 
                 sum1 = vmulq_f32(r00, k0);
                 sum1 = vfmaq_f32(sum1, r01, k1);
+                ARM_LOAD_PREFETCH_32(r1 + 4);
                 sum1 = vfmaq_f32(sum1, r02, k2);
                 sum1 = vfmaq_f32(sum1, r10, k3);
+                ARM_LOAD_PREFETCH_32(r2 + 4);
                 sum1 = vfmaq_f32(sum1, r11, k4);
                 sum1 = vfmaq_f32(sum1, r12, k5);
+                ARM_LOAD_PREFETCH_32(r3 + 4);
                 sum1 = vfmaq_f32(sum1, r20, k6);
                 sum1 = vfmaq_f32(sum1, r21, k7);
                 sum1 = vfmaq_f32(sum1, r22, k8);
+                ARM_STORE_PREFETCH_16(og);
 
                 sum2 = vmulq_f32(r10, k0);
                 sum2 = vfmaq_f32(sum2, r11, k1);
+                ARM_STORE_PREFETCH_16(og3);
                 sum2 = vfmaq_f32(sum2, r12, k2);
                 sum2 = vfmaq_f32(sum2, r20, k3);
                 sum2 = vfmaq_f32(sum2, r21, k4);
@@ -1799,18 +1856,24 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4_t r30n = vld1q_f32(r3 + 4);
                 float32x4_t r31 = vextq_f32(r30, r30n, 1);
                 float32x4_t r32 = vextq_f32(r30, r30n, 2);
+                ARM_LOAD_PREFETCH_32(r0+4);
 
                 sum1 = vmulq_f32(r00, k0);
                 sum1 = vmlaq_f32(sum1, r01, k1);
+                ARM_LOAD_PREFETCH_32(r1+4);
                 sum1 = vmlaq_f32(sum1, r02, k2);
                 sum1 = vmlaq_f32(sum1, r10, k3);
+                ARM_LOAD_PREFETCH_32(r2+4);
                 sum1 = vmlaq_f32(sum1, r11, k4);
                 sum1 = vmlaq_f32(sum1, r12, k5);
+                ARM_LOAD_PREFETCH_32(r3+4);
                 sum1 = vmlaq_f32(sum1, r20, k6);
                 sum1 = vmlaq_f32(sum1, r21, k7);
+                ARM_STORE_PREFETCH_16(og);
                 sum1 = vmlaq_f32(sum1, r22, k8);
 
                 sum2 = vmulq_f32(r10, k0);
+                ARM_STORE_PREFETCH_16(og3);
                 sum2 = vmlaq_f32(sum2, r11, k1);
                 sum2 = vmlaq_f32(sum2, r12, k2);
                 sum2 = vmlaq_f32(sum2, r20, k3);
@@ -1909,6 +1972,7 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4_t r21 = vextq_f32(r20, r20n, 1);
                 float32x4_t r22 = vextq_f32(r20, r20n, 2);
 
+                ARM_LOAD_PREFETCH_128(r0 + 16);
                 sum1 = vmulq_f32(r00, k0);
                 sum1 = vfmaq_f32(sum1, r01, k1);
                 sum1 = vfmaq_f32(sum1, r02, k2);
@@ -1918,7 +1982,7 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 sum1 = vfmaq_f32(sum1, r20, k6);
                 sum1 = vfmaq_f32(sum1, r21, k7);
                 sum1 = vfmaq_f32(sum1, r22, k8);
-
+                ARM_LOAD_PREFETCH_128(r1 + 16);
 
                 r01 = vextq_f32(r00n, r00nn, 1);
                 r02 = vextq_f32(r00n, r00nn, 2);
@@ -1926,6 +1990,7 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 r12 = vextq_f32(r10n, r10nn, 2);
                 r21 = vextq_f32(r20n, r20nn, 1);
                 r22 = vextq_f32(r20n, r20nn, 2);
+                ARM_LOAD_PREFETCH_128(r2 + 16);
 
                 sum2 = vmulq_f32(r00n, k0);
                 sum2 = vfmaq_f32(sum2, r01, k1);
@@ -1937,6 +2002,7 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 sum2 = vfmaq_f32(sum2, r21, k7);
                 sum2 = vfmaq_f32(sum2, r22, k8);
 
+                ARM_STORE_PREFETCH_64(og);
                 r01 = vextq_f32(r00nn, r00nnn, 1);
                 r02 = vextq_f32(r00nn, r00nnn, 2);
                 r11 = vextq_f32(r10nn, r10nnn, 1);
@@ -2029,6 +2095,7 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4_t r21 = vextq_f32(r20, r20n, 1);
                 float32x4_t r22 = vextq_f32(r20, r20n, 2);
 
+                ARM_LOAD_PREFETCH_64(r0 + 8);
                 sum1 = vmulq_f32(r00, k0);
                 sum1 = vmlaq_f32(sum1, r01, k1);
                 sum1 = vmlaq_f32(sum1, r02, k2);
@@ -2038,16 +2105,19 @@ void dwConvs1(float* output, float* input, int inw, int inh, int stridew, int st
                 sum1 = vmlaq_f32(sum1, r20, k6);
                 sum1 = vmlaq_f32(sum1, r21, k7);
                 sum1 = vmlaq_f32(sum1, r22, k8);
-
+                ARM_LOAD_PREFETCH_64(r1 + 8);
 
                 r01 = vextq_f32(r00n, r00nn, 1);
                 r02 = vextq_f32(r00n, r00nn, 2);
+                ARM_LOAD_PREFETCH_64(r2 + 8);
                 r11 = vextq_f32(r10n, r10nn, 1);
                 r12 = vextq_f32(r10n, r10nn, 2);
                 r21 = vextq_f32(r20n, r20nn, 1);
                 r22 = vextq_f32(r20n, r20nn, 2);
+                ARM_STORE_PREFETCH_32(og);
 
                 sum2 = vmulq_f32(r00n, k0);
+
                 sum2 = vmlaq_f32(sum2, r01, k1);
                 sum2 = vmlaq_f32(sum2, r02, k2);
                 sum2 = vmlaq_f32(sum2, r10n, k3);
@@ -2155,10 +2225,12 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4x2_t r2n4 = vld2q_f32(_r2 + 32);
                 float32x4_t r20 = r2.val[0];  //0 2 4 6
                 float32x4_t r21 = r2.val[1];  //1 3 5 7
+                ARM_STORE_PREFETCH_64(og);
                 float32x4_t r22 = vextq_f32(r20, r2n1.val[0], 1);  //2 4 6 8
 
                 sum1 = vmulq_f32(r00, k0);
                 sum2 = vmulq_f32(r01, k1);
+                ARM_LOAD_PREFETCH_256(_r0 + 32);
                 sum1 = vfmaq_f32(sum1, r02, k2);
                 sum2 = vfmaq_f32(sum2, r10, k3);
                 sum1 = vfmaq_f32(sum1, r11, k4);
@@ -2181,6 +2253,7 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 r20 = r2n1.val[0];  //0 2 4 6
                 r21 = r2n1.val[1];  //1 3 5 7
                 r22 = vextq_f32(r20, r2n2.val[0], 1);  //2 4 6 8
+                ARM_LOAD_PREFETCH_256(_r1 + 32);
 
                 sum1 = vmulq_f32(r00, k0);
                 sum2 = vmulq_f32(r01, k1);
@@ -2206,6 +2279,7 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 r20 = r2n2.val[0];  //0 2 4 6
                 r21 = r2n2.val[1];  //1 3 5 7
                 r22 = vextq_f32(r20, r2n3.val[0], 1);  //2 4 6 8
+                ARM_LOAD_PREFETCH_256(_r2 + 32);
 
                 sum1 = vmulq_f32(r00, k0);
                 sum2 = vmulq_f32(r01, k1);
@@ -2245,7 +2319,7 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 sum1 = vaddq_f32(sum1, sum2);
                 vst1q_f32(og + 12, sum1);
 
-                _r0 +=32;
+                _r0 += 32;
                 _r1 += 32;
                 _r2 += 32;
                 og += 16;
@@ -2275,8 +2349,10 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4_t r21 = r2.val[1];  //1 3 5 7
                 float32x4_t r22 = vextq_f32(r20, r2n1.val[0], 1);  //2 4 6 8
 
+                ARM_STORE_PREFETCH_32(og);
                 sum1 = vmulq_f32(r00, k0);
                 sum2 = vmulq_f32(r01, k1);
+                ARM_LOAD_PREFETCH_128(_r0 + 16);
                 sum1 = vfmaq_f32(sum1, r02, k2);
                 sum2 = vfmaq_f32(sum2, r10, k3);
                 sum1 = vfmaq_f32(sum1, r11, k4);
@@ -2291,6 +2367,7 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 r00 = r0n1.val[0];  //0 2 4 6
                 r01 = r0n1.val[1];  //1 3 5 7
                 r02 = vextq_f32(r00, r0n2.val[0], 1);  //2 4 6 8
+                ARM_LOAD_PREFETCH_128(_r1 + 16);
 
                 r10 = r1n1.val[0];  //0 2 4 6
                 r11 = r1n1.val[1];  //1 3 5 7
@@ -2302,6 +2379,7 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
 
                 sum1 = vmulq_f32(r00, k0);
                 sum2 = vmulq_f32(r01, k1);
+                ARM_LOAD_PREFETCH_128(_r2 + 16);
                 sum1 = vfmaq_f32(sum1, r02, k2);
                 sum2 = vfmaq_f32(sum2, r10, k3);
                 sum1 = vfmaq_f32(sum1, r11, k4);
@@ -2313,10 +2391,10 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 sum1 = vaddq_f32(sum1, sum2);
                 vst1q_f32(og + 4, sum1);
 
-                _r0 +=16;
+                _r0 += 16;
                 _r1 += 16;
                 _r2 += 16;
-                og += 8;
+                og  += 8;
             }
 
             //compute 1 * 4 outputs
@@ -2339,14 +2417,18 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4_t r20 = r2.val[0];  //0 2 4 6
                 float32x4_t r21 = r2.val[1];  //1 3 5 7
                 float32x4_t r22 = vextq_f32(r20, r2n1.val[0], 1);  //2 4 6 8
+                ARM_LOAD_PREFETCH_64(_r0 + 8);
 
                 sum1 = vmulq_f32(r00, k0);
+                ARM_LOAD_PREFETCH_64(_r1 + 8);
                 sum2 = vmulq_f32(r01, k1);
                 sum1 = vfmaq_f32(sum1, r02, k2);
                 sum2 = vfmaq_f32(sum2, r10, k3);
+                ARM_LOAD_PREFETCH_64(_r2 + 8);
                 sum1 = vfmaq_f32(sum1, r11, k4);
                 sum2 = vfmaq_f32(sum2, r12, k5);
                 sum1 = vfmaq_f32(sum1, r20, k6);
+                ARM_STORE_PREFETCH_16(og);
                 sum2 = vfmaq_f32(sum2, r21, k7);
                 sum1 = vfmaq_f32(sum1, r22, k8);
 
@@ -2356,7 +2438,7 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 _r0 += 8;
                 _r1 += 8;
                 _r2 += 8;
-                og += 4;
+                og  += 4;
             }
 #endif
             k0123 = vld1q_f32(kp);
@@ -2414,8 +2496,10 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4_t r21 = r2.val[1];  //1 3 5 7
                 float32x4_t r22 = vextq_f32(r20, r2n1.val[0], 1);  //2 4 6 8
 
+                ARM_STORE_PREFETCH_32(og);
                 sum1 = vmulq_f32(r00, k0);
                 sum2 = vmulq_f32(r01, k1);
+                ARM_LOAD_PREFETCH_128(_r0 + 16);
                 sum1 = vmlaq_f32(sum1, r02, k2);
                 sum2 = vmlaq_f32(sum2, r10, k3);
                 sum1 = vmlaq_f32(sum1, r11, k4);
@@ -2430,6 +2514,7 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 r00 = r0n1.val[0];  //0 2 4 6
                 r01 = r0n1.val[1];  //1 3 5 7
                 r02 = vextq_f32(r00, r0n2.val[0], 1);  //2 4 6 8
+                ARM_LOAD_PREFETCH_128(_r1 + 16);
 
                 r10 = r1n1.val[0];  //0 2 4 6
                 r11 = r1n1.val[1];  //1 3 5 7
@@ -2441,6 +2526,7 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
 
                 sum1 = vmulq_f32(r00, k0);
                 sum2 = vmulq_f32(r01, k1);
+                ARM_LOAD_PREFETCH_128(_r2 + 16);
                 sum1 = vmlaq_f32(sum1, r02, k2);
                 sum2 = vmlaq_f32(sum2, r10, k3);
                 sum1 = vmlaq_f32(sum1, r11, k4);
@@ -2452,10 +2538,10 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 sum1 = vaddq_f32(sum1, sum2);
                 vst1q_f32(og + 4, sum1);
 
-                _r0 +=16;
+                _r0 += 16;
                 _r1 += 16;
                 _r2 += 16;
-                og += 8;
+                og  += 8;
             }
 
             //compute 1 * 4 outputs
@@ -2479,12 +2565,15 @@ void dwConvs2(float* output, float* input, int inw, int inh, int stridew, int st
                 float32x4_t r21 = r2.val[1];  //1 3 5 7
                 float32x4_t r22 = vextq_f32(r20, r2n1.val[0], 1);  //2 4 6 8
 
+                ARM_STORE_PREFETCH_16(og);
                 sum1 = vmulq_f32(r00, k0);
                 sum2 = vmulq_f32(r01, k1);
+                ARM_LOAD_PREFETCH_64(_r0 + 8);
                 sum1 = vmlaq_f32(sum1, r02, k2);
                 sum2 = vmlaq_f32(sum2, r10, k3);
                 sum1 = vmlaq_f32(sum1, r11, k4);
                 sum2 = vmlaq_f32(sum2, r12, k5);
+                ARM_LOAD_PREFETCH_64(_r1 + 8);
                 sum1 = vmlaq_f32(sum1, r20, k6);
                 sum2 = vmlaq_f32(sum2, r21, k7);
                 sum1 = vmlaq_f32(sum1, r22, k8);

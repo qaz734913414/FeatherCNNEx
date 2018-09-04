@@ -65,6 +65,7 @@ public:
             {
                 float32x4_t vsrcf32x4 = vld1q_f32(inPtr + i);
                 uint32x4_t vmasku32x4 = vcleq_f32(vsrcf32x4, vzerof32x4);
+                ARM_STORE_PREFETCH_16(outPtr+i);
                 vsrcf32x4 = vbslq_f32(vmasku32x4, vzerof32x4, vsrcf32x4);
                 vst1q_f32(&outPtr[i], vsrcf32x4);
             }
@@ -102,7 +103,9 @@ public:
                 for (; i < size - 4; i += 4)
                 {
                     float32x4_t vsrcf32x4 = vld1q_f32(inPtr + i);
+                    ARM_STORE_PREFETCH_16(outPtr+i);
                     uint32x4_t vmasku32x4 = vcleq_f32(vsrcf32x4, vzerof32x4);
+                    ARM_LOAD_PREFETCH_16(inPtr+i+4);
                     float32x4_t vmulf32x4 = vmulq_f32(vsrcf32x4, vslopef32x4);
                     vmulf32x4 = vbslq_f32(vmasku32x4, vmulf32x4, vsrcf32x4);
                     vst1q_f32(&outPtr[i], vmulf32x4);
@@ -250,7 +253,7 @@ public:
         return 0;
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init()
     {
         padInputSize = alignSize((input_height+padding_top+padding_bottom)*(input_width+padding_left+padding_right), 16) - (input_height+padding_top+padding_bottom)*(input_width+padding_left+padding_right);
         padInChannel  = alignSize(input_height*input_width,   16) - input_height*input_width;
@@ -270,12 +273,6 @@ public:
 
         if (0 != padOutChannel)
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&align_output, sizeof(float) * output_channels * alignSize(output_height*output_width, 16)));
-
-        if ((NULL != ginput) && (NULL != goutput))
-        {
-            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
-        }
 
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();

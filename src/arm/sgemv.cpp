@@ -17,9 +17,13 @@
 #include <assert.h>
 #include <arm_neon.h>
 #include <string.h>
+#include <utils.h>
 
 void fully_connected_inference_direct(const int input_size, const int output_size, const float *x, const float *y, float *z, const int num_threads)
 {
+#ifdef __ARM_NEON
+    float32x4_t vzero = vdupq_n_f32(0.f);
+#endif
     #pragma omp parallel for schedule(static) num_threads(num_threads)
     for(int i=0; i<output_size; i++)
     {
@@ -27,7 +31,7 @@ void fully_connected_inference_direct(const int input_size, const int output_siz
         int j=0;
 #ifdef __ARM_NEON
         const float *pY = y+i*input_size;
-        float32x4_t vsum = vdupq_n_f32(0.f);;
+        float32x4_t vsum = vzero;
         for(; j<(input_size-4); j+=4)
         {
             //sum += x[j]*y[i*input_size + j];
@@ -76,6 +80,7 @@ void fully_connected_transpose_inference_neon8(const int input_size, const int o
             float32x4_t va = vld1q_f32(x + i);
 
             res  = vfmaq_laneq_f32(res,  vb0, va, 0);
+            ARM_LOAD_PREFETCH_128(yPtr + 32);
             res1 = vfmaq_laneq_f32(res1, vb1, va, 0);
             res  = vfmaq_laneq_f32(res,  vb2, va, 1);
             res1 = vfmaq_laneq_f32(res1, vb3, va, 1);
@@ -86,17 +91,15 @@ void fully_connected_transpose_inference_neon8(const int input_size, const int o
 #else
 #if 1
             float32x4_t va = vld1q_f32(x + i);
-
-            float32x2_t va_0 = vget_low_f32(va);
-            float32x2_t va_1 = vget_high_f32(va);
-            res  = vmlaq_lane_f32(res,  vb0, va_0, 0);
-            res1 = vmlaq_lane_f32(res1, vb1, va_0, 0);
-            res  = vmlaq_lane_f32(res,  vb2, va_0, 1);
-            res1 = vmlaq_lane_f32(res1, vb3, va_0, 1);
-            res  = vmlaq_lane_f32(res,  vb4, va_1, 0);
-            res1 = vmlaq_lane_f32(res1, vb5, va_1, 0);
-            res  = vmlaq_lane_f32(res,  vb6, va_1, 1);
-            res1 = vmlaq_lane_f32(res1, vb7, va_1, 1);
+            res  = vmlaq_n_f32(res,  vb0, va[0]);
+            ARM_LOAD_PREFETCH_128(yPtr + 32);
+            res1 = vmlaq_n_f32(res1, vb1, va[0]);
+            res  = vmlaq_n_f32(res,  vb2, va[1]);
+            res1 = vmlaq_n_f32(res1, vb3, va[1]);
+            res  = vmlaq_n_f32(res,  vb4, va[2]);
+            res1 = vmlaq_n_f32(res1, vb5, va[2]);
+            res  = vmlaq_n_f32(res,  vb6, va[3]);
+            res1 = vmlaq_n_f32(res1, vb7, va[3]);
 #else
             res  = vmlaq_n_f32(res,  vb0, *(x + i + 0));
             res1 = vmlaq_n_f32(res1, vb1, *(x + i + 0));
@@ -118,6 +121,9 @@ void fully_connected_transpose_inference_neon8(const int input_size, const int o
 
 void fully_connected_inference_direct_BiasReLU(int input_size, int output_size, float *x, float *y, float *z, float* biasArr, int num_threads)
 {
+#ifdef __ARM_NEON
+    float32x4_t vzero = vdupq_n_f32(0.f);
+#endif
     #pragma omp parallel for schedule(static) num_threads(num_threads)
     for(int i=0; i<output_size; i++)
     {
@@ -125,7 +131,7 @@ void fully_connected_inference_direct_BiasReLU(int input_size, int output_size, 
         int j=0;
 #ifdef __ARM_NEON
         const float *pY = y+i*input_size;
-        float32x4_t vsum = vdupq_n_f32(0.f);;
+        float32x4_t vsum = vzero;
         for(; j<(input_size-4); j+=4)
         {
             //sum += x[j]*y[i*input_size + j];
@@ -162,8 +168,6 @@ void fully_connected_transpose_inference_neon8_BiasReLU(int input_size, int outp
         float32x4_t va, vb0, vb1, vb2, vb3, vb4, vb5, vb6, vb7;
         for(int i=0; i<input_size; i+=4)
         {
-            va = vld1q_f32(x + i);
-
             vb0 = vld1q_f32(yPtr);
             vb1 = vld1q_f32(yPtr + 4);
             vb2 = vld1q_f32(yPtr + 8);
@@ -173,8 +177,11 @@ void fully_connected_transpose_inference_neon8_BiasReLU(int input_size, int outp
             vb6 = vld1q_f32(yPtr + 24);
             vb7 = vld1q_f32(yPtr + 28);
 
+            va = vld1q_f32(x + i);
+
 #if __aarch64__
             res = vfmaq_laneq_f32(res, vb0, va, 0);
+            ARM_LOAD_PREFETCH_128(yPtr + 32);
             res1 = vfmaq_laneq_f32(res1, vb1, va, 0);
             res = vfmaq_laneq_f32(res, vb2, va, 1);
             res1 = vfmaq_laneq_f32(res1, vb3, va, 1);
@@ -186,6 +193,7 @@ void fully_connected_transpose_inference_neon8_BiasReLU(int input_size, int outp
 
 #if 1
             res  = vmlaq_n_f32(res,  vb0, va[0]);
+            ARM_LOAD_PREFETCH_128(yPtr + 32);
             res1 = vmlaq_n_f32(res1, vb1, va[0]);
             res  = vmlaq_n_f32(res,  vb2, va[1]);
             res1 = vmlaq_n_f32(res1, vb3, va[1]);

@@ -169,7 +169,7 @@ template void internalPackA4<int8_t>(int, int8_t* packA, int8_t* a, int);
 template void internalPackA4<short>(int, short* packA, short* a, int);
 template void internalPackA4<float>(int, float* packA, float* a, int);
 
-static void internalPackA4_FP16(int L, float16_t* packA, float* a, int lda)
+static void internalPackA4_FP16(int L, fix16_t* packA, float* a, int lda)
 {
     float32x4_t vsrc32x4;
     float *a_p0_ptr, *a_p1_ptr, *a_p2_ptr, *a_p3_ptr;
@@ -206,7 +206,7 @@ template void internalPackA3<int8_t>(int, int8_t* packA, int8_t* a, int);
 template void internalPackA3<short>(int, short* packA, short* a, int);
 template void internalPackA3<float>(int, float* packA, float* a, int);
 
-static void internalPackA3_FP16(int L, float16_t* packA, float* a, int lda)
+static void internalPackA3_FP16(int L, fix16_t* packA, float* a, int lda)
 {
     float32x4_t vsrc32x4;
     float *a_p0_ptr, *a_p1_ptr, *a_p2_ptr;
@@ -241,7 +241,7 @@ template void internalPackA2<int8_t>(int, int8_t* packA, int8_t* a, int);
 template void internalPackA2<short>(int, short* packA, short* a, int);
 template void internalPackA2<float>(int, float* packA, float* a, int);
 
-static void internalPackA2_FP16(int L, float16_t* packA, float* a, int lda)
+static void internalPackA2_FP16(int L, fix16_t* packA, float* a, int lda)
 {
     float32x4_t vsrc32x4;
     float *a_p0_ptr, *a_p1_ptr;
@@ -274,7 +274,7 @@ template void internalPackA1<int8_t>(int, int8_t* packA, int8_t* a, int);
 template void internalPackA1<short>(int, short* packA, short* a, int);
 template void internalPackA1<float>(int, float* packA, float* a, int);
 
-static void internalPackA1_FP16(int L, float16_t* packA, float* a, int lda)
+static void internalPackA1_FP16(int L, fix16_t* packA, float* a, int lda)
 {
     float32x4_t vsrc32x4;
     float *a_p0_ptr;
@@ -332,13 +332,13 @@ template void externalPackA<int8_t>(int, int, int8_t* packA, int8_t* a, int);
 template void externalPackA<short>(int, int, short* packA, short* a, int);
 template void externalPackA<float>(int, int, float* packA, float* a, int);
 
-void externalPackA_FP16(int M, int L, float16_t* packA, float* a, int lda)
+void externalPackA_FP16(int M, int L, fix16_t* packA, float* a, int lda)
 {
-    float16_t* packAptr = packA;
+    fix16_t* packAptr = packA;
     int remM = M % 4;
     int eM = M + (4 - M % 4) % 4;//align to 4
 
-    void (*remPack)(int, float16_t*, float*, int) = NULL;
+    void (*remPack)(int, fix16_t*, float*, int) = NULL;
     switch(remM)
     {
     case 0:
@@ -395,7 +395,7 @@ static void internalPackB8(int L, T* packB, float* B, int ldb)
     }
     else if (2 == sizeof(*packB))
     {
-        float16_t *packBptr = (float16_t *)packB;
+        fix16_t *packBptr = (fix16_t *)packB;
         for(int i = 0; i < L; ++i, packBptr += 8, bp += ldb)
         {
 #ifdef __aarch64__
@@ -410,10 +410,10 @@ static void internalPackB8(int L, T* packB, float* B, int ldb)
     }
 }
 template void internalPackB8<float>(int L, float* packB, float* B, int ldb);
-template void internalPackB8<float16_t>(int L, float16_t* packB, float* B, int ldb);
+template void internalPackB8<fix16_t>(int L, fix16_t* packB, float* B, int ldb);
 
 template<typename T>
-static inline void sgemm_4x1(int L, T *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
+static void sgemm_4x1(int L, T *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
     float *cptr = c;
     float32x4_t va;
@@ -446,11 +446,11 @@ static inline void sgemm_4x1(int L, T *a, int lda, float* b, int ldb, float *c, 
     }
     else if (2 == sizeof(*a))
     {
-        float16_t *aptr = (float16_t *)a;
+        fix16_t *aptr = (fix16_t *)a;
         for(int p = 0; p < L; ++p)
         {
             float16x4_t vtmp;
-            vtmp = vld1_f16(aptr);
+            vtmp = vld1_f16_neon(aptr);
             va = vcvt_f32_f16(vtmp);
 #if __aarch64__
             vc = vfmaq_n_f32(vc, va, *bptr);
@@ -509,11 +509,11 @@ static inline void sgemm_4x1(int L, T *a, int lda, float* b, int ldb, float *c, 
         *cptr = vc[3];
     }
 }
-template inline void sgemm_4x1<float>(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template inline void sgemm_4x1<float16_t>(int L, float16_t *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x1<float>(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x1<fix16_t>(int L, fix16_t *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
 template<typename T>
-static inline void sgemm_4x2(int L, T *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
+static void sgemm_4x2(int L, T *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
     float *cptr = c;
     float32x4_t va;
@@ -552,10 +552,10 @@ static inline void sgemm_4x2(int L, T *a, int lda, float* b, int ldb, float *c, 
     }
     else if (2 == sizeof(*a))
     {
-        float16_t *aptr = (float16_t *)a;
+        fix16_t *aptr = (fix16_t *)a;
         for(int p = 0; p < L; ++p)
         {
-            float16x4_t vtmp = vld1_f16(aptr);
+            float16x4_t vtmp = vld1_f16_neon(aptr);
             va = vcvt_f32_f16(vtmp);
 #if __aarch64__
             vc[0] = vfmaq_n_f32(vc[0], va, bptr[0]);
@@ -637,11 +637,11 @@ static inline void sgemm_4x2(int L, T *a, int lda, float* b, int ldb, float *c, 
         *(cptr+1) = vc[1][3];
     }
 }
-template inline void sgemm_4x2<float>(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template inline void sgemm_4x2<float16_t>(int L, float16_t *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x2<float>(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x2<fix16_t>(int L, fix16_t *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
 template<typename T>
-static inline void sgemm_4x3(int L, T *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
+static void sgemm_4x3(int L, T *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
     float *cptr = c;
     float32x4_t va;
@@ -686,10 +686,10 @@ static inline void sgemm_4x3(int L, T *a, int lda, float* b, int ldb, float *c, 
     }
     else if (2 == sizeof(*a))
     {
-        float16_t *aptr = (float16_t *)a;
+        fix16_t *aptr = (fix16_t *)a;
         for(int p = 0; p < L; ++p)
         {
-            float16x4_t vtmp = vld1_f16(aptr);
+            float16x4_t vtmp = vld1_f16_neon(aptr);
             va = vcvt_f32_f16(vtmp);
 #if __aarch64__
             vc[0] = vfmaq_n_f32(vc[0], va, bptr[0]);
@@ -792,11 +792,11 @@ static inline void sgemm_4x3(int L, T *a, int lda, float* b, int ldb, float *c, 
         *(cptr+2) = vc[2][3];
     }
 }
-template inline void sgemm_4x3<float>(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template inline void sgemm_4x3<float16_t>(int L, float16_t *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x3<float>(int L, float *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x3<fix16_t>(int L, fix16_t *a, int lda, float* b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
 template<typename T>
-static inline void sgemm_4x4(int L, T *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
+static void sgemm_4x4(int L, T *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
     T *aptr = a;
     float *bptr = b;
@@ -821,12 +821,16 @@ static inline void sgemm_4x4(int L, T *a, int lda, float *b, int ldb, float *c, 
             float32x4_t va = vld1q_f32(aptr);
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb, va, 0);
+            ARM_LOAD_PREFETCH_16(aptr+4);
             vc1 = vmlaq_laneq_f32(vc1, vb, va, 1);
+            ARM_LOAD_PREFETCH_16(bptr+ldb);
             vc2 = vmlaq_laneq_f32(vc2, vb, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb, va, 3);
 #else
             vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va), 0);
+            ARM_LOAD_PREFETCH_16(aptr+4);
             vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va), 1);
+            ARM_LOAD_PREFETCH_16(bptr+ldb);
             vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va), 1);
 #endif
@@ -836,19 +840,22 @@ static inline void sgemm_4x4(int L, T *a, int lda, float *b, int ldb, float *c, 
     }
     else if (2 == sizeof(*a))
     {
-        float16_t *aptr = (float16_t *)a;
+        fix16_t *aptr = (fix16_t *)a;
         for(int p = 0; p < L; ++p)
         {
             float32x4_t vb   = vld1q_f32(bptr);
-            float16x4_t vtmp = vld1_f16(aptr);
-            float32x4_t va = vcvt_f32_f16(vtmp);
+            float16x4_t vtmp = vld1_f16_neon(aptr);
+            float32x4_t va   = vcvt_f32_f16(vtmp);
+            ARM_LOAD_PREFETCH_16(aptr+4);
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb, va, 0);
+            ARM_LOAD_PREFETCH_16(bptr+ldb);
             vc1 = vmlaq_laneq_f32(vc1, vb, va, 1);
             vc2 = vmlaq_laneq_f32(vc2, vb, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb, va, 3);
 #else
             vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va), 0);
+            ARM_LOAD_PREFETCH_16(bptr+ldb);
             vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va), 1);
             vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va), 1);
@@ -861,6 +868,8 @@ static inline void sgemm_4x4(int L, T *a, int lda, float *b, int ldb, float *c, 
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         float32x4_t vb = vdupq_n_f32(.0f);
@@ -871,18 +880,21 @@ static inline void sgemm_4x4(int L, T *a, int lda, float *b, int ldb, float *c, 
         vst1q_f32(cptr, vc0);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
         vst1q_f32(cptr, vc1);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
         vst1q_f32(cptr, vc2);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -890,6 +902,8 @@ static inline void sgemm_4x4(int L, T *a, int lda, float *b, int ldb, float *c, 
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         float32x4_t vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -897,16 +911,19 @@ static inline void sgemm_4x4(int L, T *a, int lda, float *b, int ldb, float *c, 
         vst1q_f32(cptr, vc0);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -922,11 +939,11 @@ static inline void sgemm_4x4(int L, T *a, int lda, float *b, int ldb, float *c, 
         vst1q_f32(cptr, vc3);
     }
 }
-template inline void sgemm_4x4<float>(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template inline void sgemm_4x4<float16_t>(int L, float16_t *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x4<float>(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x4<fix16_t>(int L, fix16_t *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
 template<typename T>
-static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
+static void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
     float *bptr = b;
     float *cptr = c;
@@ -956,12 +973,16 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
             float32x4_t va = vld1q_f32(aptr);
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb, va, 0);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc1 = vmlaq_laneq_f32(vc1, vb, va, 1);
+            ARM_LOAD_PREFETCH_16(bptr + ldb);
             vc2 = vmlaq_laneq_f32(vc2, vb, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb, va, 3);
 #else
             vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va), 0);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va), 1);
+            ARM_LOAD_PREFETCH_16(bptr + ldb);
             vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va), 1);
 #endif
@@ -973,20 +994,22 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
     }
     else if (2 == sizeof(*a))
     {
-        float16_t *aptr = (float16_t *)a;
+        fix16_t *aptr = (fix16_t *)a;
         for(int p = 0; p < L; ++p)
         {
             float32x4_t vb = vld1q_f32(bptr);
-            float16x4_t vtmp = vld1_f16(aptr);
+            float16x4_t vtmp = vld1_f16_neon(aptr);
             float32x4_t va = vcvt_f32_f16(vtmp);
-
+            ARM_LOAD_PREFETCH_16(bptr + ldb);
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb, va, 0);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc1 = vmlaq_laneq_f32(vc1, vb, va, 1);
             vc2 = vmlaq_laneq_f32(vc2, vb, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb, va, 3);
 #else
             vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va), 0);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va), 1);
             vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va), 1);
@@ -1001,6 +1024,8 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         float32x4_t vb = vdupq_n_f32(.0f);
@@ -1013,6 +1038,7 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
@@ -1021,6 +1047,7 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
@@ -1029,6 +1056,7 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -1038,6 +1066,8 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         float32x4_t vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -1047,6 +1077,7 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
@@ -1054,6 +1085,7 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
@@ -1061,6 +1093,7 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -1082,11 +1115,11 @@ static inline void sgemm_4x5(int L, T *a, int lda, float *b, int ldb, float *c, 
         *(cptr + 4) = vc4[3];
     }
 }
-template inline void sgemm_4x5<float>(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template inline void sgemm_4x5<float16_t>(int L, float16_t *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x5<float>(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x5<fix16_t>(int L, fix16_t *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
 template<typename T>
-static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
+static void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
     float *bptr = b;
     float *cptr = c;
@@ -1121,12 +1154,16 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
 
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb, va, 0);
+            ARM_LOAD_PREFETCH_16(bptr + ldc);
             vc1 = vmlaq_laneq_f32(vc1, vb, va, 1);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc2 = vmlaq_laneq_f32(vc2, vb, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb, va, 3);
 #else
             vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va), 0);
+            ARM_LOAD_PREFETCH_16(bptr + ldc);
             vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va), 1);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va), 1);
 #endif
@@ -1138,20 +1175,22 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
     }
     else if (2 == sizeof(*a))
     {
-        float16_t *aptr = (float16_t *)a;
+        fix16_t *aptr = (fix16_t *)a;
         for(int p = 0; p < L; ++p)
         {
             float32x4_t vb = vld1q_f32(bptr);
-            float16x4_t vtmp = vld1_f16(aptr);
+            float16x4_t vtmp = vld1_f16_neon(aptr);
             float32x4_t va = vcvt_f32_f16(vtmp);
-
+            ARM_LOAD_PREFETCH_16(bptr + ldc);
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb, va, 0);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc1 = vmlaq_laneq_f32(vc1, vb, va, 1);
             vc2 = vmlaq_laneq_f32(vc2, vb, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb, va, 3);
 #else
             vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va), 0);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va), 1);
             vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va), 1);
@@ -1165,6 +1204,8 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         float32x4_t vb = vdupq_n_f32(.0f);
@@ -1179,6 +1220,7 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
@@ -1189,6 +1231,7 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
@@ -1199,6 +1242,7 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -1210,6 +1254,8 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         float32x4_t vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -1221,6 +1267,7 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
@@ -1230,6 +1277,7 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
@@ -1239,6 +1287,7 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -1266,11 +1315,11 @@ static inline void sgemm_4x6(int L, T *a, int lda, float *b, int ldb, float *c, 
         *(cptr + 5) = vc5[3];
     }
 }
-template inline void sgemm_4x6<float>(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template inline void sgemm_4x6<float16_t>(int L, float16_t *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x6<float>(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x6<fix16_t>(int L, fix16_t *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
 template<typename T>
-static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
+static void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
     float *bptr = b;
     float *cptr = c;
@@ -1309,12 +1358,16 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
 
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb, va, 0);
+            ARM_LOAD_PREFETCH_16(bptr + ldb);
             vc1 = vmlaq_laneq_f32(vc1, vb, va, 1);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc2 = vmlaq_laneq_f32(vc2, vb, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb, va, 3);
 #else
             vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va), 0);
+            ARM_LOAD_PREFETCH_16(bptr + ldb);
             vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va), 1);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va), 1);
 #endif
@@ -1327,20 +1380,22 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
     }
     else if (2 == sizeof(*a))
     {
-        float16_t *aptr = (float16_t *)a;
+        fix16_t *aptr = (fix16_t *)a;
         for(int p = 0; p < L; ++p)
         {
             float32x4_t vb  = vld1q_f32(bptr);
-            float16x4_t vtmp = vld1_f16(aptr);
+            float16x4_t vtmp = vld1_f16_neon(aptr);
             float32x4_t va = vcvt_f32_f16(vtmp);
-
+            ARM_LOAD_PREFETCH_16(bptr + ldb);
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb, va, 0);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc1 = vmlaq_laneq_f32(vc1, vb, va, 1);
             vc2 = vmlaq_laneq_f32(vc2, vb, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb, va, 3);
 #else
             vc0 = vmlaq_lane_f32(vc0, vb, vget_low_f32(va), 0);
+            ARM_LOAD_PREFETCH_16(aptr + 4);
             vc1 = vmlaq_lane_f32(vc1, vb, vget_low_f32(va), 1);
             vc2 = vmlaq_lane_f32(vc2, vb, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb, vget_high_f32(va), 1);
@@ -1356,6 +1411,8 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         float32x4_t vb = vdupq_n_f32(.0f);
@@ -1372,6 +1429,7 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
@@ -1384,6 +1442,7 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
@@ -1396,6 +1455,7 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -1409,6 +1469,8 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         float32x4_t vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -1422,6 +1484,7 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
@@ -1433,6 +1496,7 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
@@ -1444,6 +1508,7 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -1477,8 +1542,8 @@ static inline void sgemm_4x7(int L, T *a, int lda, float *b, int ldb, float *c, 
         *(cptr + 6) = vc6[3];
     }
 }
-template inline void sgemm_4x7<float>(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template inline void sgemm_4x7<float16_t>(int L, float16_t *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x7<float>(int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x7<fix16_t>(int L, fix16_t *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
 static void sgemm_8x1_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float int8scaleW, float int8scaleIn, float int8scaleOut, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
@@ -1517,6 +1582,7 @@ static void sgemm_8x1_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         b4  = *(bptr);
         vaI8 = vld1_s8(aptr);
         vaI16 = vmovl_s8(vaI8);
+        ARM_LOAD_PREFETCH_16(aptr + 8);
         va0I32 = vmovl_s16(vget_low_s16(vaI16));
         va1I32 = vmovl_s16(vget_high_s16(vaI16));
         va0 = vcvtq_f32_s32(va0I32);
@@ -1629,7 +1695,7 @@ static void sgemm_8x1_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
 
 static void sgemm_8x1_fp16(int L, short *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
-    float16_t *aptr = (float16_t*)a;
+    fix16_t *aptr = (fix16_t*)a;
     float *bptr = b;
     float *cptr = c;
 
@@ -1656,14 +1722,16 @@ static void sgemm_8x1_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     for(int p = 0; p < L; ++p)
     {
 #if __aarch64__
-        float16x4x2_t va = vld1_f16_x2(aptr);
+        float16x4x2_t va = vld1_f16_x2((__fp16*)aptr);
 #else
         float16x4x2_t va;
-        va.val[0] = vld1_f16(aptr);
-        va.val[1] = vld1_f16(aptr+4);
+        va.val[0] = vld1_f16_neon(aptr);
+        va.val[1] = vld1_f16_neon(aptr+4);
 #endif
+
         float b4_I  = *bptr;
         float32x4_t vsrc_0 = vcvt_f32_f16(va.val[0]);
+        ARM_LOAD_PREFETCH_16(aptr+8);
         float32x4_t vsrc_1 = vcvt_f32_f16(va.val[1]);
         vc4_I = vmlaq_n_f32(vc4_I, vsrc_0, b4_I);
         vcE_I = vmlaq_n_f32(vcE_I, vsrc_1, b4_I);
@@ -1796,6 +1864,7 @@ static void sgemm_8x1_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         va.val[1] = vld1_s16(aptr+4);
 #endif
         fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *bptr);
+        ARM_LOAD_PREFETCH_16(aptr+8);
 
         vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
         vcE_I = vmlal_n_s16(vcE_I, va.val[1], b4_I);
@@ -1924,6 +1993,7 @@ static void sgemm_8x1(int L, float *a, int lda, float *b, int ldb, float *c, int
         va0 = vld1q_f32(aptr);
         va1 = vld1q_f32(aptr + 4);
 
+        ARM_LOAD_PREFETCH_16(aptr+8);
         //A row in A multiplies a single value in B by column
 #if __aarch64__
         vc4 = vfmaq_n_f32(vc4, va0, b4);
@@ -2072,6 +2142,7 @@ static void sgemm_8x2_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         b5  = *(bptr + 1);
         vaI8 = vld1_s8(aptr);
         vaI16 = vmovl_s8(vaI8);
+        ARM_LOAD_PREFETCH_16(aptr + 8);
         va0I32 = vmovl_s16(vget_low_s16(vaI16));
         va1I32 = vmovl_s16(vget_high_s16(vaI16));
         va0 = vcvtq_f32_s32(va0I32);
@@ -2229,7 +2300,7 @@ static void sgemm_8x2_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
 
 static void sgemm_8x2_fp16(int L, short *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
-    float16_t *aptr = (float16_t*)a;
+    fix16_t *aptr = (fix16_t*)a;
     float *bptr = b;
     float *cptr = c;
 
@@ -2264,17 +2335,18 @@ static void sgemm_8x2_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     for(int p = 0; p < L; ++p)
     {
 #if __aarch64__
-        float16x4x2_t va = vld1_f16_x2(aptr);
+        float16x4x2_t va = vld1_f16_x2((__fp16*)aptr);
 #else
         float16x4x2_t va;
-        va.val[0] = vld1_f16(aptr);
-        va.val[1] = vld1_f16(aptr+4);
+        va.val[0] = vld1_f16_neon(aptr);
+        va.val[1] = vld1_f16_neon(aptr+4);
 #endif
-        float32x4_t vsrc_0 = vcvt_f32_f16(va.val[0]);
-        float32x4_t vsrc_1 = vcvt_f32_f16(va.val[1]);
-
         float b4_I  = *(bptr);
         float b5_I  = *(bptr+1);
+
+        float32x4_t vsrc_0 = vcvt_f32_f16(va.val[0]);
+        ARM_LOAD_PREFETCH_16(aptr+8);
+        float32x4_t vsrc_1 = vcvt_f32_f16(va.val[1]);
 
         vc4_I = vmlaq_n_f32(vc4_I, vsrc_0, b4_I);
         vc5_I = vmlaq_n_f32(vc5_I, vsrc_0, b5_I);
@@ -2457,11 +2529,11 @@ static void sgemm_8x2_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         va.val[0] = vld1_s16(aptr);
         va.val[1] = vld1_s16(aptr+4);
 #endif
-
         fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr));
         fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr+1));
 
         vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
+        ARM_LOAD_PREFETCH_16(aptr+8);
         vc5_I = vmlal_n_s16(vc5_I, va.val[0], b5_I);
 
         vcE_I = vmlal_n_s16(vcE_I, va.val[1], b4_I);
@@ -2641,6 +2713,7 @@ static void sgemm_8x2(int L, float *a, int lda, float *b, int ldb, float *c, int
         va0 = vld1q_f32(aptr);
         va1 = vld1q_f32(aptr + 4);
 
+        ARM_LOAD_PREFETCH_16(aptr+8);
         //A row in A multiplies a single value in B by column
 #if __aarch64__
         vc4 = vfmaq_n_f32(vc4, va0, b4);
@@ -2843,6 +2916,7 @@ static void sgemm_8x3_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         b6  = *(bptr + 2);
         vaI8 = vld1_s8(aptr);
         vaI16 = vmovl_s8(vaI8);
+        ARM_LOAD_PREFETCH_16(aptr + 8);
         va0I32 = vmovl_s16(vget_low_s16(vaI16));
         va1I32 = vmovl_s16(vget_high_s16(vaI16));
         va0 = vcvtq_f32_s32(va0I32);
@@ -3044,7 +3118,7 @@ static void sgemm_8x3_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
 
 static void sgemm_8x3_fp16(int L, short *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
-    float16_t *aptr = (float16_t*)a;
+    fix16_t *aptr = (fix16_t*)a;
     float *bptr = b;
     float *cptr = c;
 
@@ -3087,18 +3161,19 @@ static void sgemm_8x3_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     for(int p = 0; p < L; ++p)
     {
 #if __aarch64__
-        float16x4x2_t va = vld1_f16_x2(aptr);
+        float16x4x2_t va = vld1_f16_x2((__fp16*)aptr);
 #else
         float16x4x2_t va;
-        va.val[0] = vld1_f16(aptr);
-        va.val[1] = vld1_f16(aptr+4);
+        va.val[0] = vld1_f16_neon(aptr);
+        va.val[1] = vld1_f16_neon(aptr+4);
 #endif
-        float32x4_t vsrc_0 = vcvt_f32_f16(va.val[0]);
-        float32x4_t vsrc_1 = vcvt_f32_f16(va.val[1]);
-
         float b4_I  = *(bptr);
         float b5_I  = *(bptr+1);
         float b6_I  = *(bptr+2);
+
+        float32x4_t vsrc_0 = vcvt_f32_f16(va.val[0]);
+        ARM_LOAD_PREFETCH_16(aptr+8);
+        float32x4_t vsrc_1 = vcvt_f32_f16(va.val[1]);
 
         vc4_I = vmlaq_n_f32(vc4_I, vsrc_0, b4_I);
         vc5_I = vmlaq_n_f32(vc5_I, vsrc_0, b5_I);
@@ -3332,12 +3407,13 @@ static void sgemm_8x3_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         va.val[0] = vld1_s16(aptr);
         va.val[1] = vld1_s16(aptr+4);
 #endif
-
         fix16_t b4_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr));
         fix16_t b5_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr+1));
         fix16_t b6_I  = FLOAT2FIX(fix16_t, FRACTION, *(bptr+2));
 
         vc4_I = vmlal_n_s16(vc4_I, va.val[0], b4_I);
+        ARM_LOAD_PREFETCH_16(aptr+8);
+
         vc5_I = vmlal_n_s16(vc5_I, va.val[0], b5_I);
         vc6_I = vmlal_n_s16(vc6_I, va.val[0], b6_I);
 
@@ -3571,6 +3647,7 @@ static void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int
 #if __aarch64__
         //A row in A multiplies a single value in B by column
         vc4 = vfmaq_n_f32(vc4, va0, b4);
+        ARM_LOAD_PREFETCH_16(aptr + 8);
         vc5 = vfmaq_n_f32(vc5, va0, b5);
         vc6 = vfmaq_n_f32(vc6, va0, b6);
 
@@ -3579,6 +3656,7 @@ static void sgemm_8x3(int L, float *a, int lda, float *b, int ldb, float *c, int
         vcG = vfmaq_n_f32(vcG, va1, b6);
 #else
         vc4 = vmlaq_n_f32(vc4, va0, b4);
+        ARM_LOAD_PREFETCH_16(aptr + 8);
         vc5 = vmlaq_n_f32(vc5, va0, b5);
         vc6 = vmlaq_n_f32(vc6, va0, b6);
 
@@ -3796,6 +3874,7 @@ static void sgemm_8x4_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         vb  = vld1q_f32(bptr);
         vaI8 = vld1_s8(aptr);
         vaI16 = vmovl_s8(vaI8);
+        ARM_LOAD_PREFETCH_16(aptr + 8);
         va0I32 = vmovl_s16(vget_low_s16(vaI16));
         va1I32 = vmovl_s16(vget_high_s16(vaI16));
         va0 = vcvtq_f32_s32(va0I32);
@@ -3832,6 +3911,8 @@ static void sgemm_8x4_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -3842,42 +3923,49 @@ static void sgemm_8x4_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr, vc0);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
         vst1q_f32(cptr, vc1);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
         vst1q_f32(cptr, vc2);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
         vst1q_f32(cptr, vc3);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
         vcA = vbslq_f32(va1, va0, vcA);
         vst1q_f32(cptr, vcA);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
         vcB = vbslq_f32(va1, va0, vcB);
         vst1q_f32(cptr, vcB);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
         vcC = vbslq_f32(va1, va0, vcC);
         vst1q_f32(cptr, vcC);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
         vcD = vbslq_f32(va1, va0, vcD);
@@ -3885,6 +3973,8 @@ static void sgemm_8x4_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -3892,36 +3982,43 @@ static void sgemm_8x4_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr, vc0);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
         vst1q_f32(cptr, vcA);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
         vst1q_f32(cptr, vcB);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
         vst1q_f32(cptr, vcC);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
         vst1q_f32(cptr, vcD);
@@ -3948,7 +4045,7 @@ static void sgemm_8x4_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
 
 static void sgemm_8x4_fp16(int L, short *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
-    float16_t *aptr = (float16_t*)a;
+    fix16_t *aptr = (fix16_t*)a;
     float *bptr = b;
     float *cptr = c;
 
@@ -3974,11 +4071,11 @@ static void sgemm_8x4_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     for(int p = 0; p < L; ++p)
     {
 #if __aarch64__
-        float16x4x2_t va = vld1_f16_x2(aptr);
+        float16x4x2_t va = vld1_f16_x2((__fp16*)aptr);
 #else
         float16x4x2_t va;
-        va.val[0] = vld1_f16(aptr);
-        va.val[1] = vld1_f16(aptr+4);
+        va.val[0] = vld1_f16_neon(aptr);
+        va.val[1] = vld1_f16_neon(aptr+4);
 #endif
         float32x4_t vsrc_0 = vcvt_f32_f16(va.val[0]);
         float32x4_t vsrc_1 = vcvt_f32_f16(va.val[1]);
@@ -3986,7 +4083,10 @@ static void sgemm_8x4_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         float32x4_t vb_I   = vld1q_f32(bptr);
 
         vc0_I = vmlaq_lane_f32(vc0_I, vb_I, vget_low_f32(vsrc_0), 0);
+        ARM_LOAD_PREFETCH_16(aptr+8);
+
         vc1_I = vmlaq_lane_f32(vc1_I, vb_I, vget_low_f32(vsrc_0), 1);
+        ARM_LOAD_PREFETCH_16(bptr+ldb);
         vc2_I = vmlaq_lane_f32(vc2_I, vb_I, vget_high_f32(vsrc_0), 0);
         vc3_I = vmlaq_lane_f32(vc3_I, vb_I, vget_high_f32(vsrc_0), 1);
 
@@ -4002,7 +4102,9 @@ static void sgemm_8x4_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
-        float32x4_t vb, va0, va1;
+        ARM_STORE_PREFETCH_16(cptr);
+        float32x4_t vb, va0;
+        uint32x4_t va1;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -4013,42 +4115,49 @@ static void sgemm_8x4_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         vst1q_f32(cptr, vc0_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1_I, vb);
         va0 = vmulq_n_f32(vc1_I, slopeDataPrelu[ch+1]);
         vc1_I = vbslq_f32(va1, va0, vc1_I);
         vst1q_f32(cptr, vc1_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2_I, vb);
         va0 = vmulq_n_f32(vc2_I, slopeDataPrelu[ch+2]);
         vc2_I = vbslq_f32(va1, va0, vc2_I);
         vst1q_f32(cptr, vc2_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3_I, vb);
         va0 = vmulq_n_f32(vc3_I, slopeDataPrelu[ch+3]);
         vc3_I = vbslq_f32(va1, va0, vc3_I);
         vst1q_f32(cptr, vc3_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA_I, vb);
         va0 = vmulq_n_f32(vcA_I, slopeDataPrelu[ch+4]);
         vcA_I = vbslq_f32(va1, va0, vcA_I);
         vst1q_f32(cptr, vcA_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB_I, vb);
         va0 = vmulq_n_f32(vcB_I, slopeDataPrelu[ch+5]);
         vcB_I = vbslq_f32(va1, va0, vcB_I);
         vst1q_f32(cptr, vcB_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC_I, vb);
         va0 = vmulq_n_f32(vcC_I, slopeDataPrelu[ch+6]);
         vcC_I = vbslq_f32(va1, va0, vcC_I);
         vst1q_f32(cptr, vcC_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD_I, vb);
         va0 = vmulq_n_f32(vcD_I, slopeDataPrelu[ch+7]);
         vcD_I = vbslq_f32(va1, va0, vcD_I);
@@ -4056,7 +4165,9 @@ static void sgemm_8x4_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     }
     else if (fuse_relu)
     {
-        float32x4_t vb, va1;
+        ARM_STORE_PREFETCH_16(cptr);
+        float32x4_t vb;
+        uint32x4_t va1;
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0_I, vb);
@@ -4064,36 +4175,43 @@ static void sgemm_8x4_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         vst1q_f32(cptr, vc0_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1_I, vb);
         vc1_I = vbslq_f32(va1, vb, vc1_I);
         vst1q_f32(cptr, vc1_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2_I, vb);
         vc2_I = vbslq_f32(va1, vb, vc2_I);
         vst1q_f32(cptr, vc2_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3_I, vb);
         vc3_I = vbslq_f32(va1, vb, vc3_I);
         vst1q_f32(cptr, vc3_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA_I, vb);
         vcA_I = vbslq_f32(va1, vb, vcA_I);
         vst1q_f32(cptr, vcA_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB_I, vb);
         vcB_I = vbslq_f32(va1, vb, vcB_I);
         vst1q_f32(cptr, vcB_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC_I, vb);
         vcC_I = vbslq_f32(va1, vb, vcC_I);
         vst1q_f32(cptr, vcC_I);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD_I, vb);
         vcD_I = vbslq_f32(va1, vb, vcD_I);
         vst1q_f32(cptr, vcD_I);
@@ -4165,9 +4283,11 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         float32x4_t vb   = vld1q_f32(bptr);
         int32x4_t vb_I32 = vcvtq_n_s32_f32(vb, FRACTION);
         int16x4_t vb_I   = vmovn_s32(vb_I32);
+        ARM_LOAD_PREFETCH_16(aptr+8);
 
         vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
         vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
+        ARM_LOAD_PREFETCH_16(bptr+ldb);
         vc2_I = vmlal_lane_s16(vc2_I, vb_I, va.val[0], 2);
         vc3_I = vmlal_lane_s16(vc3_I, vb_I, va.val[0], 3);
 
@@ -4183,7 +4303,9 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
-        float32x4_t vb, va0, va1;
+        ARM_LOAD_PREFETCH_16(cptr);
+        float32x4_t vb, va0;
+        uint32x4_t va1;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -4195,6 +4317,7 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         vst1q_f32(cptr, vc0);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
@@ -4202,6 +4325,7 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         vst1q_f32(cptr, vc1);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
@@ -4209,6 +4333,7 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         vst1q_f32(cptr, vc2);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
@@ -4216,6 +4341,7 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         vst1q_f32(cptr, vc3);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
@@ -4223,6 +4349,7 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         vst1q_f32(cptr, vcA);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
@@ -4230,6 +4357,7 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         vst1q_f32(cptr, vcB);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
@@ -4237,6 +4365,7 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         vst1q_f32(cptr, vcC);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
@@ -4245,7 +4374,9 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     }
     else if (fuse_relu)
     {
-        float32x4_t vb, va1;
+        ARM_LOAD_PREFETCH_16(cptr);
+        float32x4_t vb;
+        uint32x4_t va1;
         vb = vdupq_n_f32(.0f);
 
         vc0 = vcvtq_n_f32_s32(vc0_I, FRACTIONBX2);
@@ -4254,42 +4385,49 @@ static void sgemm_8x4_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         vst1q_f32(cptr, vc0);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
         vst1q_f32(cptr, vcA);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
         vst1q_f32(cptr, vcB);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
         vst1q_f32(cptr, vcC);
         cptr+=ldc;
 
+        ARM_LOAD_PREFETCH_16(cptr);
         vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
@@ -4355,11 +4493,13 @@ static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int
         va0 = vld1q_f32(aptr);
         va1 = vld1q_f32(aptr + 4);
 
+        ARM_LOAD_PREFETCH_32(aptr+8);
 #if __aarch64__
         vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
         vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
         vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
         vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+        ARM_LOAD_PREFETCH_16(bptr+ldb);
 
         vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
         vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
@@ -4370,6 +4510,7 @@ static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int
         vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
         vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
         vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
+        ARM_LOAD_PREFETCH_16(bptr+ldb);
 
         vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
         vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
@@ -4384,6 +4525,8 @@ static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -4394,42 +4537,49 @@ static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int
         vst1q_f32(cptr, vc0);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
         vst1q_f32(cptr, vc1);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
         vst1q_f32(cptr, vc2);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
         vst1q_f32(cptr, vc3);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
         vcA = vbslq_f32(va1, va0, vcA);
         vst1q_f32(cptr, vcA);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
         vcB = vbslq_f32(va1, va0, vcB);
         vst1q_f32(cptr, vcB);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
         vcC = vbslq_f32(va1, va0, vcC);
         vst1q_f32(cptr, vcC);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
         vcD = vbslq_f32(va1, va0, vcD);
@@ -4437,6 +4587,8 @@ static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -4444,36 +4596,43 @@ static void sgemm_8x4(int L, float *a, int lda, float *b, int ldb, float *c, int
         vst1q_f32(cptr, vc0);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
         vst1q_f32(cptr, vcA);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
         vst1q_f32(cptr, vcB);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
         vst1q_f32(cptr, vcC);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
         vst1q_f32(cptr, vcD);
@@ -4544,13 +4703,14 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         b4  = *(bptr + 4);
         vaI8 = vld1_s8(aptr);
         vaI16 = vmovl_s8(vaI8);
+        ARM_LOAD_PREFETCH_16(bptr + ldb);
         va0I32 = vmovl_s16(vget_low_s16(vaI16));
         va1I32 = vmovl_s16(vget_high_s16(vaI16));
         va0 = vcvtq_f32_s32(va0I32);
         va1 = vcvtq_f32_s32(va1I32);
         va0 = vmulq_n_f32(va0, int8scaleW);
         va1 = vmulq_n_f32(va1, int8scaleW);
-
+        ARM_LOAD_PREFETCH_16(aptr + 8);
 #if __aarch64__
         vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
         vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
@@ -4590,6 +4750,8 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -4602,6 +4764,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
@@ -4610,6 +4773,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
@@ -4618,6 +4782,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -4626,6 +4791,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
         vcA = vbslq_f32(va1, va0, vcA);
@@ -4634,6 +4800,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
         vcB = vbslq_f32(va1, va0, vcB);
@@ -4642,6 +4809,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
         vcC = vbslq_f32(va1, va0, vcC);
@@ -4650,6 +4818,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
         vcD = vbslq_f32(va1, va0, vcD);
@@ -4659,6 +4828,8 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_16(cptr);
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -4668,6 +4839,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
@@ -4675,6 +4847,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
@@ -4682,6 +4855,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -4689,6 +4863,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
         vst1q_f32(cptr, vcA);
@@ -4696,6 +4871,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
         vst1q_f32(cptr, vcB);
@@ -4703,6 +4879,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
         vst1q_f32(cptr, vcC);
@@ -4710,6 +4887,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
         vst1q_f32(cptr, vcD);
@@ -4746,7 +4924,7 @@ static void sgemm_8x5_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
 
 static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
-    float16_t *aptr = (float16_t*)a;
+    fix16_t *aptr = (fix16_t*)a;
     float *bptr = b;
     float *cptr = c;
 
@@ -4780,11 +4958,11 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     for(int p = 0; p < L; ++p)
     {
 #if __aarch64__
-        float16x4x2_t va = vld1_f16_x2(aptr);
+        float16x4x2_t va = vld1_f16_x2((__fp16*)aptr);
 #else
         float16x4x2_t va;
-        va.val[0] = vld1_f16(aptr);
-        va.val[1] = vld1_f16(aptr+4);
+        va.val[0] = vld1_f16_neon(aptr);
+        va.val[1] = vld1_f16_neon(aptr+4);
 #endif
         float32x4_t vsrc_0 = vcvt_f32_f16(va.val[0]);
         float32x4_t vsrc_1 = vcvt_f32_f16(va.val[1]);
@@ -4794,9 +4972,12 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         float b4_I = *(bptr + 4);
 
         vc0_I = vmlaq_lane_f32(vc0_I, vb_I, vget_low_f32(vsrc_0), 0);
+        ARM_LOAD_PREFETCH_16(aptr+8);
+
         vc1_I = vmlaq_lane_f32(vc1_I, vb_I, vget_low_f32(vsrc_0), 1);
         vc2_I = vmlaq_lane_f32(vc2_I, vb_I, vget_high_f32(vsrc_0), 0);
         vc3_I = vmlaq_lane_f32(vc3_I, vb_I, vget_high_f32(vsrc_0), 1);
+        ARM_LOAD_PREFETCH_16(bptr+ldb);
 
         vcA_I = vmlaq_lane_f32(vcA_I, vb_I, vget_low_f32(vsrc_1), 0);
         vcB_I = vmlaq_lane_f32(vcB_I, vb_I, vget_low_f32(vsrc_1), 1);
@@ -4813,7 +4994,9 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
-        float32x4_t vb, va0, va1;
+        ARM_STORE_PREFETCH_16(cptr);
+        float32x4_t vb, va0;
+        uint32x4_t va1;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -4826,6 +5009,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1_I, vb);
         va0 = vmulq_n_f32(vc1_I, slopeDataPrelu[ch+1]);
         vc1_I = vbslq_f32(va1, va0, vc1_I);
@@ -4834,6 +5018,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2_I, vb);
         va0 = vmulq_n_f32(vc2_I, slopeDataPrelu[ch+2]);
         vc2_I = vbslq_f32(va1, va0, vc2_I);
@@ -4842,6 +5027,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3_I, vb);
         va0 = vmulq_n_f32(vc3_I, slopeDataPrelu[ch+3]);
         vc3_I = vbslq_f32(va1, va0, vc3_I);
@@ -4850,6 +5036,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA_I, vb);
         va0 = vmulq_n_f32(vcA_I, slopeDataPrelu[ch+4]);
         vcA_I = vbslq_f32(va1, va0, vcA_I);
@@ -4858,6 +5045,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB_I, vb);
         va0 = vmulq_n_f32(vcB_I, slopeDataPrelu[ch+5]);
         vcB_I = vbslq_f32(va1, va0, vcB_I);
@@ -4866,6 +5054,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC_I, vb);
         va0 = vmulq_n_f32(vcC_I, slopeDataPrelu[ch+6]);
         vcC_I = vbslq_f32(va1, va0, vcC_I);
@@ -4874,6 +5063,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD_I, vb);
         va0 = vmulq_n_f32(vcD_I, slopeDataPrelu[ch+7]);
         vcD_I = vbslq_f32(va1, va0, vcD_I);
@@ -4883,7 +5073,9 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     }
     else if (fuse_relu)
     {
-        float32x4_t vb, va1;
+        ARM_STORE_PREFETCH_16(cptr);
+        float32x4_t vb;
+        uint32x4_t va1;
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0_I, vb);
@@ -4893,6 +5085,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc1_I, vb);
         vc1_I = vbslq_f32(va1, vb, vc1_I);
         vst1q_f32(cptr, vc1_I);
@@ -4900,6 +5093,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc2_I, vb);
         vc2_I = vbslq_f32(va1, vb, vc2_I);
         vst1q_f32(cptr, vc2_I);
@@ -4907,6 +5101,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vc3_I, vb);
         vc3_I = vbslq_f32(va1, vb, vc3_I);
         vst1q_f32(cptr, vc3_I);
@@ -4914,6 +5109,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcA_I, vb);
         vcA_I = vbslq_f32(va1, vb, vcA_I);
         vst1q_f32(cptr, vcA_I);
@@ -4921,6 +5117,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcB_I, vb);
         vcB_I = vbslq_f32(va1, vb, vcB_I);
         vst1q_f32(cptr, vcB_I);
@@ -4928,6 +5125,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcC_I, vb);
         vcC_I = vbslq_f32(va1, vb, vcC_I);
         vst1q_f32(cptr, vcC_I);
@@ -4935,6 +5133,7 @@ static void sgemm_8x5_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         va1 = vcleq_f32(vcD_I, vb);
         vcD_I = vbslq_f32(va1, vb, vcD_I);
         vst1q_f32(cptr, vcD_I);
@@ -5028,9 +5227,12 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         fix16_t b4_I = FLOAT2FIX(fix16_t, FRACTION, *(bptr + 4));
 
         vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
+        ARM_LOAD_PREFETCH_16(aptr+8);
+
         vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
         vc2_I = vmlal_lane_s16(vc2_I, vb_I, va.val[0], 2);
         vc3_I = vmlal_lane_s16(vc3_I, vb_I, va.val[0], 3);
+        ARM_LOAD_PREFETCH_16(bptr+ldb);
 
         vcA_I = vmlal_lane_s16(vcA_I, vb_I, va.val[1], 0);
         vcB_I = vmlal_lane_s16(vcB_I, vb_I, va.val[1], 1);
@@ -5047,7 +5249,9 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
-        float32x4_t vb, va0, va1;
+        ARM_STORE_PREFETCH_16(cptr);
+        float32x4_t vb, va0;
+        uint32x4_t va1;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -5061,6 +5265,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
@@ -5070,6 +5275,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
@@ -5079,6 +5285,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
@@ -5088,6 +5295,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
@@ -5097,6 +5305,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
@@ -5106,6 +5315,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
@@ -5115,6 +5325,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
@@ -5125,7 +5336,9 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     }
     else if (fuse_relu)
     {
-        float32x4_t vb, va1;
+        ARM_STORE_PREFETCH_16(cptr);
+        float32x4_t vb;
+        uint32x4_t va1;
         vb = vdupq_n_f32(.0f);
 
         vc0 = vcvtq_n_f32_s32(vc0_I, FRACTIONBX2);
@@ -5136,6 +5349,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
@@ -5144,6 +5358,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
@@ -5152,6 +5367,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
@@ -5160,6 +5376,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
@@ -5168,6 +5385,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
@@ -5176,6 +5394,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
@@ -5184,6 +5403,7 @@ static void sgemm_8x5_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_16(cptr);
         vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
@@ -5269,9 +5489,11 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         va0 = vld1q_f32(aptr);
         va1 = vld1q_f32(aptr + 4);
 
+        ARM_LOAD_PREFETCH_32(aptr+8);
 #if __aarch64__
         vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
         vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
         vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
         vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
 
@@ -5287,6 +5509,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
 #else
         vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
         vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
         vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
         vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
 
@@ -5308,6 +5531,8 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -5320,6 +5545,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
@@ -5328,6 +5554,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
@@ -5336,6 +5563,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -5344,6 +5572,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
         vcA = vbslq_f32(va1, va0, vcA);
@@ -5352,6 +5581,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
         vcB = vbslq_f32(va1, va0, vcB);
@@ -5360,6 +5590,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
         vcC = vbslq_f32(va1, va0, vcC);
@@ -5368,6 +5599,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
         vcD = vbslq_f32(va1, va0, vcD);
@@ -5377,6 +5609,8 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -5386,6 +5620,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
@@ -5393,6 +5628,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
@@ -5400,6 +5636,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -5407,6 +5644,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
         vst1q_f32(cptr, vcA);
@@ -5414,6 +5652,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
         vst1q_f32(cptr, vcB);
@@ -5421,6 +5660,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
         vst1q_f32(cptr, vcC);
@@ -5428,6 +5668,7 @@ static void sgemm_8x5(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+4) < 0) *(cptr+4) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
         vst1q_f32(cptr, vcD);
@@ -5516,13 +5757,14 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         b5  = *(bptr + 5);
         vaI8 = vld1_s8(aptr);
         vaI16 = vmovl_s8(vaI8);
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
         va0I32 = vmovl_s16(vget_low_s16(vaI16));
         va1I32 = vmovl_s16(vget_high_s16(vaI16));
         va0 = vcvtq_f32_s32(va0I32);
         va1 = vcvtq_f32_s32(va1I32);
         va0 = vmulq_n_f32(va0, int8scaleW);
         va1 = vmulq_n_f32(va1, int8scaleW);
-
+        ARM_LOAD_PREFETCH_16(aptr+8);
 #if __aarch64__
         vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
         vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
@@ -5566,6 +5808,8 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -5580,6 +5824,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
@@ -5590,6 +5835,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
@@ -5600,6 +5846,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -5610,6 +5857,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
         vcA = vbslq_f32(va1, va0, vcA);
@@ -5620,6 +5868,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
         vcB = vbslq_f32(va1, va0, vcB);
@@ -5630,6 +5879,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
         vcC = vbslq_f32(va1, va0, vcC);
@@ -5640,6 +5890,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
         vcD = vbslq_f32(va1, va0, vcD);
@@ -5651,6 +5902,8 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -5662,6 +5915,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
@@ -5671,6 +5925,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
@@ -5680,6 +5935,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -5689,6 +5945,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
         vst1q_f32(cptr, vcA);
@@ -5698,6 +5955,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
         vst1q_f32(cptr, vcB);
@@ -5707,6 +5965,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
         vst1q_f32(cptr, vcC);
@@ -5716,6 +5975,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
         vst1q_f32(cptr, vcD);
@@ -5762,7 +6022,7 @@ static void sgemm_8x6_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
 
 static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
-    float16_t *aptr = (float16_t*)a;
+    fix16_t *aptr = (fix16_t*)a;
     float *bptr = b;
     float *cptr = c;
 
@@ -5804,11 +6064,11 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     for(int p = 0; p < L; ++p)
     {
 #if __aarch64__
-        float16x4x2_t va = vld1_f16_x2(aptr);
+        float16x4x2_t va = vld1_f16_x2((__fp16*)aptr);
 #else
         float16x4x2_t va;
-        va.val[0] = vld1_f16(aptr);
-        va.val[1] = vld1_f16(aptr+4);
+        va.val[0] = vld1_f16_neon(aptr);
+        va.val[1] = vld1_f16_neon(aptr+4);
 #endif
         float32x4_t vsrc_0 = vcvt_f32_f16(va.val[0]);
         float32x4_t vsrc_1 = vcvt_f32_f16(va.val[1]);
@@ -5819,9 +6079,11 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         float b5_I = *(bptr + 5);
 
         vc0_I = vmlaq_lane_f32(vc0_I, vb_I, vget_low_f32(vsrc_0), 0);
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
         vc1_I = vmlaq_lane_f32(vc1_I, vb_I, vget_low_f32(vsrc_0), 1);
         vc2_I = vmlaq_lane_f32(vc2_I, vb_I, vget_high_f32(vsrc_0), 0);
         vc3_I = vmlaq_lane_f32(vc3_I, vb_I, vget_high_f32(vsrc_0), 1);
+        ARM_LOAD_PREFETCH_16(aptr+8);
 
         vcA_I = vmlaq_lane_f32(vcA_I, vb_I, vget_low_f32(vsrc_1), 0);
         vcB_I = vmlaq_lane_f32(vcB_I, vb_I, vget_low_f32(vsrc_1), 1);
@@ -5841,7 +6103,9 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
-        float32x4_t vb, va0, va1;
+        ARM_STORE_PREFETCH_32(cptr);
+        float32x4_t vb, va0;
+        uint32x4_t va1;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -5856,6 +6120,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1_I, vb);
         va0 = vmulq_n_f32(vc1_I, slopeDataPrelu[ch+1]);
         vc1_I = vbslq_f32(va1, va0, vc1_I);
@@ -5866,6 +6131,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2_I, vb);
         va0 = vmulq_n_f32(vc2_I, slopeDataPrelu[ch+2]);
         vc2_I = vbslq_f32(va1, va0, vc2_I);
@@ -5876,6 +6142,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3_I, vb);
         va0 = vmulq_n_f32(vc3_I, slopeDataPrelu[ch+3]);
         vc3_I = vbslq_f32(va1, va0, vc3_I);
@@ -5886,6 +6153,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA_I, vb);
         va0 = vmulq_n_f32(vcA_I, slopeDataPrelu[ch+4]);
         vcA_I = vbslq_f32(va1, va0, vcA_I);
@@ -5896,6 +6164,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB_I, vb);
         va0 = vmulq_n_f32(vcB_I, slopeDataPrelu[ch+5]);
         vcB_I = vbslq_f32(va1, va0, vcB_I);
@@ -5906,6 +6175,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC_I, vb);
         va0 = vmulq_n_f32(vcC_I, slopeDataPrelu[ch+6]);
         vcC_I = vbslq_f32(va1, va0, vcC_I);
@@ -5916,6 +6186,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD_I, vb);
         va0 = vmulq_n_f32(vcD_I, slopeDataPrelu[ch+7]);
         vcD_I = vbslq_f32(va1, va0, vcD_I);
@@ -5927,7 +6198,9 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     }
     else if (fuse_relu)
     {
-        float32x4_t vb, va1;
+        ARM_STORE_PREFETCH_32(cptr);
+        float32x4_t vb;
+        uint32x4_t va1;
 
         vb = vdupq_n_f32(.0f);
 
@@ -5940,6 +6213,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1_I, vb);
         vc1_I = vbslq_f32(va1, vb, vc1_I);
         vst1q_f32(cptr, vc1_I);
@@ -5949,6 +6223,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2_I, vb);
         vc2_I = vbslq_f32(va1, vb, vc2_I);
         vst1q_f32(cptr, vc2_I);
@@ -5958,6 +6233,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3_I, vb);
         vc3_I = vbslq_f32(va1, vb, vc3_I);
         vst1q_f32(cptr, vc3_I);
@@ -5967,6 +6243,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA_I, vb);
         vcA_I = vbslq_f32(va1, vb, vcA_I);
         vst1q_f32(cptr, vcA_I);
@@ -5976,6 +6253,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB_I, vb);
         vcB_I = vbslq_f32(va1, vb, vcB_I);
         vst1q_f32(cptr, vcB_I);
@@ -5985,6 +6263,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC_I, vb);
         vcC_I = vbslq_f32(va1, vb, vcC_I);
         vst1q_f32(cptr, vcC_I);
@@ -5994,6 +6273,7 @@ static void sgemm_8x6_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD_I, vb);
         vcD_I = vbslq_f32(va1, vb, vcD_I);
         vst1q_f32(cptr, vcD_I);
@@ -6106,9 +6386,12 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         fix16_t b5_I = FLOAT2FIX(fix16_t, FRACTION, *(bptr + 5));
 
         vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
+        ARM_LOAD_PREFETCH_16(aptr+8);
+
         vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
         vc2_I = vmlal_lane_s16(vc2_I, vb_I, va.val[0], 2);
         vc3_I = vmlal_lane_s16(vc3_I, vb_I, va.val[0], 3);
+        ARM_LOAD_PREFETCH_16(bptr+ldb);
 
         vcA_I = vmlal_lane_s16(vcA_I, vb_I, va.val[1], 0);
         vcB_I = vmlal_lane_s16(vcB_I, vb_I, va.val[1], 1);
@@ -6128,7 +6411,9 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
-        float32x4_t vb, va0, va1;
+        ARM_STORE_PREFETCH_32(cptr);
+        float32x4_t vb, va0;
+        uint32x4_t va1;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -6144,6 +6429,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
@@ -6155,6 +6441,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
@@ -6166,6 +6453,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
@@ -6177,6 +6465,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
@@ -6188,6 +6477,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
@@ -6199,6 +6489,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
@@ -6210,6 +6501,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
@@ -6222,7 +6514,9 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     }
     else if (fuse_relu)
     {
-        float32x4_t vb, va1;
+        ARM_STORE_PREFETCH_32(cptr);
+        float32x4_t vb;
+        uint32x4_t va1;
 
         vb = vdupq_n_f32(.0f);
 
@@ -6236,6 +6530,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
@@ -6246,6 +6541,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
@@ -6256,6 +6552,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
@@ -6266,6 +6563,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
@@ -6276,6 +6574,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
@@ -6286,6 +6585,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
@@ -6296,6 +6596,7 @@ static void sgemm_8x6_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
@@ -6401,9 +6702,12 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
 
 #if __aarch64__
         vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
+        ARM_LOAD_PREFETCH_32(aptr+8);
+
         vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
         vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
         vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
 
         vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
         vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
@@ -6418,9 +6722,12 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         vcF = vfmaq_n_f32(vcF, va1, b5);
 #else
         vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
+        ARM_LOAD_PREFETCH_32(aptr+8);
+
         vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
         vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
         vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
 
         vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
         vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
@@ -6442,6 +6749,8 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -6456,6 +6765,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
@@ -6466,6 +6776,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
@@ -6476,6 +6787,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -6486,6 +6798,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
         vcA = vbslq_f32(va1, va0, vcA);
@@ -6496,6 +6809,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
         vcB = vbslq_f32(va1, va0, vcB);
@@ -6506,6 +6820,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
         vcC = vbslq_f32(va1, va0, vcC);
@@ -6516,6 +6831,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
         vcD = vbslq_f32(va1, va0, vcD);
@@ -6527,6 +6843,8 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -6538,6 +6856,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
@@ -6547,6 +6866,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
@@ -6556,6 +6876,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -6565,6 +6886,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
         vst1q_f32(cptr, vcA);
@@ -6574,6 +6896,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
         vst1q_f32(cptr, vcB);
@@ -6583,6 +6906,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
         vst1q_f32(cptr, vcC);
@@ -6592,6 +6916,7 @@ static void sgemm_8x6(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+5) < 0) *(cptr+5) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
         vst1q_f32(cptr, vcD);
@@ -6699,13 +7024,14 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         b6  = *(bptr + 6);
         vaI8 = vld1_s8(aptr);
         vaI16 = vmovl_s8(vaI8);
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
         va0I32 = vmovl_s16(vget_low_s16(vaI16));
         va1I32 = vmovl_s16(vget_high_s16(vaI16));
         va0 = vcvtq_f32_s32(va0I32);
         va1 = vcvtq_f32_s32(va1I32);
         va0 = vmulq_n_f32(va0, int8scaleW);
         va1 = vmulq_n_f32(va1, int8scaleW);
-
+        ARM_LOAD_PREFETCH_16(aptr + 8);
 #if __aarch64__
         vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
         vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
@@ -6752,6 +7078,8 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -6768,6 +7096,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
@@ -6780,6 +7109,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
@@ -6792,6 +7122,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -6804,6 +7135,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
         vcA = vbslq_f32(va1, va0, vcA);
@@ -6816,6 +7148,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
         vcB = vbslq_f32(va1, va0, vcB);
@@ -6828,6 +7161,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
         vcC = vbslq_f32(va1, va0, vcC);
@@ -6840,6 +7174,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
         vcD = vbslq_f32(va1, va0, vcD);
@@ -6853,6 +7188,8 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -6866,6 +7203,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
@@ -6877,6 +7215,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
@@ -6888,6 +7227,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -6899,6 +7239,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
         vst1q_f32(cptr, vcA);
@@ -6910,6 +7251,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
         vst1q_f32(cptr, vcB);
@@ -6921,6 +7263,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
         vst1q_f32(cptr, vcC);
@@ -6932,6 +7275,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
         vst1q_f32(cptr, vcD);
@@ -6988,7 +7332,7 @@ static void sgemm_8x7_fix8(int L, int8_t *a, int lda, float *b, int ldb, float *
 
 static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
-    float16_t *aptr = (float16_t*)a;
+    fix16_t *aptr = (fix16_t*)a;
     float *bptr = b;
     float *cptr = c;
 
@@ -7038,11 +7382,11 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     for(int p = 0; p < L; ++p)
     {
 #if __aarch64__
-        float16x4x2_t va = vld1_f16_x2(aptr);
+        float16x4x2_t va = vld1_f16_x2((__fp16*)aptr);
 #else
         float16x4x2_t va;
-        va.val[0] = vld1_f16(aptr);
-        va.val[1] = vld1_f16(aptr+4);
+        va.val[0] = vld1_f16_neon(aptr);
+        va.val[1] = vld1_f16_neon(aptr+4);
 #endif
         float32x4_t vsrc_0 = vcvt_f32_f16(va.val[0]);
         float32x4_t vsrc_1 = vcvt_f32_f16(va.val[1]);
@@ -7052,9 +7396,11 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         float b6_I = *(bptr + 6);
 
         vc0_I = vmlaq_lane_f32(vc0_I, vb_I, vget_low_f32(vsrc_0), 0);
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
         vc1_I = vmlaq_lane_f32(vc1_I, vb_I, vget_low_f32(vsrc_0), 1);
         vc2_I = vmlaq_lane_f32(vc2_I, vb_I, vget_high_f32(vsrc_0), 0);
         vc3_I = vmlaq_lane_f32(vc3_I, vb_I, vget_high_f32(vsrc_0), 1);
+        ARM_LOAD_PREFETCH_16(aptr+8);
 
         vcA_I = vmlaq_lane_f32(vcA_I, vb_I, vget_low_f32(vsrc_1), 0);
         vcB_I = vmlaq_lane_f32(vcB_I, vb_I, vget_low_f32(vsrc_1), 1);
@@ -7076,7 +7422,9 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
-        float32x4_t vb, va0, va1;
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
+        float32x4_t vb, va0;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -7093,6 +7441,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1_I, vb);
         va0 = vmulq_n_f32(vc1_I, slopeDataPrelu[ch+1]);
         vc1_I = vbslq_f32(va1, va0, vc1_I);
@@ -7105,6 +7454,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2_I, vb);
         va0 = vmulq_n_f32(vc2_I, slopeDataPrelu[ch+2]);
         vc2_I = vbslq_f32(va1, va0, vc2_I);
@@ -7117,6 +7467,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3_I, vb);
         va0 = vmulq_n_f32(vc3_I, slopeDataPrelu[ch+3]);
         vc3_I = vbslq_f32(va1, va0, vc3_I);
@@ -7129,6 +7480,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA_I, vb);
         va0 = vmulq_n_f32(vcA_I, slopeDataPrelu[ch+4]);
         vcA_I = vbslq_f32(va1, va0, vcA_I);
@@ -7141,6 +7493,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB_I, vb);
         va0 = vmulq_n_f32(vcB_I, slopeDataPrelu[ch+5]);
         vcB_I = vbslq_f32(va1, va0, vcB_I);
@@ -7153,6 +7506,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC_I, vb);
         va0 = vmulq_n_f32(vcC_I, slopeDataPrelu[ch+6]);
         vcC_I = vbslq_f32(va1, va0, vcC_I);
@@ -7165,6 +7519,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD_I, vb);
         va0 = vmulq_n_f32(vcD_I, slopeDataPrelu[ch+7]);
         vcD_I = vbslq_f32(va1, va0, vcD_I);
@@ -7178,7 +7533,9 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
     }
     else if (fuse_relu)
     {
-        float32x4_t vb, va1;
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
+        float32x4_t vb;
 
         vb = vdupq_n_f32(.0f);
 
@@ -7193,6 +7550,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1_I, vb);
         vc1_I = vbslq_f32(va1, vb, vc1_I);
         vst1q_f32(cptr, vc1_I);
@@ -7204,6 +7562,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2_I, vb);
         vc2_I = vbslq_f32(va1, vb, vc2_I);
         vst1q_f32(cptr, vc2_I);
@@ -7215,6 +7574,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3_I, vb);
         vc3_I = vbslq_f32(va1, vb, vc3_I);
         vst1q_f32(cptr, vc3_I);
@@ -7226,6 +7586,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA_I, vb);
         vcA_I = vbslq_f32(va1, vb, vcA_I);
         vst1q_f32(cptr, vcA_I);
@@ -7237,6 +7598,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB_I, vb);
         vcB_I = vbslq_f32(va1, vb, vcB_I);
         vst1q_f32(cptr, vcB_I);
@@ -7248,6 +7610,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC_I, vb);
         vcC_I = vbslq_f32(va1, vb, vcC_I);
         vst1q_f32(cptr, vcC_I);
@@ -7259,6 +7622,7 @@ static void sgemm_8x7_fp16(int L, short *a, int lda, float *b, int ldb, float *c
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD_I, vb);
         vcD_I = vbslq_f32(va1, vb, vcD_I);
         vst1q_f32(cptr, vcD_I);
@@ -7390,9 +7754,11 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         fix16_t b6_I = FLOAT2FIX(fix16_t, FRACTION, *(bptr + 6));
 
         vc0_I = vmlal_lane_s16(vc0_I, vb_I, va.val[0], 0);
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
         vc1_I = vmlal_lane_s16(vc1_I, vb_I, va.val[0], 1);
         vc2_I = vmlal_lane_s16(vc2_I, vb_I, va.val[0], 2);
         vc3_I = vmlal_lane_s16(vc3_I, vb_I, va.val[0], 3);
+        ARM_LOAD_PREFETCH_16(aptr+8);
 
         vcA_I = vmlal_lane_s16(vcA_I, vb_I, va.val[1], 0);
         vcB_I = vmlal_lane_s16(vcB_I, vb_I, va.val[1], 1);
@@ -7414,7 +7780,9 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
-        float32x4_t vb, va0, va1;
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
+        float32x4_t vb, va0;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -7432,6 +7800,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
@@ -7445,6 +7814,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
@@ -7458,6 +7828,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
@@ -7471,6 +7842,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
@@ -7484,6 +7856,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
@@ -7497,6 +7870,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
@@ -7510,6 +7884,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
@@ -7524,8 +7899,9 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
     }
     else if (fuse_relu)
     {
-        float32x4_t vb, va1;
-
+        float32x4_t vb;
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         vb = vdupq_n_f32(.0f);
 
         vc0 = vcvtq_n_f32_s32(vc0_I, FRACTIONBX2);
@@ -7540,6 +7916,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc1 = vcvtq_n_f32_s32(vc1_I, FRACTIONBX2);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
@@ -7552,6 +7929,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc2 = vcvtq_n_f32_s32(vc2_I, FRACTIONBX2);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
@@ -7564,6 +7942,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vc3 = vcvtq_n_f32_s32(vc3_I, FRACTIONBX2);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
@@ -7576,6 +7955,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcA = vcvtq_n_f32_s32(vcA_I, FRACTIONBX2);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
@@ -7588,6 +7968,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcB = vcvtq_n_f32_s32(vcB_I, FRACTIONBX2);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
@@ -7600,6 +7981,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcC = vcvtq_n_f32_s32(vcC_I, FRACTIONBX2);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
@@ -7612,6 +7994,7 @@ static void sgemm_8x7_fix(int L, short *a, int lda, float *b, int ldb, float *c,
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         vcD = vcvtq_n_f32_s32(vcD_I, FRACTIONBX2);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
@@ -7736,9 +8119,12 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
 
 #if __aarch64__
         vc0 = vfmaq_laneq_f32(vc0, vb, va0, 0);
+        ARM_LOAD_PREFETCH_32(aptr+8);
+
         vc1 = vfmaq_laneq_f32(vc1, vb, va0, 1);
         vc2 = vfmaq_laneq_f32(vc2, vb, va0, 2);
         vc3 = vfmaq_laneq_f32(vc3, vb, va0, 3);
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
 
         vcA = vfmaq_laneq_f32(vcA, vb, va1, 0);
         vcB = vfmaq_laneq_f32(vcB, vb, va1, 1);
@@ -7755,9 +8141,12 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         vcG = vfmaq_n_f32(vcG, va1, b6);
 #else
         vc0 = vmlaq_f32(vc0, vb, vld1q_dup_f32(aptr + 0));
+        ARM_LOAD_PREFETCH_32(aptr+8);
+
         vc1 = vmlaq_f32(vc1, vb, vld1q_dup_f32(aptr + 1));
         vc2 = vmlaq_f32(vc2, vb, vld1q_dup_f32(aptr + 2));
         vc3 = vmlaq_f32(vc3, vb, vld1q_dup_f32(aptr + 3));
+        ARM_LOAD_PREFETCH_32(bptr+ldb);
 
         vcA = vmlaq_f32(vcA, vb, vld1q_dup_f32(aptr + 4));
         vcB = vmlaq_f32(vcB, vb, vld1q_dup_f32(aptr + 5));
@@ -7780,6 +8169,8 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
     cptr = c;
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb = vdupq_n_f32(.0f);
@@ -7796,6 +8187,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         va0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, va0, vc1);
@@ -7808,6 +8200,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+1];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         va0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, va0, vc2);
@@ -7820,6 +8213,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+2];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         va0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, va0, vc3);
@@ -7832,6 +8226,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+3];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         va0 = vmulq_n_f32(vcA, slopeDataPrelu[ch+4]);
         vcA = vbslq_f32(va1, va0, vcA);
@@ -7844,6 +8239,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+4];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         va0 = vmulq_n_f32(vcB, slopeDataPrelu[ch+5]);
         vcB = vbslq_f32(va1, va0, vcB);
@@ -7856,6 +8252,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+5];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         va0 = vmulq_n_f32(vcC, slopeDataPrelu[ch+6]);
         vcC = vbslq_f32(va1, va0, vcC);
@@ -7868,6 +8265,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) *= slopeDataPrelu[ch+6];
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         va0 = vmulq_n_f32(vcD, slopeDataPrelu[ch+7]);
         vcD = vbslq_f32(va1, va0, vcD);
@@ -7881,6 +8279,8 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
+        ARM_STORE_PREFETCH_32(cptr);
         vb = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb);
@@ -7894,6 +8294,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb);
         vc1 = vbslq_f32(va1, vb, vc1);
         vst1q_f32(cptr, vc1);
@@ -7905,6 +8306,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb);
         vc2 = vbslq_f32(va1, vb, vc2);
         vst1q_f32(cptr, vc2);
@@ -7916,6 +8318,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb);
         vc3 = vbslq_f32(va1, vb, vc3);
         vst1q_f32(cptr, vc3);
@@ -7927,6 +8330,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcA, vb);
         vcA = vbslq_f32(va1, vb, vcA);
         vst1q_f32(cptr, vcA);
@@ -7938,6 +8342,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcB, vb);
         vcB = vbslq_f32(va1, vb, vcB);
         vst1q_f32(cptr, vcB);
@@ -7949,6 +8354,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcC, vb);
         vcC = vbslq_f32(va1, vb, vcC);
         vst1q_f32(cptr, vcC);
@@ -7960,6 +8366,7 @@ static void sgemm_8x7(int L, float *a, int lda, float *b, int ldb, float *c, int
         if (*(cptr+6) < 0) *(cptr+6) = 0;
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vcD, vb);
         vcD = vbslq_f32(va1, vb, vcD);
         vst1q_f32(cptr, vcD);
@@ -8043,49 +8450,69 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
             float32x4_t va  = vld1q_f32(aptr);
             vb1 = vld1q_f32(bptr);
             vb2 = vld1q_f32(bptr + 4);
+
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb1, va, 0);
+            ARM_LOAD_PREFETCH_16(aptr+4);
             vc1 = vmlaq_laneq_f32(vc1, vb1, va, 1);
             vc2 = vmlaq_laneq_f32(vc2, vb1, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb1, va, 3);
+            ARM_LOAD_PREFETCH_32(bptr+8);
 
             vc4 = vmlaq_laneq_f32(vc4, vb2, va, 0);
             vc5 = vmlaq_laneq_f32(vc5, vb2, va, 1);
             vc6 = vmlaq_laneq_f32(vc6, vb2, va, 2);
             vc7 = vmlaq_laneq_f32(vc7, vb2, va, 3);
 #else
+#if 1
+            vc0 = vmlaq_n_f32(vc0, vb1, va[0]);
+            ARM_LOAD_PREFETCH_16(aptr+4);
+            vc1 = vmlaq_n_f32(vc1, vb1, va[1]);
+            vc2 = vmlaq_n_f32(vc2, vb1, va[2]);
+            vc3 = vmlaq_n_f32(vc3, vb1, va[3]);
+            ARM_LOAD_PREFETCH_32(bptr+8);
+            vc4 = vmlaq_n_f32(vc4, vb2, va[0]);
+            vc5 = vmlaq_n_f32(vc5, vb2, va[1]);
+            vc6 = vmlaq_n_f32(vc6, vb2, va[2]);
+            vc7 = vmlaq_n_f32(vc7, vb2, va[3]);
+#else
             vc0 = vmlaq_lane_f32(vc0, vb1, vget_low_f32(va), 0);
+            ARM_LOAD_PREFETCH_16(aptr+4);
             vc1 = vmlaq_lane_f32(vc1, vb1, vget_low_f32(va), 1);
             vc2 = vmlaq_lane_f32(vc2, vb1, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb1, vget_high_f32(va), 1);
+            ARM_LOAD_PREFETCH_32(bptr+8);
 
             vc4 = vmlaq_lane_f32(vc4, vb2, vget_low_f32(va), 0);
             vc5 = vmlaq_lane_f32(vc5, vb2, vget_low_f32(va), 1);
             vc6 = vmlaq_lane_f32(vc6, vb2, vget_high_f32(va), 0);
             vc7 = vmlaq_lane_f32(vc7, vb2, vget_high_f32(va), 1);
+#endif
 #endif
         }
     }
     else if (2 == sizeof(*a)) /* fp16 or fix16 */
     {
-        float16_t *bptr = (float16_t *)b;
-        float16_t *aptr = (float16_t *)a;
+        fix16_t *bptr = (fix16_t *)b;
+        fix16_t *aptr = (fix16_t *)a;
         for(int p = 0; p < L; ++p, bptr += 8, aptr += 4)
         {
             float16x4x2_t vb;
-            float16x4_t vtmp = vld1_f16((__fp16*)aptr);
+            float16x4_t vtmp = vld1_f16_neon((fix16_t*)aptr);
             float32x4_t va = vcvt_f32_f16(vtmp);
 #ifdef __aarch64__
-            vb = vld1_f16_x2(bptr);
+            vb = vld1_f16_x2((__fp16*)bptr);
 #else
-            vb.val[0]  = vld1_f16(bptr);
-            vb.val[1]  = vld1_f16(bptr + 4);
+            vb.val[0]  = vld1_f16_neon(bptr);
+            vb.val[1]  = vld1_f16_neon(bptr + 4);
 #endif
             vb1 = vcvt_f32_f16(vb.val[0]);
+            ARM_LOAD_PREFETCH_16(aptr+4);
             vb2 = vcvt_f32_f16(vb.val[1]);
 #ifdef __aarch64__
             vc0 = vmlaq_laneq_f32(vc0, vb1, va, 0);
             vc1 = vmlaq_laneq_f32(vc1, vb1, va, 1);
+            ARM_LOAD_PREFETCH_32(bptr+8);
             vc2 = vmlaq_laneq_f32(vc2, vb1, va, 2);
             vc3 = vmlaq_laneq_f32(vc3, vb1, va, 3);
 
@@ -8094,8 +8521,21 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
             vc6 = vmlaq_laneq_f32(vc6, vb2, va, 2);
             vc7 = vmlaq_laneq_f32(vc7, vb2, va, 3);
 #else
+
+#if 1
+            vc0 = vmlaq_n_f32(vc0, vb1, va[0]);
+            vc1 = vmlaq_n_f32(vc1, vb1, va[1]);
+            vc2 = vmlaq_n_f32(vc2, vb1, va[2]);
+            vc3 = vmlaq_n_f32(vc3, vb1, va[3]);
+            ARM_LOAD_PREFETCH_32(bptr+8);
+            vc4 = vmlaq_n_f32(vc4, vb2, va[0]);
+            vc5 = vmlaq_n_f32(vc5, vb2, va[1]);
+            vc6 = vmlaq_n_f32(vc6, vb2, va[2]);
+            vc7 = vmlaq_n_f32(vc7, vb2, va[3]);
+#else
             vc0 = vmlaq_lane_f32(vc0, vb1, vget_low_f32(va), 0);
             vc1 = vmlaq_lane_f32(vc1, vb1, vget_low_f32(va), 1);
+            ARM_LOAD_PREFETCH_32(bptr+8);
             vc2 = vmlaq_lane_f32(vc2, vb1, vget_high_f32(va), 0);
             vc3 = vmlaq_lane_f32(vc3, vb1, vget_high_f32(va), 1);
 
@@ -8104,11 +8544,15 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
             vc6 = vmlaq_lane_f32(vc6, vb2, vget_high_f32(va), 0);
             vc7 = vmlaq_lane_f32(vc7, vb2, vget_high_f32(va), 1);
 #endif
+#endif
         }
     }
     cptr = c;
+    ARM_STORE_PREFETCH_32(cptr);
+
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb1 = vdupq_n_f32(.0f);
@@ -8125,6 +8569,7 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
         vst1q_f32(cptr + 4, vc4);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb1);
         vb2 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, vb2, vc1);
@@ -8137,6 +8582,7 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
         vst1q_f32(cptr + 4, vc5);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb1);
         vb2 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, vb2, vc2);
@@ -8149,6 +8595,7 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
         vst1q_f32(cptr + 4, vc6);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb1);
         vb2 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, vb2, vc3);
@@ -8162,6 +8609,7 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
         vb1 = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb1);
@@ -8174,6 +8622,7 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
         vst1q_f32(cptr + 4, vc4);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb1);
         vc1 = vbslq_f32(va1, vb1, vc1);
 
@@ -8184,6 +8633,7 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
         vst1q_f32(cptr + 4, vc5);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb1);
         vc2 = vbslq_f32(va1, vb1, vc2);
 
@@ -8194,6 +8644,7 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
         vst1q_f32(cptr + 4, vc6);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb1);
         vc3 = vbslq_f32(va1, vb1, vc3);
 
@@ -8219,7 +8670,7 @@ static void sgemm_4x8_pack( int L, T *a, int lda, T *b, int ldb, float *c, int l
     }
 }
 template void sgemm_4x8_pack<float>( int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template void sgemm_4x8_pack<float16_t>( int L, float16_t *a, int lda, float16_t *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void sgemm_4x8_pack<fix16_t>( int L, fix16_t *a, int lda, fix16_t *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
 template<typename T>
 static void SGEBP_externalPackA_tiny_scale( int M, int N, int L, T *a, int lda, float *b, int ldb, float *c, int ldc, T* packB, void* sgemm_tiny_scale, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
@@ -8246,13 +8697,13 @@ static void SGEBP_externalPackA_tiny_scale( int M, int N, int L, T *a, int lda, 
             else if (2 == sizeof(*a)) /* fp16 or fix16 */
             {
                 sgemm_tiny_scale_func_fp16 pfun = (sgemm_tiny_scale_func_fp16)sgemm_tiny_scale;
-                pfun(L, (float16_t*)a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc, i, bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
+                pfun(L, (fix16_t*)a + i * L, lda, b + fN, ldb, c + i * ldc + fN, ldc, i, bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
             }
         }
     }
 }
 template void SGEBP_externalPackA_tiny_scale<float>( int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, float* packB, void* sgemm_tiny_scale, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template void SGEBP_externalPackA_tiny_scale<float16_t>( int M, int N, int L, float16_t *a, int lda, float *b, int ldb, float *c, int ldc, float16_t* packB, void* sgemm_tiny_scale, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void SGEBP_externalPackA_tiny_scale<fix16_t>( int M, int N, int L, fix16_t *a, int lda, float *b, int ldb, float *c, int ldc, fix16_t* packB, void* sgemm_tiny_scale, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
 inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *c, int ldc, int ch, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
@@ -8297,6 +8748,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         va1 = vld1q_f32(aptr + 4);
 
         vc0 = vfmaq_laneq_f32(vc0, vb0, va0, 0);
+        ARM_LOAD_PREFETCH_32(aptr+8);
         vc1 = vfmaq_laneq_f32(vc1, vb0, va0, 1);
         vc2 = vfmaq_laneq_f32(vc2, vb0, va0, 2);
         vc3 = vfmaq_laneq_f32(vc3, vb0, va0, 3);
@@ -8305,6 +8757,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vc5 = vfmaq_laneq_f32(vc5, vb0, va1, 1);
         vc6 = vfmaq_laneq_f32(vc6, vb0, va1, 2);
         vc7 = vfmaq_laneq_f32(vc7, vb0, va1, 3);
+        ARM_LOAD_PREFETCH_32(bptr+8);
 
         vc8 = vfmaq_laneq_f32(vc8, vb1, va0, 0);
         vc9 = vfmaq_laneq_f32(vc9, vb1, va0, 1);
@@ -8317,35 +8770,42 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vcF = vfmaq_laneq_f32(vcF, vb1, va1, 3);
 #else
 #if 1
-        vc0 = vmlaq_n_f32(vc0, vb0, aptr[0]);
-        vc1 = vmlaq_n_f32(vc1, vb0, aptr[1]);
-        vc2 = vmlaq_n_f32(vc2, vb0, aptr[2]);
-        vc3 = vmlaq_n_f32(vc3, vb0, aptr[3]);
+        va0 = vld1q_f32(aptr);
+        va1 = vld1q_f32(aptr + 4);
 
-        vc4 = vmlaq_n_f32(vc4, vb0, aptr[4]);
-        vc5 = vmlaq_n_f32(vc5, vb0, aptr[5]);
-        vc6 = vmlaq_n_f32(vc6, vb0, aptr[6]);
-        vc7 = vmlaq_n_f32(vc7, vb0, aptr[7]);
+        vc0 = vmlaq_n_f32(vc0, vb0, va0[0]);
+        ARM_LOAD_PREFETCH_32(aptr+8);
+        vc1 = vmlaq_n_f32(vc1, vb0, va0[1]);
+        vc2 = vmlaq_n_f32(vc2, vb0, va0[2]);
+        vc3 = vmlaq_n_f32(vc3, vb0, va0[3]);
 
-        vc8 = vmlaq_n_f32(vc8, vb1, aptr[0]);
-        vc9 = vmlaq_n_f32(vc9, vb1, aptr[1]);
-        vcA = vmlaq_n_f32(vcA, vb1, aptr[2]);
-        vcB = vmlaq_n_f32(vcB, vb1, aptr[3]);
+        vc4 = vmlaq_n_f32(vc4, vb0, va1[0]);
+        vc5 = vmlaq_n_f32(vc5, vb0, va1[1]);
+        vc6 = vmlaq_n_f32(vc6, vb0, va1[2]);
+        vc7 = vmlaq_n_f32(vc7, vb0, va1[3]);
+        ARM_LOAD_PREFETCH_32(bptr+8);
 
-        vcC = vmlaq_n_f32(vcC, vb1, aptr[4]);
-        vcD = vmlaq_n_f32(vcD, vb1, aptr[5]);
-        vcE = vmlaq_n_f32(vcE, vb1, aptr[6]);
-        vcF = vmlaq_n_f32(vcF, vb1, aptr[7]);
+        vc8 = vmlaq_n_f32(vc8, vb1, va0[0]);
+        vc9 = vmlaq_n_f32(vc9, vb1, va0[1]);
+        vcA = vmlaq_n_f32(vcA, vb1, va0[2]);
+        vcB = vmlaq_n_f32(vcB, vb1, va0[3]);
+
+        vcC = vmlaq_n_f32(vcC, vb1, va1[0]);
+        vcD = vmlaq_n_f32(vcD, vb1, va1[1]);
+        vcE = vmlaq_n_f32(vcE, vb1, va1[2]);
+        vcF = vmlaq_n_f32(vcF, vb1, va1[3]);
 #else
         vc0 = vmlaq_f32(vc0, vb0, vld1q_dup_f32(aptr + 0));
         vc1 = vmlaq_f32(vc1, vb0, vld1q_dup_f32(aptr + 1));
         vc2 = vmlaq_f32(vc2, vb0, vld1q_dup_f32(aptr + 2));
         vc3 = vmlaq_f32(vc3, vb0, vld1q_dup_f32(aptr + 3));
+        ARM_LOAD_PREFETCH_32(aptr+8);
 
         vc4 = vmlaq_f32(vc4, vb0, vld1q_dup_f32(aptr + 4));
         vc5 = vmlaq_f32(vc5, vb0, vld1q_dup_f32(aptr + 5));
         vc6 = vmlaq_f32(vc6, vb0, vld1q_dup_f32(aptr + 6));
         vc7 = vmlaq_f32(vc7, vb0, vld1q_dup_f32(aptr + 7));
+        ARM_LOAD_PREFETCH_32(bptr+8);
 
         vc8 = vmlaq_f32(vc8, vb1, vld1q_dup_f32(aptr + 0));
         vc9 = vmlaq_f32(vc9, vb1, vld1q_dup_f32(aptr + 1));
@@ -8364,9 +8824,11 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
     }
 
     cptr = c;
+    ARM_STORE_PREFETCH_32(cptr);
 
     if (NULL != slopeDataPrelu)
     {
+        uint32x4_t va1;
         if (sharedPrelu) printf("fix me, %s %d\n", __FILE__, __LINE__);
 
         vb1 = vdupq_n_f32(.0f);
@@ -8383,6 +8845,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vc8);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb1);
         vb0 = vmulq_n_f32(vc1, slopeDataPrelu[ch+1]);
         vc1 = vbslq_f32(va1, vb0, vc1);
@@ -8395,6 +8858,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vc9);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb1);
         vb0 = vmulq_n_f32(vc2, slopeDataPrelu[ch+2]);
         vc2 = vbslq_f32(va1, vb0, vc2);
@@ -8407,6 +8871,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcA);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb1);
         vb0 = vmulq_n_f32(vc3, slopeDataPrelu[ch+3]);
         vc3 = vbslq_f32(va1, vb0, vc3);
@@ -8419,6 +8884,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcB);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc4, vb1);
         vb0 = vmulq_n_f32(vc4, slopeDataPrelu[ch+4]);
         vc4 = vbslq_f32(va1, vb0, vc4);
@@ -8431,6 +8897,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcC);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc5, vb1);
         vb0 = vmulq_n_f32(vc5, slopeDataPrelu[ch+5]);
         vc5 = vbslq_f32(va1, vb0, vc5);
@@ -8443,6 +8910,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcD);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc6, vb1);
         vb0 = vmulq_n_f32(vc6, slopeDataPrelu[ch+6]);
         vc6 = vbslq_f32(va1, vb0, vc6);
@@ -8455,6 +8923,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcE);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc7, vb1);
         vb0 = vmulq_n_f32(vc7, slopeDataPrelu[ch+7]);
         vc7 = vbslq_f32(va1, vb0, vc7);
@@ -8468,6 +8937,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
     }
     else if (fuse_relu)
     {
+        uint32x4_t va1;
         vb1 = vdupq_n_f32(.0f);
 
         va1 = vcleq_f32(vc0, vb1);
@@ -8480,6 +8950,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vc8);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc1, vb1);
         vc1 = vbslq_f32(va1, vb1, vc1);
 
@@ -8490,6 +8961,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vc9);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc2, vb1);
         vc2 = vbslq_f32(va1, vb1, vc2);
 
@@ -8500,6 +8972,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcA);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc3, vb1);
         vc3 = vbslq_f32(va1, vb1, vc3);
 
@@ -8510,6 +8983,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcB);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc4, vb1);
         vc4 = vbslq_f32(va1, vb1, vc4);
 
@@ -8520,6 +8994,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcC);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc5, vb1);
         vc5 = vbslq_f32(va1, vb1, vc5);
 
@@ -8530,6 +9005,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcD);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc6, vb1);
         vc6 = vbslq_f32(va1, vb1, vc6);
 
@@ -8540,6 +9016,7 @@ inline void sgemm_8x8_pack( int L, float *a, int lda, float *b, int ldb, float *
         vst1q_f32(cptr + 4, vcE);
         cptr+=ldc;
 
+        ARM_STORE_PREFETCH_32(cptr);
         va1 = vcleq_f32(vc7, vb1);
         vc7 = vbslq_f32(va1, vb1, vc7);
 
@@ -8616,13 +9093,16 @@ static void SGEBP_externalPackA_tiny_scale_8x8_fix( int M, int N, int L, short *
     }
 }
 
-static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, int8_t* packB, float int8scaleW, float int8scaleIn, float int8scaleOut, sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
+static void SGEBP_externalPackA_tiny_scale_8x8_fix8( int M, int N, int L, int8_t *a, int lda, float *b, int ldb, float *c, int ldc, float* packA, int8_t* packB, float *int8scale, sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
     int eL = L + (4 - L % 4) % 4;
     int remN = N % 8;
     int fN = N - remN;
     (void)packA;
     (void)bias_data;
+    float int8scaleW   = int8scale[0];
+    float int8scaleIn  = int8scale[1];
+    float int8scaleOut = int8scale[2];
 
     //printf("-%s %d %f %f %f %d %p %p %d %d-\n", __func__, __LINE__, int8scaleW, int8scaleIn, int8scaleOut, remN, bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
 
@@ -8691,11 +9171,24 @@ static void block_sgemm_pack(int M, int N, int L, T *a, int lda, float *b, int l
     }
 }
 template void block_sgemm_pack<float>(int M, int N, int L, float *a, int lda, float *b, int ldb, float *c, int ldc, void*pFunc, float *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template void block_sgemm_pack<float16_t>(int M, int N, int L, float16_t *a, int lda, float *b, int ldb, float *c, int ldc, void*pFunc, float16_t *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void block_sgemm_pack<fix16_t>(int M, int N, int L, fix16_t *a, int lda, float *b, int ldb, float *c, int ldc, void*pFunc, fix16_t *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+
+typedef struct __prelu_info
+{
+    float *bias_data;
+    float *slopeDataPrelu;
+    bool  sharedPrelu;
+    bool  fuse_relu;
+} PRELU_INFO;
 
 template<typename T>
-static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc, float int8scaleW, float int8scaleIn, float int8scaleOut, void *pfunc, void *packB, float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu, int fractions)
+static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, int ldb, float *c, int ldc, float *int8scale, void *pfunc, void *packB, PRELU_INFO *prelu_info, int fractions)
 {
+    float *bias_data      = prelu_info->bias_data;
+    bool fuse_relu        = prelu_info->fuse_relu;
+    bool sharedPrelu      = prelu_info->sharedPrelu;
+    float *slopeDataPrelu = prelu_info->slopeDataPrelu;
+
     if (NULL != bias_data)
         for(int i = 0; i < M; ++i)
             fill(c + ldc * i, N, bias_data[i]);
@@ -8751,7 +9244,7 @@ static void block_sgemm_pack_8x8( int M, int N, int L, T*a, int lda, float *b, i
                 for(int p = 0; p < L; p += kc)
                 {
                     int pb = MIN(L - p, kc);
-                    SGEBP_externalPackA_tiny_scale_8x8_fix8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (int8_t*)packB, int8scaleW, int8scaleIn, int8scaleOut, (sgemm_tiny_scale_fix8_func)pfunc, NULL, slopeDataPrelu, sharedPrelu, fuse_relu);
+                    SGEBP_externalPackA_tiny_scale_8x8_fix8(ib, lb, pb, packAptr, lda, b + p * ldb + l, ldb, c + i * ldc + l, ldc, NULL, (int8_t*)packB, int8scale, (sgemm_tiny_scale_fix8_func)pfunc, NULL, slopeDataPrelu, sharedPrelu, fuse_relu);
                     packAptr += ib * pb;
                 }
             }
@@ -8792,7 +9285,15 @@ void block_sgemm_external_pack_threading( int M, int N, int L, T *a, float *b, f
         break;
     }
     int tN = N / num_threads;
-    tN = tN + (8 - tN % 8) % 8;
+    tN = (tN + 7) & 0xFFFFFFF8;
+    int lastSN = N - (num_threads - 1) * tN;
+    while(lastSN <= 0)
+    {
+        --num_threads;
+        lastSN = N - (num_threads - 1) * tN;
+    }
+    num_threads = (num_threads <= 0) ? 1 : num_threads;
+
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
         block_sgemm_pack(eM, N, L, a, L, b, N, c, N, pFunc, packB[0], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
@@ -8802,15 +9303,17 @@ void block_sgemm_external_pack_threading( int M, int N, int L, T *a, float *b, f
 #pragma parallel for num_threads(num_threads)
         for(int i = 0; i < num_threads; ++i)
         {
-            int sN = (tN < N - i * tN) ? tN : N - i * tN;
+            int sN = tN;
+            if(i == num_threads - 1)
+                sN = N - i * tN;
             block_sgemm_pack(eM, sN, L, a, L, b + i * tN, N, c + i * tN, N, pFunc, packB[i], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu);
         }
     }
 }
 template void block_sgemm_external_pack_threading<float>( int M, int N, int L, float *a, float *b, float *c, int num_threads, float *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
-template void block_sgemm_external_pack_threading<float16_t>( int M, int N, int L, float16_t *a, float *b, float *c, int num_threads, float16_t *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
+template void block_sgemm_external_pack_threading<fix16_t>( int M, int N, int L, fix16_t *a, float *b, float *c, int num_threads, fix16_t *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu);
 
-void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a, float *b, float *c, int num_threads, float int8scaleW, float int8scaleIn, float int8scaleOut, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
+void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a, float *b, float *c, int num_threads, float *int8scale, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool fuse_relu)
 {
     sgemm_tiny_scale_fix8_func sgemm_tiny_scale_fix8;
     int eM = M + (8 - M % 8) % 8;
@@ -8843,7 +9346,6 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
     if(num_threads>8)	num_threads = 8;
 
     unsigned int tN = N / num_threads;
-
     tN = (tN + 7) & 0xFFFFFFF8;
     int lastSN = N - (num_threads - 1) * tN;
     while(lastSN <= 0)
@@ -8853,9 +9355,15 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
     }
     num_threads = (num_threads <= 0) ? 1 : num_threads;
 
+    PRELU_INFO prelu_info;
+    prelu_info.bias_data      = bias_data;
+    prelu_info.fuse_relu      = fuse_relu;
+    prelu_info.sharedPrelu    = sharedPrelu;
+    prelu_info.slopeDataPrelu = slopeDataPrelu;
+
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<int8_t>(eM, N, L, a, L, b, N, c, N, int8scaleW, int8scaleIn, int8scaleOut, (void*)sgemm_tiny_scale_fix8, packB[0], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu, 8);
+        block_sgemm_pack_8x8<int8_t>(eM, N, L, a, L, b, N, c, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB[0], &prelu_info, 8);
     }
     else
     {
@@ -8865,7 +9373,7 @@ void block_sgemm_external_pack_threading_8x8Fix8( int M, int N, int L, int8_t *a
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<int8_t>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, int8scaleW, int8scaleIn, int8scaleOut, (void*)sgemm_tiny_scale_fix8, packB[tid], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu, 8);
+            block_sgemm_pack_8x8<int8_t>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, int8scale, (void*)sgemm_tiny_scale_fix8, packB[tid], &prelu_info, 8);
         }
     }
 }
@@ -8912,10 +9420,15 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
         lastSN = N - (num_threads - 1) * tN;
     }
     num_threads = (num_threads <= 0) ? 1 : num_threads;
+    PRELU_INFO prelu_info;
+    prelu_info.bias_data      = bias_data;
+    prelu_info.fuse_relu      = fuse_relu;
+    prelu_info.sharedPrelu    = sharedPrelu;
+    prelu_info.slopeDataPrelu = slopeDataPrelu;
 
     if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
     {
-        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale_fix, packB[0], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu, fractions);
+        block_sgemm_pack_8x8<short>(eM, N, L, a, L, b, N, c, N, NULL, (void*)sgemm_tiny_scale_fix, packB[0], &prelu_info, fractions);
     }
     else
     {
@@ -8925,13 +9438,19 @@ void block_sgemm_external_pack_threading_8x8Fix( int M, int N, int L, short *a, 
             int sN = tN;
             if(tid == num_threads - 1)
                 sN = N - tid * tN;
-            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale_fix, packB[tid], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu, fractions);
+            block_sgemm_pack_8x8<short>(eM, sN, L, a, L, b + tid * tN, N, c + tid * tN, N, NULL, (void*)sgemm_tiny_scale_fix, packB[tid], &prelu_info, fractions);
         }
     }
 }
 
 void block_sgemm_external_pack_threading_8x8( int M, int N, int L, void *a, float *b, float *c, int num_threads, void *packB[], float *bias_data, float *slopeDataPrelu, bool sharedPrelu, bool sgemmLowPrecision, bool fuse_relu)
 {
+    PRELU_INFO prelu_info;
+    prelu_info.bias_data      = bias_data;
+    prelu_info.fuse_relu      = fuse_relu;
+    prelu_info.sharedPrelu    = sharedPrelu;
+    prelu_info.slopeDataPrelu = slopeDataPrelu;
+
     if ((sgemmLowPrecision) && (M % 8 == 0))
     {
         sgemm_tiny_scale_fix_func sgemm_tiny_scale_fix;
@@ -8977,7 +9496,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, void *a, floa
 
         if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
         {
-            block_sgemm_pack_8x8<short>(eM, N, L, (short*)a, L, b, N, c, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale_fix, packB[0], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu, 0);
+            block_sgemm_pack_8x8<short>(eM, N, L, (short*)a, L, b, N, c, N, NULL, (void*)sgemm_tiny_scale_fix, packB[0], &prelu_info, 0);
         }
         else
         {
@@ -8987,7 +9506,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, void *a, floa
                 int sN = tN;
                 if(tid == num_threads - 1)
                     sN = N - tid * tN;
-                block_sgemm_pack_8x8<short>(eM, sN, L, (short*)a, L, b + tid * tN, N, c + tid * tN, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale_fix, packB[tid], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu, 0);
+                block_sgemm_pack_8x8<short>(eM, sN, L, (short*)a, L, b + tid * tN, N, c + tid * tN, N, NULL, (void*)sgemm_tiny_scale_fix, packB[tid], &prelu_info, 0);
             }
         }
     }
@@ -9024,21 +9543,20 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, void *a, floa
 
         if(num_threads>8)	num_threads = 8;
 
-        const int factor = 1;
-        unsigned int tN = N / num_threads / factor;
+        unsigned int tN = N / num_threads;
 
         tN = (tN + 7) & 0xFFFFFFF8;
-        int lastSN = N - (num_threads * factor - 1) * tN;
+        int lastSN = N - (num_threads - 1) * tN;
         while(lastSN <= 0)
         {
             --num_threads;
-            lastSN = N - (num_threads * factor - 1) * tN;
+            lastSN = N - (num_threads - 1) * tN;
         }
         num_threads = (num_threads <= 0) ? 1 : num_threads;
 
-        if (num_threads == 1 || N <= 8 || N - (num_threads * factor - 1) * tN <= 0)
+        if (num_threads == 1 || N <= 8 || N - (num_threads - 1) * tN <= 0)
         {
-            block_sgemm_pack_8x8<float>(eM, N, L, (float*)a, L, b, N, c, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale, packB[0], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu, 0);
+            block_sgemm_pack_8x8<float>(eM, N, L, (float*)a, L, b, N, c, N, NULL, (void*)sgemm_tiny_scale, packB[0], &prelu_info, 0);
         }
         else
         {
@@ -9048,7 +9566,7 @@ void block_sgemm_external_pack_threading_8x8( int M, int N, int L, void *a, floa
                 int sN = tN;
                 if(tid == num_threads - 1)
                     sN = N - tid * tN;
-                block_sgemm_pack_8x8<float>(eM, sN, L, (float*)a, L, b + tid * tN, N, c + tid * tN, N, 0.0, 0.0, 0.0, (void*)sgemm_tiny_scale, packB[tid], bias_data, slopeDataPrelu, sharedPrelu, fuse_relu, 0);
+                block_sgemm_pack_8x8<float>(eM, sN, L, (float*)a, L, b + tid * tN, N, c + tid * tN, N, NULL, (void*)sgemm_tiny_scale, packB[tid], &prelu_info, 0);
             }
         }
     }

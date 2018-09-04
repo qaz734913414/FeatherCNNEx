@@ -24,7 +24,7 @@ class LRNLayer : public Layer
 public:
     LRNLayer(const LayerParameter* layer_param, const RuntimeParameter<float>* rt_param);
     int Forward();
-    int Init(float *ginput, float *goutput);
+    int Init();
 private:
     size_t local_size;
     float alpha;

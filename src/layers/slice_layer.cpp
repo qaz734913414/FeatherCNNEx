@@ -103,7 +103,7 @@ int SliceLayer::GenerateTopBlobs()
 
     const Blob<float>* bottom_blob = _bottom_blobs[_bottom[0]];
     size_t num = bottom_blob->num();
-    size_t channels = bottom_blob->channels();
+    size_t channels = bottom_blob->validChannels();
     size_t height = bottom_blob->height();
     size_t width = bottom_blob->width();
 
@@ -140,7 +140,7 @@ int SliceLayer::GenerateTopBlobs()
     return 0;
 }
 
-int SliceLayer::Init(float *ginput, float *goutput)
+int SliceLayer::Init()
 {
     printf("axis %d slice_point num %lu\n", axis, slice_point.size());
     for(int i=0; i<_top.size(); i++)	printf("%s ", _top[i].c_str());
@@ -148,7 +148,7 @@ int SliceLayer::Init(float *ginput, float *goutput)
 
     const Blob<float>* bottom_blob = _bottom_blobs[_bottom[0]];
     num = bottom_blob->num();
-    channels = bottom_blob->channels();
+    channels = bottom_blob->validChannels();
     height = bottom_blob->height();
     width = bottom_blob->width();
     input = _bottom_blobs[_bottom[0]]->data();

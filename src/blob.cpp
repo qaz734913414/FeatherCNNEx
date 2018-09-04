@@ -31,6 +31,7 @@ void Blob<Dtype>::FromProto(const void *proto_in)//proto MUST be of type BlobPro
     const BlobProto* proto = (const BlobProto*) proto_in;
     this->_num = proto->num();
     this->_channels = proto->channels();
+    this->_validChannels = proto->channels();
     this->_height = proto->height();
     this->_width = proto->width();
     this->_fractions = proto->fractions();

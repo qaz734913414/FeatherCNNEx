@@ -54,7 +54,7 @@ void fill(float * ptr, int size, float _v)
     }
 }
 
-void from_rgb_submeans(unsigned char* rgb, int w, int h, float* dst, float *mean, int bgr)
+void from_rgb_submeans(unsigned char* rgb, int w, int h, float* dst, const float *mean, int bgr, unsigned num_threads)
 {
     int size = w * h;
 
@@ -70,7 +70,7 @@ void from_rgb_submeans(unsigned char* rgb, int w, int h, float* dst, float *mean
     float32x4_t mean32x4_g  = vdupq_n_f32(mean[1]);
     float32x4_t mean32x4_b  = vdupq_n_f32(mean[2]);
 
-    #pragma omp parallel for num_threads(2)
+    #pragma omp parallel for num_threads(num_threads)
     for ( i = 0; i < nn; i++)
     {
         float *pdst0, *pdst1, *pdst2;
@@ -85,10 +85,13 @@ void from_rgb_submeans(unsigned char* rgb, int w, int h, float* dst, float *mean
         uint16x8_t _b16  = vmovl_u8(_rgb.val[2]);
 
         float32x4_t _rlow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_r16)));
+        ARM_STORE_PREFETCH_32(pdst0);
         float32x4_t _rhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_r16)));
         float32x4_t _glow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_g16)));
+        ARM_STORE_PREFETCH_32(pdst1);
         float32x4_t _ghigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_g16)));
         float32x4_t _blow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_b16)));
+        ARM_STORE_PREFETCH_32(pdst2);
         float32x4_t _bhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_b16)));
 
         _rlow  = vsubq_f32(_rlow, mean32x4_r);
@@ -142,7 +145,7 @@ void from_rgb_submeans(unsigned char* rgb, int w, int h, float* dst, float *mean
     return;
 }
 
-void from_y_normal(unsigned char* pY, int w, int h, float* dst, float mean, float scale)
+void from_y_normal(unsigned char* pY, int w, int h, float* dst, const float mean, const float scale, unsigned num_threads)
 {
     int size = w * h;
     int nn = size >> 3;
@@ -153,7 +156,7 @@ void from_y_normal(unsigned char* pY, int w, int h, float* dst, float mean, floa
     float32x4_t scale32x4 = vdupq_n_f32(scale);
     float* ptr0 = dst;
 
-    #pragma omp parallel for num_threads(2)
+    #pragma omp parallel for num_threads(num_threads)
     for ( i = 0; i < nn; i++)
     {
         float *pdst = ptr0 + 8*i;
@@ -162,6 +165,7 @@ void from_y_normal(unsigned char* pY, int w, int h, float* dst, float mean, floa
         uint16x8_t _y16  = vmovl_u8(_y);
 
         float32x4_t _ylow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_y16)));
+        ARM_STORE_PREFETCH_32(pdst);
         float32x4_t _yhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_y16)));
 
         _ylow  = vsubq_f32(_ylow, mean32x4);
@@ -183,7 +187,7 @@ void from_y_normal(unsigned char* pY, int w, int h, float* dst, float mean, floa
     return;
 }
 
-void from_rgb_normal_separate(unsigned char* rgb, int w, int h, float* dst, float *mean, float *scale, int bgr)
+void from_rgb_normal_separate(unsigned char* rgb, int w, int h, float* dst, const float *mean, const float *scale, int bgr, unsigned num_threads)
 {
     int size = w * h;
 
@@ -203,7 +207,7 @@ void from_rgb_normal_separate(unsigned char* rgb, int w, int h, float* dst, floa
     float32x4_t scale32x4_g = vdupq_n_f32(scale[1]);
     float32x4_t scale32x4_b = vdupq_n_f32(scale[2]);
 
-    #pragma omp parallel for num_threads(2)
+    #pragma omp parallel for num_threads(num_threads)
     for ( i = 0; i < nn; i++)
     {
         float *pdst0, *pdst1, *pdst2;
@@ -218,10 +222,13 @@ void from_rgb_normal_separate(unsigned char* rgb, int w, int h, float* dst, floa
         uint16x8_t _b16  = vmovl_u8(_rgb.val[2]);
 
         float32x4_t _rlow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_r16)));
+        ARM_STORE_PREFETCH_32(pdst0);
         float32x4_t _rhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_r16)));
         float32x4_t _glow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_g16)));
+        ARM_STORE_PREFETCH_32(pdst1);
         float32x4_t _ghigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_g16)));
         float32x4_t _blow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_b16)));
+        ARM_STORE_PREFETCH_32(pdst2);
         float32x4_t _bhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_b16)));
 
         _rlow  = vsubq_f32(_rlow, mean32x4_r);
@@ -282,7 +289,7 @@ void from_rgb_normal_separate(unsigned char* rgb, int w, int h, float* dst, floa
     return;
 }
 
-void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, float scale, int bgr)
+void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, const float mean, const float scale, int bgr, unsigned num_threads)
 {
     int size = w * h;
 
@@ -297,7 +304,7 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
     float32x4_t mean32x4  = vdupq_n_f32(mean);
     float32x4_t scale32x4 = vdupq_n_f32(scale);
 
-    #pragma omp parallel for num_threads(2)
+    #pragma omp parallel for num_threads(num_threads)
     for ( i = 0; i < nn; i++)
     {
         float *pdst0, *pdst1, *pdst2;
@@ -312,10 +319,13 @@ void from_rgb_normal(unsigned char* rgb, int w, int h, float* dst, float mean, f
         uint16x8_t _b16  = vmovl_u8(_rgb.val[2]);
 
         float32x4_t _rlow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_r16)));
+        ARM_STORE_PREFETCH_32(pdst0);
         float32x4_t _rhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_r16)));
         float32x4_t _glow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_g16)));
+        ARM_STORE_PREFETCH_32(pdst1);
         float32x4_t _ghigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_g16)));
         float32x4_t _blow  = vcvtq_f32_u32(vmovl_u16(vget_low_u16(_b16)));
+        ARM_STORE_PREFETCH_32(pdst2);
         float32x4_t _bhigh = vcvtq_f32_u32(vmovl_u16(vget_high_u16(_b16)));
 
         _rlow  = vsubq_f32(_rlow, mean32x4);
@@ -487,6 +497,7 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
             int16x8_t   vsrc16x8_v   = vreinterpretq_s16_u16(vsrc16x8_v_u);
             vsrc16x8_u = vsubq_s16(vsrc16x8_u, vsrc16x8_128);
             vsrc16x8_v = vsubq_s16(vsrc16x8_v, vsrc16x8_128);
+            ARM_STORE_PREFETCH_32(pDstCur);
 
             //R   R = (298*(Y-16)+409*(V-128)+128)>>8
             vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_y),  298);
@@ -501,6 +512,7 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
             vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_v),  409);
             vsrc32x4x3_1.val[0] = vmlal_n_s16(vsrc32x4x3_1.val[0], vget_high_s16(vsrc16x8_v), 409);
             //G G = (298*(Y-16)-100*(U-128)-208*(V-128)+128)>>8
+            ARM_LOAD_PREFETCH_16(pCurY+8);
 
             vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_u),  -100);
             vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_u), -100);
@@ -578,7 +590,7 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
 
             vst3_u8(pDstCur, vRet8x8x3);
             pDstCur += 24;
-            pCurY += 8;
+            pCurY   += 8;
 
             //next 8 elements
             vsrc32x4x3_0.val[0] = vsrc32x4_128; //R
@@ -596,6 +608,7 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
             vsrc16x8_v   = vreinterpretq_s16_u16(vsrc16x8_v_u);
             vsrc16x8_u   = vsubq_s16(vsrc16x8_u, vsrc16x8_128);
             vsrc16x8_v   = vsubq_s16(vsrc16x8_v, vsrc16x8_128);
+            ARM_STORE_PREFETCH_32(pDstCur);
 
             //R
             vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_y),  298);
@@ -606,7 +619,7 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
 
             vsrc32x4x3_0.val[2] = vsrc32x4x3_0.val[0]; //vmlal_n_s16(vsrc32x4x3_0.val[2], vget_low_s16(vsrc16x8_y),  298);
             vsrc32x4x3_1.val[2] = vsrc32x4x3_1.val[0]; //vmlal_n_s16(vsrc32x4x3_1.val[2], vget_high_s16(vsrc16x8_y), 298);
-
+            ARM_LOAD_PREFETCH_16(pCurY+8);
 
             vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_v),  409);
             vsrc32x4x3_1.val[0] = vmlal_n_s16(vsrc32x4x3_1.val[0], vget_high_s16(vsrc16x8_v), 409);
@@ -618,7 +631,7 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
             vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_v),  -208);
             vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_v), -208);
             //B
-
+            ARM_LOAD_PREFETCH_32(pCurUV+16);
             vsrc32x4x3_0.val[2] = vmlal_n_s16(vsrc32x4x3_0.val[2], vget_low_s16(vsrc16x8_u),  516);
             vsrc32x4x3_1.val[2] = vmlal_n_s16(vsrc32x4x3_1.val[2], vget_high_s16(vsrc16x8_u), 516);
 
@@ -685,8 +698,8 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
             vst3_u8(pDstCur, vRet8x8x3);
 
             pDstCur += 24;
-            pCurY += 8;
-            pCurUV += 16;
+            pCurY   += 8;
+            pCurUV  += 16;
         }
 
         if (roiWHas8)
@@ -712,6 +725,7 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
             int16x8_t   vsrc16x8_v   = vreinterpretq_s16_u16(vsrc16x8_v_u);
             vsrc16x8_u = vsubq_s16(vsrc16x8_u, vsrc16x8_128);
             vsrc16x8_v = vsubq_s16(vsrc16x8_v, vsrc16x8_128);
+            ARM_STORE_PREFETCH_32(pDstCur);
 
             //R   R = (298*(Y-16)+409*(V-128)+128)>>8
             vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_y),  298);
@@ -722,12 +736,14 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
 
             vsrc32x4x3_0.val[2] = vsrc32x4x3_0.val[0]; //vmlal_n_s16(vsrc32x4x3_0.val[2], vget_low_s16(vsrc16x8_y),  298);
             vsrc32x4x3_1.val[2] = vsrc32x4x3_1.val[0]; //vmlal_n_s16(vsrc32x4x3_1.val[2], vget_high_s16(vsrc16x8_y), 298);
+            ARM_LOAD_PREFETCH_16(pCurY+8);
 
             vsrc32x4x3_0.val[0] = vmlal_n_s16(vsrc32x4x3_0.val[0], vget_low_s16(vsrc16x8_v),  409);
             vsrc32x4x3_1.val[0] = vmlal_n_s16(vsrc32x4x3_1.val[0], vget_high_s16(vsrc16x8_v), 409);
 
             vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_u),  -100);
             vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_u), -100);
+            ARM_LOAD_PREFETCH_16(pCurUV+8);
 
             vsrc32x4x3_0.val[1] = vmlal_n_s16(vsrc32x4x3_0.val[1], vget_low_s16(vsrc16x8_v),  -208);
             vsrc32x4x3_1.val[1] = vmlal_n_s16(vsrc32x4x3_1.val[1], vget_high_s16(vsrc16x8_v), -208);
@@ -802,8 +818,8 @@ void from_nv122rgb(const unsigned char* yuv, unsigned w, unsigned h, unsigned st
             vst3_u8(pDstCur, vRet8x8x3);
 
             pDstCur += 24;
-            pCurY += 8;
-            pCurUV += 8;
+            pCurY   += 8;
+            pCurUV  += 8;
         }
 
         for( i = 0; i < roiWLeft; i++)

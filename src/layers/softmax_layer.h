@@ -27,7 +27,7 @@ public:
     {
     }
     int Forward();
-    int Init(float *ginput, float *goutput);
+    int Init();
 private:
     int NE_softmax(float *input, unsigned c, unsigned h, unsigned w, float *output, unsigned num_threads);
     unsigned c;

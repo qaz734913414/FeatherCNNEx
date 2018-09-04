@@ -25,10 +25,10 @@ int ScaleLayer::Forward()
     return 0;
 }
 
-int ScaleLayer::Init(float *ginput, float *goutput)
+int ScaleLayer::Init()
 {
     const Blob<float>* p_blob = _bottom_blobs[_bottom[0]];
-    input_channels = p_blob->channels();
+    input_channels = p_blob->validChannels();
     input_height   = p_blob->height();
     input_width    = p_blob->width();
     stride = input_width * input_height;
@@ -43,12 +43,6 @@ int ScaleLayer::Init(float *ginput, float *goutput)
     else
     {
         scale_kernel = scale<false>;
-    }
-
-    if ((NULL != ginput) && (NULL != goutput))
-    {
-        ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-        ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
     }
 
     input = _bottom_blobs[_bottom[0]]->data();

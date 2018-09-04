@@ -89,12 +89,12 @@ static void pooling2x2s2_max_neon(float *input, int w, int h, int inch, float *o
             {
                 asm volatile(
                     "0:                                   \n"
-                    "prfm       pldl1keep, [%1, #256]     \n"
-                    "prfm       pldl1keep, [%2, #256]     \n"
                     "ld1        {v0.4s, v1.4s}, [%1], #32 \n"
                     "ld1        {v2.4s, v3.4s}, [%2], #32 \n"
                     "fmax       v0.4s, v0.4s, v2.4s       \n"
+                    "prfm       pldl1keep, [%1, #32]      \n"
                     "fmax       v1.4s, v1.4s, v3.4s       \n"
+                    "prfm       pldl1keep, [%2, #32]      \n"
                     "fmaxp      v2.4s, v0.4s, v1.4s       \n"
                     "subs       %w0, %w0, #1              \n"
                     "st1        {v2.4s}, [%3], #16        \n"
@@ -115,12 +115,12 @@ static void pooling2x2s2_max_neon(float *input, int w, int h, int inch, float *o
             {
                 asm volatile(
                     "0:                             \n"
-                    "pld        [%1, #256]          \n"
-                    "pld        [%2, #256]          \n"
                     "vld1.f32   {d0-d3}, [%1]!      \n"
                     "vld1.f32   {d4-d7}, [%2]!      \n"
                     "vmax.f32   q0, q0, q2          \n"
+                    "pld        [%1, #32]           \n"
                     "vmax.f32   q1, q1, q3          \n"
+                    "pld        [%2, #32]           \n"
                     "vpmax.f32  d4, d0, d1          \n"
                     "subs       %0, #1              \n"
                     "vpmax.f32  d5, d2, d3          \n"
@@ -241,34 +241,29 @@ static void pooling3x3s2_max_neon(float *input, int w, int h, int inch, float *o
             if (nn > 0)
             {
                 asm volatile(
-                    "prfm       pldl1keep, [%1, #256]       \n"
                     "ld2        {v0.4s, v1.4s}, [%1], #32   \n"
-                    "prfm       pldl1keep, [%2, #256]       \n"
                     "ld2        {v2.4s, v3.4s}, [%2], #32   \n"
-                    "prfm       pldl1keep, [%3, #256]       \n"
                     "ld2        {v4.4s, v5.4s}, [%3], #32   \n"
                     "0:                                     \n"
 
-                    "prfm       pldl1keep, [%1, #256]       \n"
                     "ld2        {v6.4s, v7.4s}, [%1], #32   \n"
 
                     "fmax       v12.4s, v0.4s, v1.4s        \n"
                     "fmax       v13.4s, v2.4s, v3.4s        \n"
 
-                    "prfm       pldl1keep, [%2, #256]       \n"
                     "ld2        {v8.4s, v9.4s}, [%2], #32   \n"
 
                     "fmax       v14.4s, v4.4s, v5.4s        \n"
                     "ext        v0.16b, v0.16b, v6.16b, #4  \n"
 
-                    "prfm       pldl1keep, [%3, #256]       \n"
                     "ld2        {v10.4s, v11.4s}, [%3], #32 \n"
 
                     "ext        v2.16b,  v2.16b, v8.16b, #4 \n"
-
+                    "prfm       pldl1keep, [%1, #32]        \n"
                     "fmax       v12.4s, v12.4s, v0.4s       \n"
+                    "prfm       pldl1keep, [%2, #32]        \n"
                     "ext        v4.16b, v4.16b, v10.16b, #4 \n"
-
+                    "prfm       pldl1keep, [%3, #32]        \n"
                     "fmax       v13.4s, v13.4s, v2.4s       \n"
                     "fmax       v14.4s, v14.4s, v4.4s       \n"
                     "fmax       v12.4s, v12.4s, v13.4s      \n"
@@ -276,6 +271,8 @@ static void pooling3x3s2_max_neon(float *input, int w, int h, int inch, float *o
                     "orr        v0.16b, v6.16b, v6.16b      \n"
                     "orr        v1.16b, v7.16b, v7.16b      \n"
                     "fmax       v12.4s, v12.4s, v14.4s      \n"
+
+                    "prfm       pstl1strm, [%4, #16]        \n"
 
                     "orr        v2.16b, v8.16b, v8.16b      \n"
                     "orr        v3.16b, v9.16b, v9.16b      \n"
@@ -305,36 +302,33 @@ static void pooling3x3s2_max_neon(float *input, int w, int h, int inch, float *o
             if (nn > 0)
             {
                 asm volatile(
-                    "pld        [%1, #256]          \n"
                     "vld2.f32   {d0-d3}, [%1]!      \n"// q0 = 0 2 4 6  q1 = 1 3 5 7
-                    "pld        [%2, #256]          \n"
                     "vld2.f32   {d4-d7}, [%2]!      \n"
-                    "pld        [%3, #256]          \n"
                     "vld2.f32   {d8-d11}, [%3]!     \n"
                     "0:                             \n"
-                    "pld        [%1, #256]          \n"
                     "vld2.f32   {d12-d15}, [%1]!    \n"// q6 = 8 10 12 14  q7 = 9 11 13 15
 
                     "vmax.f32   q12, q0, q1         \n"
-                    "pld        [%2, #256]          \n"
                     "vmax.f32   q13, q2, q3         \n"
 
                     "vld2.f32   {d16-d19}, [%2]!    \n"
 
                     "vmax.f32   q14, q4, q5         \n"
-                    "pld        [%3, #256]          \n"
                     "vext.32    q0, q0, q6, #1      \n"
 
                     "vld2.f32   {d20-d23}, [%3]!    \n"
 
                     "vext.32    q2, q2, q8, #1      \n"
+                    "pld        [%1, #32]           \n"
 
                     "vmax.f32   q12, q12, q0        \n"
+                    "pld        [%2, #32]           \n"
                     "vext.32    q4, q4, q10, #1     \n"
-
+                    "pld        [%3, #32]           \n"
                     "vmax.f32   q13, q13, q2        \n"
                     "vmax.f32   q14, q14, q4        \n"
                     "vmax.f32   q12, q12, q13       \n"
+                    "pld        [%4, #32]           \n"
 
                     "vorr       q0, q6, q6          \n"
                     "vorr       q1, q7, q7          \n"
@@ -483,14 +477,8 @@ public:
         }
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init()
     {
-        if ((NULL != ginput) && (NULL != goutput))
-        {
-            ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-            ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
-        }
-
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
         return 0;
@@ -565,7 +553,7 @@ public:
         const Blob<float> *bottom_blob = _bottom_blobs[_bottom[0]];
         input_height = bottom_blob->height();
         input_width = bottom_blob->width();
-        input_channels = bottom_blob->channels();
+        input_channels = bottom_blob->validChannels();
 
         if (global_pooling)
         {

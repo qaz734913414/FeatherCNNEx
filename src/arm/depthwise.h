@@ -15,6 +15,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <stdint.h>
 
 void dwConv(float* output, float* input, int inw, int inh, int stridew, int strideh, float* kernel, int kw, int kh, int group, int nThreads);
 void dwConvFix(float* output, float* input, int inw, int inh, int stridew, int strideh, short* kernel, int kw, int kh, int group, int nThreads, int fractions);

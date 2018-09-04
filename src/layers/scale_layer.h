@@ -35,7 +35,7 @@ public:
     }
 
     int Forward();
-    int Init(float *ginput, float *goutput);
+    int Init();
 
     bool bias_term()
     {

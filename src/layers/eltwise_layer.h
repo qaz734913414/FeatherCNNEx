@@ -65,10 +65,8 @@ public:
         return 0;
     }
 
-    int Init(float *ginput, float *goutput)
+    int Init()
     {
-        (void)ginput;
-        (void)goutput;
         input_alpha = _bottom_blobs[_bottom[0]]->data();
         input_beta  = _bottom_blobs[_bottom[1]]->data();
         output      = _top_blobs[_top[0]]->data();

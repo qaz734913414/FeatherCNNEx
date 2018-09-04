@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 
-set(OpenCV_DIR "/home/leejohnnie/tools/OpenCV-android-sdk/sdk/native/jni")
+set(OpenCV_DIR "/home/lee/software/OpenCV-android-sdk-3.4.3/sdk/native/jni")
 
 find_package(OpenCV QUIET COMPONENTS core highgui imgproc imgcodecs)
 if(NOT OpenCV_FOUND)
@@ -17,11 +17,30 @@ endif()
 message(STATUS "OpenMP flags ${CMAKE_CXX_FLAGS}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
+message(STATUS "compile name ${CMAKE_CXX_COMPILER_ID}")
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+message(STATUS "compile use clang")
 if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
     link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../build-android/arm64-v8a/install/feather/lib)
 else("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
     link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../build-android/armeabi-v7a/install/feather/lib)
 endif ()
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+message(STATUS "compile use gcc")
+if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+    link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../build-android/arm64-v8a-gcc/install/feather/lib)
+else("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
+    link_directories(${CMAKE_CURRENT_SOURCE_DIR}/../build-android/armeabi-v7a-gcc/install/feather/lib)
+endif ()
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+# using Intel C++
+message(STATUS "compile use intel")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+# using Visual Studio C++
+message(STATUS "compile use msvc")
+endif()
+
 if( CMAKE_SYSTEM_PROCESSOR MATCHES armv7-a )
 add_definitions(-mfpu=neon-fp16)
 endif()
@@ -33,21 +52,9 @@ if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
 add_executable(feather_test64 test.cpp)
 target_link_libraries(feather_test64 feather ${OpenCV_LIBS})
 
-add_executable(face64 face.cpp mtcnn.cpp)
-target_link_libraries(face64 feather ${OpenCV_LIBS})
-
-add_executable(face64-new mtcnndetect.cpp)
-target_link_libraries(face64-new feather ${OpenCV_LIBS})
-
 else("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
 
 add_executable(feather_test32 test.cpp)
 target_link_libraries(feather_test32 feather ${OpenCV_LIBS})
-
-add_executable(face32 face.cpp mtcnn.cpp)
-target_link_libraries(face32 feather ${OpenCV_LIBS})
-
-add_executable(face32-new mtcnndetect.cpp)
-target_link_libraries(face32-new feather ${OpenCV_LIBS})
 
 endif ()

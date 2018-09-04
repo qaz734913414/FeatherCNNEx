@@ -42,7 +42,7 @@ public:
     virtual int Fuse(Layer* next_layer);
     virtual int GenerateTopBlobs();
     std::string GenerateNewTopBlobs(float *pData);
-    virtual int Init(float *ginput, float *goutput);
+    virtual int Init();
     virtual int Forward();
 
     std::string name();

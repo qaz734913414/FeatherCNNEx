@@ -20,18 +20,12 @@
 
 namespace feather
 {
-int SoftmaxLayer::Init(float *ginput, float *goutput)
+int SoftmaxLayer::Init()
 {
-    if ((NULL != ginput) && (NULL != goutput))
-    {
-        ((Blob<float> *)_bottom_blobs[_bottom[0]])->setData(ginput);
-        ((Blob<float> *)_top_blobs[_top[0]])->setData(goutput);
-    }
-
     input = _bottom_blobs[_bottom[0]]->data();
     output = _top_blobs[_top[0]]->data();
     const Blob<float> *p_bottom = _bottom_blobs[_bottom[0]];
-    c = p_bottom->channels();
+    c = p_bottom->validChannels();
     h = p_bottom->height();
     w = p_bottom->width();
     MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&max,  sizeof(float) * w * h));

@@ -129,21 +129,6 @@ int Net::configDropoutWork(bool flag)
     return 0;
 }
 
-int Net::ExtractBlob(float* output_ptr, std::string name)
-{
-    if (blob_map.find(std::string(name)) == blob_map.end())
-    {
-        fprintf(stderr, "Cannot find blob %s\n", name.c_str());
-        return -1;
-    }
-    const Blob<float> *p_blob = blob_map[name];
-    const size_t data_size = p_blob->data_size();
-    const float *data = p_blob->data();
-    //printf("ExtractBlob %p\n", data);
-    memcpy(output_ptr, data, sizeof(float) * data_size);
-    return 0;
-}
-
 float* Net::ExtractBlob(std::string name)
 {
     if (blob_map.find(std::string(name)) == blob_map.end())
@@ -152,7 +137,6 @@ float* Net::ExtractBlob(std::string name)
         return NULL;
     }
     const Blob<float> *p_blob = blob_map[name];
-    const size_t data_size = p_blob->data_size();
     float *data = p_blob->data();
     return data;
 }
@@ -165,7 +149,7 @@ int Net::GetBlobShape(unsigned *pChannel, unsigned *pWidth, unsigned *pHeight, s
         return -1;
     }
     const Blob<float> *p_blob = blob_map[name];
-    *pChannel = p_blob->channels();
+    *pChannel = p_blob->validChannels();
     *pWidth = p_blob->width();
     *pHeight = p_blob->height();
     return 0;
@@ -189,41 +173,15 @@ float* Net::GetInputBuffer()
     return input_layer->input_blob(input_layer->input_name(0))->data();
 }
 
-int Net::Forward(float *input)
-{
-    InputLayer *input_layer = (InputLayer *)layers[0];
-    input_layer->CopyInput(input_layer->input_name(0), input);
-
-    for (int i = 1; i < layers.size(); ++i)
-    {
-        //printf("Forward layer%d:%s %s %s... \n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
-//#define TIME_PROFILE
-#ifdef TIME_PROFILE
-        Timer t;
-        t.startBench();
-#endif
-        layers[i]->Forward();
-#ifdef TIME_PROFILE
-        t.endBench(layers[i]->name().c_str());
-#endif
-#if 0
-        if (1 == layers[i]->branchId)
-            for(int t = 0 ; t < 4; t++)
-                if(3 == t)
-                    printf("%9.6f\n", layers[i]->top_blob(0)->data()[t]);
-                else
-                    printf("%9.6f, ", layers[i]->top_blob(0)->data()[t]);
-#endif
-#if 0
-        for (size_t j = 0; j < layers[i]->top_blob_size(); j++)
-            layers[i]->top_blob(j)->PrintBlobInfo();
-#endif
-    }
-    return 0;
-}
-
 int Net::Forward()
 {
+//#define TIME_PROFILE_G
+#ifdef TIME_PROFILE_G
+    Timer tg;
+    tg.startBench();
+#endif
+
+    //printf("\n\n----%d %d---\n", inWidth, inHeight);
     for (int i = 1; i < layers.size(); ++i)
     {
         //printf("Forward layer%d:%s %s %s... \n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
@@ -234,8 +192,8 @@ int Net::Forward()
 #endif
         layers[i]->Forward();
 #ifdef TIME_PROFILE
-        //if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
-        t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
+        if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
+            t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
 #endif
 
 #if 0
@@ -243,28 +201,35 @@ int Net::Forward()
             printf(" [%03d] %s %s %s\n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
 #endif
     }
+
+#ifdef TIME_PROFILE_G
+    tg.endBench("Forward time");
+#endif
     return 0;
 }
 
-void Net::InitFromPath(const char *model_path)
+int Net::InitFromPath(const char *model_path)
 {
+    int ret;
     FILE *fp = NULL;
     fp = fopen(model_path, "rb");
     if(fp == NULL)
     {
         fprintf(stderr, "Cannot open feather model!\n");
-        exit(-1);
+        return -1;
     }
-    this->InitFromFile(fp);
+    ret = this->InitFromFile(fp);
     fclose(fp);
+    return ret;
 }
 
-void Net::InitFromFile(FILE* fp)
+int Net::InitFromFile(FILE* fp)
 {
+    int ret;
     if(fp == NULL)
     {
         fprintf(stderr, "Cannot open feather model!\n");
-        exit(-1);
+        return -2;
     }
     fseek(fp, 0, SEEK_END);
     long file_size = ftell(fp);
@@ -274,11 +239,12 @@ void Net::InitFromFile(FILE* fp)
     if(read_size != file_size)
     {
         fprintf(stderr, "Reading model failed! file_size %ld read size %ld\n", file_size, read_size);
-        exit(-1);
+        return -3;
     }
     //printf("Finished loading from file\n");
-    this->InitFromBuffer(net_buffer);
+    ret = this->InitFromBuffer(net_buffer);
     free(net_buffer);
+    return ret;
 }
 
 void Net::branchBufferInit(unsigned branchId)
@@ -298,7 +264,7 @@ void Net::branchBufferInit(unsigned branchId)
         printf("wrong branch\n", branchId);
 }
 
-bool Net::InitFromBuffer(const void *net_buffer)
+int Net::InitFromBuffer(const void *net_buffer)
 {
     const NetParameter *net_param = feather::GetNetParameter(net_buffer);
     size_t layer_num = VectorLength(net_param->layer());
@@ -315,11 +281,12 @@ bool Net::InitFromBuffer(const void *net_buffer)
         }
     }
 
-    //printf("InBlob change from [%d %d %d] ", layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
+    //printf("InBlob change from [%d %d %d] ", layers[0]->top_blob(0)->validChannels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
     layers[0]->top_blob(0)->setChannels(inChannels);
+    layers[0]->top_blob(0)->setvalidChannels(inChannels);
     layers[0]->top_blob(0)->setWidth(inWidth);
     layers[0]->top_blob(0)->setHeight(inHeight);
-    //printf("to [%d %d %d]\n", layers[0]->top_blob(0)->channels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
+    //printf("to [%d %d %d]\n", layers[0]->top_blob(0)->validChannels(), layers[0]->top_blob(0)->height(), layers[0]->top_blob(0)->width());
     rt_param->input_width = inWidth;
     rt_param->input_height = inHeight;
     for (int i = 1; i < layer_num; ++i)
@@ -366,7 +333,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
             else
             {
                 printf("Blob %s in layer %s not setup yet, may be casued by wrong layer order. Aborted.\n", blob_name.c_str(), net_param->layer()->Get(i)->name()->c_str());
-                exit(-1);
+                return -4;
             }
         }
 
@@ -606,7 +573,7 @@ bool Net::InitFromBuffer(const void *net_buffer)
             }
         }
 
-        layers[i]->Init(NULL, NULL);
+        layers[i]->Init();
 
 #ifdef MEM_USAGE_PRINT
         layers[i]->printPrivateMempool();
@@ -619,6 +586,6 @@ bool Net::InitFromBuffer(const void *net_buffer)
     rt_param->common_mempool()->PrintStats();
 #endif
     //printf("\nNet init ok\n");
-    return true;
+    return 0;
 }
 };

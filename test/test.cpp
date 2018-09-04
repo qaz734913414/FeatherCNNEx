@@ -109,6 +109,40 @@ static float C_REF[] =
     };
 #endif
 
+#if 0
+int main(int argc, char *argv[])
+{
+    int cols = 1280;
+    int rows = 720;
+    unsigned char *pSrc = (unsigned char*)malloc(cols*rows*3/2);
+    unsigned char *pDst = (unsigned char*)malloc(cols*rows*3);
+    int num_threads  = atoi(argv[1]);
+    int loopCnt = atoi(argv[2]);
+
+    struct timeval beg, end;
+    gettimeofday(&beg, NULL);
+
+    for (int i = 0; i<loopCnt; i++)
+        from_nv122rgb(pSrc, cols, rows, cols, 0, 0, cols, rows, pDst, 0, num_threads);
+
+    gettimeofday(&end, NULL);
+    printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads);
+
+    free(pSrc);
+    free(pDst);
+    return 0;
+}
+#else
+/*
+-1.812379,  4.081425, -4.347051,  4.354116, -0.556802, -5.558001,  3.357385, 10.341537,  0.440753, -15.764411,  8.808333,  4.651664, -9.211784, -1.327926, -16.512342,  0.315715,
+ 5.261196,  9.074323, -2.663439,  4.176068, -0.640883,  2.888079, -13.531235, -0.217256, -7.644547,  2.272054,  6.222339, -3.381551, -1.332794,  5.498738, -2.291775, -8.638482,
+-8.490557,  2.221889,  4.446332,  3.584421, -4.748582, -13.319547, -3.616705,  4.987652, 18.340813, -6.888232,  3.902353,  9.943968,  6.715979,  6.032541, -1.458937, -3.837536,
+-7.257421,  3.263789,  6.841688, -4.256768,  6.105454, -7.822162, -5.358116, -1.491241, -4.500320,  5.986435, -0.098746, -9.061723,  3.643913,  5.126673, 11.933592, -0.393316,
+-1.466822,  8.726510,  5.456965,  9.867626, 12.184004,  1.289220, -10.053810,  5.860996,  2.209918,  7.400939, -0.278869,  6.676223, -0.197880,  0.832310,  1.536902,  5.028295,
+17.467724,  5.106631, -2.861564, -3.235081, -5.349757,  9.691916, -2.235164,  4.505077, -13.046526,  5.967677, 14.612733, -1.806151,  0.803580, -6.894249, -1.054083,  0.862652,
+-5.682416, -8.662089,  3.608602,  5.405642,  2.209574,  7.963295,  7.639346, -16.061680, 10.105835,  8.511457, 17.687704,  0.214766, -3.783849, -7.300689,  2.820642, -9.717883,
+ 3.058890, 11.749965, -3.097979, -1.708698,  5.854451, -7.117640, -2.148701, -5.632799, -12.668450,  1.601659, -7.965919, 11.794479, -5.448456,  5.566507, -4.827774,  0.388210,
+*/
 int main(int argc, char *argv[])
 {
     int colIdx = 0, maxabscol = 0, maxratiocol = 0;
@@ -125,9 +159,10 @@ int main(int argc, char *argv[])
 #endif
     int num_threads = 1;
     int bSameMean = 0;
+    int bLowPrecision = 1;
     struct timeval beg, end;
 
-    printf("e.g.:  ./demo 10 1 filelist.txt insano_mobilenet_v2_layer9_conv1x1_scale_14.feathermodel mobilenet_v2_layer9_conv1x1_bn serialfile\n");
+    printf("e.g.:  ./demo 10 1 filelist.txt insano_mobilenet_v2_layer9_conv1x1_scale_14.feathermodel mobilenet_v2_layer9_conv1x1_bn bsameMean bLowPrecision serialfile\n");
 
     if (argc > 1) loopCnt = atoi(argv[i++]);
     if (argc > 2) num_threads = atoi(argv[i++]);
@@ -135,9 +170,10 @@ int main(int argc, char *argv[])
     if (argc > 4) pModel = argv[i++];
     if (argc > 5) pBlob = argv[i++];
     if (argc > 6) bSameMean = atoi(argv[i++]);
-    if (argc > 7) pSerialFile = argv[i++];
+    if (argc > 7) bLowPrecision = atoi(argv[i++]);
+    if (argc > 8) pSerialFile = argv[i++];
 
-    printf("file: %s model: %s blob: %s loopCnt: %d num_threads: %d bSameMean:%d SerialFile: %s\n", pFname, pModel, pBlob, loopCnt, num_threads, bSameMean, pSerialFile);
+    printf("file: %s model: %s blob: %s loopCnt: %d num_threads: %d bSameMean:%d bLowPrecision: %d SerialFile: %s\n", pFname, pModel, pBlob, loopCnt, num_threads, bSameMean, bLowPrecision, pSerialFile);
 #if 0
     FILE *fp = NULL;
     if(NULL == (fp = fopen(pFname,"r")))
@@ -220,12 +256,19 @@ int main(int argc, char *argv[])
     for(int k = 0; k < 1; k++)
     {
         Net *forward_net = new Net(num_threads);
+#if 1
+        forward_net->config1x1ConvType(CONV_TYPE_DIRECT);
+        forward_net->config3x3ConvType(CONV_TYPE_DIRECT);
+#else
         forward_net->config1x1ConvType(CONV_TYPE_SGEMM);
-        forward_net->config3x3ConvType(CONV_TYPE_SGEMM);
+        forward_net->config3x3ConvType(CONV_TYPE_DIRECT);
+#endif
         forward_net->configWinogradLowPrecision(true);
-        forward_net->configSgemmLowPrecision(true);
+        forward_net->configSgemmLowPrecision(bLowPrecision);
         forward_net->configDropoutWork(true);
-        forward_net->configCrypto(pSerialFile);
+        uint8_t defaultkey[] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+        forward_net->configCryptoBuffer(defaultkey);
+        //forward_net->configCrypto(pSerialFile);
         forward_net->inChannels = 3;
         forward_net->inWidth = img.cols;
         forward_net->inHeight = img.rows;
@@ -235,24 +278,26 @@ int main(int argc, char *argv[])
         forward_net->GetBlobDataSize(&data_size, pBlob);
         float *pOut = NULL;
         float *pIn = forward_net->GetInputBuffer();
-        float means[] = {104.0f, 117.0f, 123.0f};
-
+        float meansDiff[] = {104.0f, 117.0f, 123.0f};
+        float meansSame[] = {127.5f, 127.5f, 127.5f};
+        float varSame[] = {0.0078125f, 0.0078125f, 0.0078125f};
         gettimeofday(&beg, NULL);
 
         for(int loop = 0; loop < loopCnt; loop++)
         {
             if (bSameMean)
-                from_rgb_normal(img.data, img.cols, img.rows, pIn, 127.5f, 0.0078125f, 0);
+                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
             else
-                from_rgb_submeans(img.data, img.cols, img.rows, pIn, means, 0);
+                from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
             int ret = forward_net->Forward();
             pOut = forward_net->ExtractBlob(pBlob);
-            printf("[%03d/%03d] ret: %d,(in: %p out: %p)\n", loop, loopCnt, ret, pIn, pOut);
+            printf("[%03d/%03d] ret: %d\n", loop, loopCnt, ret);
         }
 
         gettimeofday(&end, NULL);
         printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads);
         printf("out blob size: %u\n", (unsigned int)data_size);
+#if 0
         for(int i = 0 ; i < data_size; i++)
         {
             if ((0 != i)&& (0 == i % 16))
@@ -260,10 +305,10 @@ int main(int argc, char *argv[])
             printf("%9.6f, ", pOut[i]);
         }
         printf("\n");
-
+#endif
         int top_class = 0;
         float max_score = .0f;
-        for (size_t i=0; i<data_size; i++)
+        for (size_t i=0; (1000 == data_size && i < data_size); i++)
         {
             float s = pOut[i];
             if (s > max_score)
@@ -315,3 +360,4 @@ int main(int argc, char *argv[])
 #endif
     return 0;
 }
+#endif

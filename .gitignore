@@ -1,5 +1,13 @@
 # CMake build directory
-*build*/
+build-android
+test/build-android
+tools/flatbuffers
+tools/protobuf
+tools/models
+tools/oldmodels
+tools/*.feathermodel
+tools/*.prototxt
+tools/*.caffemodel
 
 # Backup files.
 *~

@@ -13,7 +13,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
 
 project(feather)
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 
 #set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE Release)
@@ -57,6 +57,7 @@ add_definitions(-Ofast)
 add_definitions(-ffast-math)
 add_definitions(-fvisibility=hidden -fvisibility-inlines-hidden)
 add_definitions(-fdata-sections -ffunction-sections)
+add_definitions(-fpermissive)
 message(STATUS "CMAKE_SYSTEM_PROCESSOR ${CMAKE_SYSTEM_PROCESSOR}")
 if( CMAKE_SYSTEM_PROCESSOR MATCHES armv7-a )
 add_definitions(-mfpu=neon-fp16)
@@ -78,9 +79,4 @@ endif()
 
 ##############################################
 
-# add_subdirectory(examples)
-# add_subdirectory(benchmark)
 add_subdirectory(src)
-#if(NOT ANDROID AND NOT IOS)
-#	add_subdirectory(tools)
-#endif()

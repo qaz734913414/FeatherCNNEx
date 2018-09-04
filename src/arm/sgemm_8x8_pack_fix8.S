@@ -137,21 +137,21 @@ sgemm_8x8_pack_fix8:
 
 	prfm PLDL1KEEP, [A, #16]
         eor VSRC_16B_C0, VSRC_16B_C0, VSRC_16B_C0
-        mov VSRC_4S_C1,  VSRC_4S_C0
+        mov VSRC_16B_C1,  VSRC_16B_C0
         eor VSRC_16B_C2, VSRC_16B_C2, VSRC_16B_C2
-        mov VSRC_4S_C3,  VSRC_4S_C0
+        mov VSRC_16B_C3,  VSRC_16B_C1
         eor VSRC_16B_C4, VSRC_16B_C4, VSRC_16B_C4
-        mov VSRC_4S_C5,  VSRC_4S_C0
+        mov VSRC_16B_C5,  VSRC_16B_C2
         eor VSRC_16B_C6, VSRC_16B_C6, VSRC_16B_C6
-        mov VSRC_4S_C7,  VSRC_4S_C0
+        mov VSRC_16B_C7,  VSRC_16B_C3
         eor VSRC_16B_C8, VSRC_16B_C8, VSRC_16B_C8
-        mov VSRC_4S_C9,  VSRC_4S_C0
+        mov VSRC_16B_C9,  VSRC_16B_C4
         eor VSRC_16B_CA, VSRC_16B_CA, VSRC_16B_CA
-        mov VSRC_4S_CB,  VSRC_4S_C0
+        mov VSRC_16B_CB,  VSRC_16B_C5
         eor VSRC_16B_CC, VSRC_16B_CC, VSRC_16B_CC
-        mov VSRC_4S_CD,  VSRC_4S_C0
+        mov VSRC_16B_CD,  VSRC_16B_C6
         eor VSRC_16B_CE, VSRC_16B_CE, VSRC_16B_CE
-        mov VSRC_4S_CF,  VSRC_4S_C0
+        mov VSRC_16B_CF,  VSRC_16B_C7
         
 __LOOP:
 	ld1 {VSRC_8B_A}, [A], #8
@@ -408,10 +408,8 @@ sgemm_8x8_pack_fix8:
 __LOOP:
 	vld1.8 {VSRC_8B_A}, [A]!
 	subs L, L, #1
-	//vld1.8 {VSRC_8B_B}, [B]!
 	fldmias B, {VSRC_4B_B}
         vmovl.s8 VSRC_8H_A, VSRC_8B_A
-	pld [B, #8]
         vmovl.s8 VSRC_8H_B, VSRC_8B_B
 
 	vmlal.s16 VSRC_4S_C0, VSRC_4H_B, VSRC_8H_A_0
@@ -419,6 +417,7 @@ __LOOP:
 	vmlal.s16 VSRC_4S_C1, VSRC_4H_B, VSRC_8H_A_1
 	pld [A, #8]
 	vmlal.s16 VSRC_4S_C2, VSRC_4H_B, VSRC_8H_A_2
+	pld [B, #8]
 	vmlal.s16 VSRC_4S_C3, VSRC_4H_B, VSRC_8H_A_3
 
 	vmlal.s16 VSRC_4S_C4, VSRC_4H_B, VSRC_8H_A_4

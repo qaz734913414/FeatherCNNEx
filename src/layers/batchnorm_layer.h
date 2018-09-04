@@ -38,7 +38,7 @@ public:
         _fusible = true;
     }
 
-    int Init(float *ginput, float *goutput);
+    int Init();
     int Forward();
     int Fuse(Layer *);
 private:
