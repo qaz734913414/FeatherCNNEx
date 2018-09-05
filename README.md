@@ -12,11 +12,12 @@ This project fork from Tencent FeatherCNN(https://github.com/Tencent/FeatherCNN)
 Thanks Tencent FeatherCNN & NCNN team.
 
 ## Future Work:
-More int8 conv model support.
+1. SGEMM reconstruct
+2. More int8 conv model support.
 
 ## Contact Info:
-1. Author Email: tianylijun@163.com 
-2. QQ Group: 420089534 
+QQ Group: 420089534<br>
+Author Email: tianylijun@163.com<br>
 
 ## BenchMark
 <img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/squeeze_resnet18.jpeg">
