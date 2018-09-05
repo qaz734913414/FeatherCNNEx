@@ -60,7 +60,7 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
             if (nn > 0)
             {
                 asm volatile(
-                    "prfm       pldl1keep, [%3, #192]          \n"
+                    "prfm       pldl1keep, [%3, #32]           \n"
                     "ld1        {v9.4s, v10.4s}, [%3]          \n" //r0
                     "add        %3, %3, #16                    \n"
 
@@ -68,6 +68,7 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "ext        v12.16b, v9.16b, v10.16b, #8   \n"
 
                     "0:                                        \n"
+                    "prfm       pldl1keep, [%4, #32]           \n"
 
                     "fmul       v7.4s, v9.4s, %14.s[0]         \n"
 
@@ -75,9 +76,9 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "fmul       v6.4s,  v11.4s, %14.s[1]       \n"
                     "fmla       v13.4s, v12.4s, %14.s[2]       \n"
 
-                    "prfm       pldl1keep, [%4, #192]          \n"
                     "ld1        {v9.4s, v10.4s}, [%4]          \n"
                     "add        %4, %4, #16                    \n"
+                    "prfm       pldl1keep, [%5, #32]           \n"
 
                     "fmla       v7.4s, v9.4s, %15.s[0]         \n"
 
@@ -93,9 +94,9 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "fmul       v14.4s, v11.4s, %14.s[1]       \n"
                     "fmla       v15.4s, v12.4s, %14.s[2]       \n"
 
-                    "prfm       pldl1keep, [%5, #192]          \n"
                     "ld1        {v9.4s, v10.4s}, [%5]          \n"
                     "add        %5, %5, #16                    \n"
+                    "prfm       pldl1keep, [%6, #32]           \n"
 
                     "fmla       v7.4s, v9.4s, %16.s[0]         \n"
 
@@ -109,9 +110,9 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "fmla       v14.4s, v11.4s, %15.s[1]       \n"
                     "fmla       v15.4s, v12.4s, %15.s[2]       \n"
 
-                    "prfm       pldl1keep, [%6, #192]          \n"
                     "ld1        {v9.4s, v10.4s}, [%6]          \n"
                     "add        %6, %6, #16                    \n"
+                    "prfm       pldl1keep, [%3, #32]           \n"
 
                     "fmla       v8.4s, v9.4s, %16.s[0]         \n"
 
@@ -123,10 +124,11 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
 
                     "fadd       v7.4s, v7.4s, v6.4s            \n"
 
-                    "prfm       pldl1keep, [%3, #192]          \n"
                     "ld1        {v9.4s, v10.4s}, [%3]          \n" //ro, for next loop
 
                     "fadd       v8.4s, v8.4s, v14.4s           \n"
+                    "prfm       PSTL1STRM, [%1, #16]           \n"
+
                     "fadd       v7.4s, v7.4s, v13.4s           \n"
                     "fadd       v8.4s, v8.4s, v15.4s           \n"
 
@@ -167,7 +169,7 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
             if (nn > 0)
             {
                 asm volatile(
-                    "pld        [%3, #192]          \n"
+                    "pld        [%3, #32]           \n"
                     "vld1.f32   {d18-d20}, [%3 :64] \n"// r0
                     "add        %3, #16             \n"
 
@@ -176,15 +178,16 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
 
                     "0:                             \n"
 
+                    "pld        [%4, #32]           \n"
                     "vmul.f32   q7, q9, %e14[0]     \n"
 
                     "vand       q13, %q17, %q17     \n"// q13 = _bias0
                     "vmul.f32   q6, q11, %e14[1]    \n"
                     "vmla.f32   q13, q12, %f14[0]   \n"
 
-                    "pld        [%4, #192]          \n"
                     "vld1.f32   {d18-d20}, [%4]     \n"// r1
                     "add        %4, #16             \n"
+                    "pld        [%5, #32]           \n"
 
                     "vmla.f32   q7, q9, %e15[0]     \n"
 
@@ -200,9 +203,9 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "vmul.f32   q14, q11, %e14[1]   \n"
                     "vmla.f32   q15, q12, %f14[0]   \n"
 
-                    "pld        [%5, #192]          \n"
                     "vld1.f32   {d18-d20}, [%5 :64] \n"// r2
                     "add        %5, #16             \n"
+                    "pld        [%6, #32]           \n"
 
                     "vmla.f32   q7, q9, %e16[0]     \n"
 
@@ -216,9 +219,9 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "vmla.f32   q14, q11, %e15[1]   \n"
                     "vmla.f32   q15, q12, %f15[0]   \n"
 
-                    "pld        [%6, #192]          \n"
                     "vld1.f32   {d18-d20}, [%6]     \n"// r3
                     "add        %6, #16             \n"
+                    "pld        [%3, #32]           \n"
 
                     "vmla.f32   q8, q9, %e16[0]     \n"
 
@@ -230,10 +233,10 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
 
                     "vadd.f32   q7, q7, q6          \n"
 
-                    "pld        [%3, #192]          \n"
                     "vld1.f32   {d18-d20}, [%3 :64] \n"// r0
 
                     "vadd.f32   q8, q8, q14         \n"
+                    "pld        [%1, #16]           \n"
                     "vadd.f32   q7, q7, q13         \n"
                     "vadd.f32   q8, q8, q15         \n"
 
@@ -360,7 +363,7 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
             if (nn > 0)
             {
                 asm volatile(
-                    "prfm       pldl1keep, [%2, #192]          \n"
+                    "prfm       pldl1keep, [%2, #32]           \n"
                     "ld1        {v8.4s, v9.4s}, [%2]           \n" //r0
                     "add        %2, %2, #16                    \n"
 
@@ -369,15 +372,16 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
 
                     "0:                                        \n"
 
+                    "prfm		pldl1keep, [%3, #32]		   \n"
                     "fmul       v7.4s, v8.4s, %10.s[0]         \n"
 
                     "and        v14.16b, %13.16b, %13.16b      \n" // v14 = _bias0
                     "fmul       v13.4s, v10.4s, %10.s[1]       \n"
                     "fmla       v14.4s, v11.4s, %10.s[2]       \n"
 
-                    "prfm       pldl1keep, [%3, #192]          \n"
                     "ld1        {v8.4s, v9.4s}, [%3]           \n" //r1
                     "add        %3, %3, #16                    \n"
+                    "prfm       pldl1keep, [%4, #32]           \n"
 
                     "fmla       v7.4s, v8.4s, %11.s[0]         \n"
 
@@ -387,9 +391,9 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "fmla       v13.4s, v10.4s, %11.s[1]       \n"
                     "fmla       v14.4s, v11.4s, %11.s[2]       \n"
 
-                    "prfm       pldl1keep, [%4, #192]          \n"
                     "ld1        {v8.4s, v9.4s}, [%4]           \n" //r2
                     "add        %4, %4, #16                    \n"
+                    "prfm       pldl1keep, [%2, #32]           \n"
 
                     "fmla       v7.4s, v8.4s, %12.s[0]       \n"
 
@@ -399,9 +403,9 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "fmla       v13.4s, v10.4s, %12.s[1]       \n"
                     "fmla       v14.4s, v11.4s, %12.s[2]       \n"
 
-                    "prfm       pldl1keep, [%2, #192]          \n"
                     "ld1        {v8.4s, v9.4s}, [%2]           \n" //r0, for next loop
                     "add        %2, %2, #16                    \n"
+                    "prfm       PSTL1STRM, [%1, #16]           \n"
 
                     "fadd       v7.4s, v7.4s, v13.4s           \n"
                     "fadd       v7.4s, v7.4s, v14.4s           \n"
@@ -436,7 +440,7 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
             if (nn > 0)
             {
                 asm volatile(
-                    "pld        [%2, #192]          \n"
+                    "pld        [%2, #32]           \n"
                     "vld1.f32   {d16-d18}, [%2]     \n"// r0
                     "add        %2, #16             \n"
 
@@ -445,15 +449,16 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
 
                     "0:                             \n"
 
+                    "pld		[%3, #32]			\n"
                     "vmul.f32   q7, q8, %e10[0]     \n"
 
                     "vand       q14, %q13, %q13     \n"// q14 = _bias0
                     "vmul.f32   q13, q10, %e10[1]   \n"
                     "vmla.f32   q14, q11, %f10[0]   \n"
 
-                    "pld        [%3, #192]          \n"
                     "vld1.f32   {d16-d18}, [%3]     \n"// r1
                     "add        %3, #16             \n"
+                    "pld        [%4, #32]           \n"
 
                     "vmla.f32   q7, q8, %e11[0]     \n"
 
@@ -463,9 +468,9 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "vmla.f32   q13, q10, %e11[1]   \n"
                     "vmla.f32   q14, q11, %f11[0]   \n"
 
-                    "pld        [%4, #192]          \n"
                     "vld1.f32   {d16-d18}, [%4]     \n"// r2
                     "add        %4, #16             \n"
+                    "pld        [%2, #32]           \n"
 
                     "vmla.f32   q7, q8, %e12[0]     \n"
 
@@ -475,9 +480,9 @@ void convdw3x3s1_neon(float *input, int group, int w, int inChannelSize, float *
                     "vmla.f32   q13, q10, %e12[1]   \n"
                     "vmla.f32   q14, q11, %f12[0]   \n"
 
-                    "pld        [%2, #192]          \n"
                     "vld1.f32   {d16-d18}, [%2]     \n"// r0
                     "add        %2, #16             \n"
+                    "pld        [%1, #16]           \n"
 
                     "vadd.f32   q7, q7, q13         \n"
                     "vadd.f32   q7, q7, q14         \n"

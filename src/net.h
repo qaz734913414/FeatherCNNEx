@@ -43,6 +43,7 @@ public:
     int GetBlobDataSize(size_t* data_size, std::string blob_name);
     int config1x1ConvType(CONV_TYPE_E conv1x1Type);
     int config3x3ConvType(CONV_TYPE_E conv3x3Type);
+    int configDWConvType(CONV_TYPE_E convdwType);
     int configWinogradLowPrecision(bool flag);
     int configSgemmLowPrecision(bool flag);
     int configDropoutWork(bool flag);

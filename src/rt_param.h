@@ -30,6 +30,7 @@ public:
         input_width = input_height = 0;
         conv1x1Type = CONV_TYPE_SGEMM;
         conv3x3Type = CONV_TYPE_SGEMM;
+        convdwType = CONV_TYPE_DW_ORG;
         winogradLowPrecision = true;
         sgemmLowPrecision = true;
         dropoutWork = true;
@@ -41,6 +42,7 @@ public:
         input_width = input_height = 0;
         conv1x1Type = CONV_TYPE_SGEMM;
         conv3x3Type = CONV_TYPE_SGEMM;
+        convdwType  = CONV_TYPE_DW_ORG;
         pNet = NULL;
     }
     CommonMemPool<Dtype>* common_mempool() const
@@ -55,6 +57,7 @@ public:
     unsigned input_height;
     CONV_TYPE_E conv1x1Type;
     CONV_TYPE_E conv3x3Type;
+    CONV_TYPE_E convdwType;
     bool winogradLowPrecision;
     bool sgemmLowPrecision;
     bool dropoutWork;

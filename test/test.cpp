@@ -245,13 +245,19 @@ int main(int argc, char *argv[])
         free(pImgBuff);
     printf("average %9.6f ms, %d\n", total*1.0/fileCnt, fileCnt);
 #else
+
+#if 1
+    cv::Mat img = imread(pFname, 0);
+#else
     cv::Mat img = imread(pFname);
+#endif
     if (img.empty())
     {
         printf("read img failed, %s\n", pFname);
         return -1;
     }
-    printf("c: %d, w: %d, h : %d\n", img.channels(), img.cols, img.rows);
+    //memset(img.data, 0, img.cols*img.rows);
+    printf("-c: %d, w: %d, h : %d\n", img.channels(), img.cols, img.rows);
 
     for(int k = 0; k < 1; k++)
     {
@@ -259,6 +265,7 @@ int main(int argc, char *argv[])
 #if 1
         forward_net->config1x1ConvType(CONV_TYPE_DIRECT);
         forward_net->config3x3ConvType(CONV_TYPE_DIRECT);
+        forward_net->configDWConvType(CONV_TYPE_DW_DIRECT);
 #else
         forward_net->config1x1ConvType(CONV_TYPE_SGEMM);
         forward_net->config3x3ConvType(CONV_TYPE_DIRECT);
@@ -266,10 +273,8 @@ int main(int argc, char *argv[])
         forward_net->configWinogradLowPrecision(true);
         forward_net->configSgemmLowPrecision(bLowPrecision);
         forward_net->configDropoutWork(true);
-        uint8_t defaultkey[] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
-        forward_net->configCryptoBuffer(defaultkey);
-        //forward_net->configCrypto(pSerialFile);
-        forward_net->inChannels = 3;
+        forward_net->configCrypto(pSerialFile);
+        forward_net->inChannels = img.channels();
         forward_net->inWidth = img.cols;
         forward_net->inHeight = img.rows;
         forward_net->InitFromPath(pModel);
@@ -285,10 +290,15 @@ int main(int argc, char *argv[])
 
         for(int loop = 0; loop < loopCnt; loop++)
         {
-            if (bSameMean)
-                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
+            if (1 == img.channels())
+                from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
             else
-                from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
+            {
+                if (bSameMean)
+                    from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
+                else
+                    from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
+            }
             int ret = forward_net->Forward();
             pOut = forward_net->ExtractBlob(pBlob);
             printf("[%03d/%03d] ret: %d\n", loop, loopCnt, ret);
@@ -297,7 +307,7 @@ int main(int argc, char *argv[])
         gettimeofday(&end, NULL);
         printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads);
         printf("out blob size: %u\n", (unsigned int)data_size);
-#if 0
+#if 1
         for(int i = 0 ; i < data_size; i++)
         {
             if ((0 != i)&& (0 == i % 16))
@@ -306,6 +316,8 @@ int main(int argc, char *argv[])
         }
         printf("\n");
 #endif
+
+#if 0
         int top_class = 0;
         float max_score = .0f;
         for (size_t i=0; (1000 == data_size && i < data_size); i++)
@@ -319,6 +331,7 @@ int main(int argc, char *argv[])
         }
 
         printf("\n[%05d] id: %d, label:%s, score: %f\n", k, top_class, label[top_class], max_score);
+#endif
         delete forward_net;
     }
 #if 0

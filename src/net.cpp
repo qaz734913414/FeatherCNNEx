@@ -111,6 +111,12 @@ int Net::config3x3ConvType(CONV_TYPE_E conv3x3Type)
     return 0;
 }
 
+int Net::configDWConvType(CONV_TYPE_E convdwType)
+{
+    this->rt_param->convdwType = convdwType;
+    return 0;
+}
+
 int Net::configWinogradLowPrecision(bool flag)
 {
     this->rt_param->winogradLowPrecision = flag;

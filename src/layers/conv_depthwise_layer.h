@@ -22,8 +22,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-//#define DW_DIRECT
-
 namespace feather
 {
 class ConvDepthwiseLayer : public ConvLayer
@@ -33,19 +31,26 @@ public:
         : ConvLayer(layer_param, rt_param)
     {
         padded_input = NULL;
+        if(CONV_TYPE_DW_ORG == rt_param->convdwType)
+            useDirect = false;
+        else
+            useDirect = true;
     }
 
     int Init()
     {
         int inputw = input_width + padding_left + padding_right;
         int inputh = input_height + padding_top + padding_bottom;
-#ifdef DW_DIRECT
-        if ((0 != (padding_left + padding_right + padding_top + padding_bottom)) || (0 != ((inputw*inputh)%16)))
-            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&padded_input, alignSize(inputw*inputh, 16)* input_channels * sizeof(float)));
-#else
-        if (0 != (padding_left + padding_right + padding_top + padding_bottom))
-            MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&padded_input, inputw * inputh * input_channels * sizeof(float)));
-#endif
+        if(useDirect)
+        {
+            if ((0 != (padding_left + padding_right + padding_top + padding_bottom)) || (0 != ((inputw*inputh)%16)))
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&padded_input, alignSize(inputw*inputh, 16)* input_channels * sizeof(float)));
+        }
+        else
+        {
+            if (0 != (padding_left + padding_right + padding_top + padding_bottom))
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&padded_input, inputw * inputh * input_channels * sizeof(float)));
+        }
         input = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
         return 0;
@@ -56,39 +61,33 @@ public:
         int inputw = input_width + padding_left + padding_right;
         int inputh = input_height + padding_top + padding_bottom;
         bool bNeedComputeBias = true;
-#ifdef DW_DIRECT
-        if ((0 == (padding_left + padding_right + padding_top + padding_bottom)) && (0 == ((inputw*inputh)%16)))
-#else
-        if (0 == (padding_left + padding_right + padding_top + padding_bottom))
-#endif
+
+        if (useDirect && (0 == (padding_left + padding_right + padding_top + padding_bottom)) && (0 == ((inputw*inputh)%16)))
+            padded_input = input;
+        else if (!useDirect && (0 == (padding_left + padding_right + padding_top + padding_bottom)))
             padded_input = input;
         else
         {
-#ifdef DW_DIRECT
-            if ((1 == stride_width && 1 == stride_height && 3 == kernel_width && 3 == kernel_height) ||
-                    (2 == stride_width && 2 == stride_height && 3 == kernel_width && 3 == kernel_height))
+            if (useDirect && ((1 == stride_width && 1 == stride_height && 3 == kernel_width && 3 == kernel_height) ||
+                              (2 == stride_width && 2 == stride_height && 3 == kernel_width && 3 == kernel_height)))
                 makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, 16, .0f, num_threads);
             else
-#endif
                 pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
         }
 
         if (0 == this->fractions)
         {
-#ifdef DW_DIRECT
-            //printf("-%d %d %d %d %d [%d %d] [%d %d]-\n", stride_width, stride_height, group, inputw, inputh, kernel_width, kernel_height, padding_left, padding_top);
-            if (1 == stride_width && 1 == stride_height && 3 == kernel_width && 3 == kernel_height)
+            if (useDirect && 1 == stride_width && 1 == stride_height && 3 == kernel_width && 3 == kernel_height)
             {
                 bNeedComputeBias = false;
                 convdw3x3s1_neon(padded_input, group, inputw, alignSize(inputw*inputh, 16), output, output_height, output_width, output_height*output_width, kernel_data, bias_data, num_threads);
             }
-            else if (2 == stride_width && 2 == stride_height && 3 == kernel_width && 3 == kernel_height)
+            else if (useDirect && 2 == stride_width && 2 == stride_height && 3 == kernel_width && 3 == kernel_height)
             {
                 bNeedComputeBias = false;
                 convdw3x3s2_neon(padded_input, group, inputw, alignSize(inputw*inputh, 16), output, output_height, output_width, output_height*output_width, kernel_data, bias_data, num_threads);
             }
             else
-#endif
                 dwConv(output, padded_input, inputw, inputh, stride_width, stride_height, kernel_data, kernel_width, kernel_height, group, num_threads);
         }
         else if (8 == this->fractions)
@@ -115,5 +114,6 @@ public:
 
 private:
     float* padded_input;
+    bool useDirect;
 };
 };
