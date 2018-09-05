@@ -2653,9 +2653,9 @@ void dwConvFix(float* output, float* input, int inw, int inh, int stridew, int s
 void dwConv(float* output, float* input, int inw, int inh, int stridew, int strideh, float* kernel, int kw, int kh, int group, int nThreads)
 {
     //printf("dw conv inw: %02d inh: %02d, stridew: %02d strideh: %02d, kw: %02d kh: %02d, group: %03d\n", inw, inh, stridew, strideh, kw, kh, group);
-    if(stridew==1&&strideh==1)
+    if(stridew==1&&strideh==1&&3==kw&&3==kh)
         dwConvs1(output, input, inw, inh, stridew, strideh, kernel, kw, kh, group, nThreads);
-    else if(stridew==2&&strideh==2)
+    else if(stridew==2&&strideh==2&&3==kw&&3==kh)
         dwConvs2(output, input, inw, inh, stridew, strideh, kernel, kw, kh, group, nThreads);
     else
     {
