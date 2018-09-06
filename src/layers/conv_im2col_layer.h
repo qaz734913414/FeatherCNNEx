@@ -14,24 +14,17 @@
 
 #pragma once
 
-#include "../feather_simple_generated.h"
-#include "conv_layer.h"
-#include "blob.h"
-
-#include "arm/generic_kernels.h"
-#include "arm/sgemm.h"
-
 #include <assert.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include "../feather_simple_generated.h"
+#include "conv_layer.h"
+#include "blob.h"
+#include "arm/generic_kernels.h"
+#include "arm/sgemm.h"
 
 namespace feather
 {
-
-#ifndef __aarch64__
-extern "C" int im2col_acc(void *pSrc, void *pDst, unsigned int width, unsigned int height);
-#endif
-
 class ConvIm2colLayer : public ConvLayer
 {
 public:
@@ -195,32 +188,14 @@ public:
 
     bool Im2col()
     {
-        if ((0 == padding_left) && (0 == padding_right) && (0 == padding_top) && (0 == padding_bottom) &&
-                (1 == stride_height) && (1 == stride_width) &&
-                (3 == kernel_height) && (3 == kernel_width))
-        {
-#if 0//ndef __aarch64__
-            unsigned int OutChannelSize = output_height*output_width*3*3;
-            unsigned int InChannelSize = input_height*input_width;
-
-            #pragma omp parallel for num_threads(num_threads)
-            for(int i = 0 ; i < input_channels; i++)
-                im2col_acc(input+i*InChannelSize, img_buffer+i*OutChannelSize, input_width, input_height);
-#else
-            im2col_cpu_reduce(input, input_channels, input_height, input_width,
-                              3, 3,
-                              0, 0,
-                              1, 1,
-                              1, 1,
-                              img_buffer);
-#endif
-        }
-        else if ((0 == padding_left) && (0 == padding_right) && (0 == padding_top) && (0 == padding_bottom) &&
-                 (1 == stride_height) && (1 == stride_width) &&
-                 (2 == kernel_height) && (2 == kernel_width))
+        if (0 == padding_left  && 0 == padding_right  &&
+                0 == padding_top   && 0 == padding_bottom &&
+                1 == stride_height && 1 == stride_width   &&
+                ((3 == kernel_height && 3 == kernel_width) || (2 == kernel_height && 2 == kernel_width))
+           )
         {
             im2col_cpu_reduce(input, input_channels, input_height, input_width,
-                              2, 2,
+                              kernel_height, kernel_width,
                               0, 0,
                               1, 1,
                               1, 1,
