@@ -41,14 +41,12 @@ public:
         return *g_registry_;
     }
 
-    // Adds a creator.
     static void AddCreator(const string &type, Creator creator)
     {
         CreatorRegistry &registry = Registry();
         registry[type] = creator;
     }
 
-    // Get a layer using a LayerParameter.
     static Layer *CreateLayer(const LayerParameter *param, const RuntimeParameter<float> *rt_param)
     {
         const string &type = param->type()->str();
@@ -59,7 +57,7 @@ public:
         }
         else
         {
-            fprintf(stderr, "Layer type %s not registered\n", type.c_str());
+            printf("Layer type %s not registered\n", type.c_str());
             return NULL;
         }
     }
@@ -77,8 +75,6 @@ public:
     }
 
 private:
-    // Layer registry should never be instantiated - everything is done with its
-    // static variables.
     LayerRegistry() {}
 
     static string LayerTypeListString()
@@ -89,9 +85,7 @@ private:
                 iter != layer_types.end(); ++iter)
         {
             if (iter != layer_types.begin())
-            {
                 layer_types_str += ", ";
-            }
             layer_types_str += *iter;
         }
         return layer_types_str;
@@ -112,11 +106,4 @@ void register_layer_creators();
 
 #define REGISTER_LAYER_CREATOR(type, creator) \
 	static LayerRegisterer g_creator_f_##type(#type, creator);
-
-#define REGISTER_LAYER_CLASS(type)                            \
-	Layer *Creator_##type##Layer(const LayerParameter &param) \
-	{                                                         \
-		return Layer * (new##type##Layer(param));             \
-	}                                                         \
-	REGISTER_LAYER_CREATOR(type, Creator_##type##Layer)
 };

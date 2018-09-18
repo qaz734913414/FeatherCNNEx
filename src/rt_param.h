@@ -27,7 +27,6 @@ class RuntimeParameter
 public:
     RuntimeParameter() : _common_mempool(NULL), _num_threads(1)
     {
-        input_width = input_height = 0;
         conv1x1Type = CONV_TYPE_SGEMM;
         conv3x3Type = CONV_TYPE_SGEMM;
         convdwType = CONV_TYPE_DW_ORG;
@@ -39,7 +38,6 @@ public:
     RuntimeParameter(CommonMemPool<Dtype> *common_mempool, size_t num_threads)
         : _common_mempool(common_mempool), _num_threads(num_threads)
     {
-        input_width = input_height = 0;
         conv1x1Type = CONV_TYPE_SGEMM;
         conv3x3Type = CONV_TYPE_SGEMM;
         convdwType  = CONV_TYPE_DW_ORG;
@@ -53,8 +51,7 @@ public:
     {
         return _num_threads;
     }
-    unsigned input_width;
-    unsigned input_height;
+
     CONV_TYPE_E conv1x1Type;
     CONV_TYPE_E conv3x3Type;
     CONV_TYPE_E convdwType;

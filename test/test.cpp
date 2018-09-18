@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
     printf("average %9.6f ms, %d\n", total*1.0/fileCnt, fileCnt);
 #else
 
-#if 1
+#if 0
     cv::Mat img = imread(pFname, 0);
 #else
     cv::Mat img = imread(pFname);
@@ -257,9 +257,9 @@ int main(int argc, char *argv[])
         return -1;
     }
     //memset(img.data, 0, img.cols*img.rows);
-    printf("-c: %d, w: %d, h : %d\n", img.channels(), img.cols, img.rows);
+    printf("c: %d, w: %d, h : %d\n", img.channels(), img.cols, img.rows);
 
-    for(int k = 0; k < 1; k++)
+    for(int k = 0; k < loopCnt; k++)
     {
         Net *forward_net = new Net(num_threads);
 #if 1
@@ -301,13 +301,13 @@ int main(int argc, char *argv[])
             }
             int ret = forward_net->Forward();
             pOut = forward_net->ExtractBlob(pBlob);
-            printf("[%03d/%03d] ret: %d\n", loop, loopCnt, ret);
+            printf("[%03d %03d/%03d] ret: %d\n", k, loop, loopCnt, ret);
         }
 
         gettimeofday(&end, NULL);
         printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads);
-        printf("out blob size: %u\n", (unsigned int)data_size);
 #if 1
+        printf("out blob size: %u\n", (unsigned int)data_size);
         for(int i = 0 ; i < data_size; i++)
         {
             if ((0 != i)&& (0 == i % 16))

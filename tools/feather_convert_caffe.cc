@@ -110,162 +110,6 @@ bool CaffeModelWeightsConvert::ReadNetParam()
     return true;
 }
 
-static float KL_divergence(float *PDis, float *QDis, unsigned size)
-{
-    unsigned i = 0;
-    float sum = .0f;
-    for(i = 0; i < size; i++)
-    {
-        if ((0 == PDis[i]) || (0 == QDis[i]))
-            printf("zero: %02d %f %f\n", i, PDis[i], QDis[i]);
-        else
-            sum += PDis[i]*log(PDis[i]/QDis[i]);
-    }
-    return sum;
-}
-
-static float getOptimalThreshold(float *P, unsigned size)
-{
-    unsigned i = 0;
-    float step = 0.01f, minSum = FLT_MAX, PDis[256] = {.0f}, QDis[256] = {.0f};
-    float pstep, j, thre, pminf, pabsmax, pmaxf, pabsmin;
-
-    for(i = 0; i < size; i++)
-    {
-        if(0 == i) pmaxf = pminf = P[i];
-        else
-        {
-            pminf = MIN(pminf, P[i]);
-            pmaxf = MAX(pmaxf, P[i]);
-            pabsmin = MIN(fabs(pminf), fabs(pmaxf));
-            pabsmax = MAX(fabs(pminf), fabs(pmaxf));
-        }
-    }
-    pstep = (pmaxf - pminf)/256;
-
-    for(i = 0; i < size; i++)
-        if (P[i] >= pmaxf) PDis[255]++;
-        else PDis[(unsigned)((P[i]-pminf)/pstep)]++;
-    for(i = 0; i < 256; i++)
-        PDis[i] = (PDis[i]+1)/(size+256);
-
-    for(j = step; j < 2*pabsmax; j += step)
-    {
-        float sum = .0f, minf, maxf;
-        for(i = 0; i < size; i++)
-        {
-            if (P[i] <= -j) QDis[0]++;
-            else if (P[i] >= j) QDis[255]++;
-            else QDis[(((int8_t)(P[i]*127.0/j)))+127]++;
-        }
-        for(i = 0; i < 256; i++)
-            QDis[i] = (QDis[i]+1)/(size+256);
-        sum = KL_divergence(PDis, QDis, 256);
-        if (step == j) //first init
-        {
-            thre = j;
-            minSum = sum;
-        }
-        else if (sum < minSum)
-        {
-            thre = j;
-            minSum = sum;
-        }
-    }
-
-    return thre;
-}
-
-static void entropy(float *P, unsigned size)
-{
-#define BIN_NUM (20480)
-    unsigned i = 0, j = 0, m = 0, bin[BIN_NUM] = {0};
-    float minDivergence = FLT_MAX, minSum = FLT_MAX;
-    float pminf, pmaxf, pstep;
-    for(i = 0; i < size; i++)
-    {
-        if(0 == i) pmaxf = pminf = P[i];
-        else
-        {
-            pminf = MIN(pminf, P[i]);
-            pmaxf = MAX(pmaxf, P[i]);
-        }
-    }
-    pstep = (pmaxf - pminf)/BIN_NUM;
-    for(i = 0; i < size; i++)
-    {
-        if (pmaxf == P[i]) bin[BIN_NUM-1]++;
-        else bin[(unsigned)((P[i]-pminf)/pstep)]++;
-    }
-#if 0
-    float average = .0f;
-    unsigned total = 0;
-    for(i = 0; i < BIN_NUM; i++)
-    {
-        if (0 != bin[i])
-        {
-            average += pstep*i + pminf;
-            total += bin[i];
-            printf("[%04d/%04d] %d, %f, %f\n", i, BIN_NUM, bin[i], pstep*i + pminf, average/total);
-        }
-    }
-#endif
-    float P_HISWin[BIN_NUM] = {.0f}, Q_HISWin[BIN_NUM];
-    for(i = 128; i < BIN_NUM; i += 128)
-    {
-        unsigned times = i/128;
-        float outlies_count = .0f, winSumP = .0f, winSumQ = .0f, divSum = .0f;
-        for(j = 0; j < i; j++) P_HISWin[j] = bin[j];
-        for(j = 0; j < i; j++) Q_HISWin[j] = .0f;
-        for(j = i; j < BIN_NUM; j++) outlies_count += bin[j];
-        P_HISWin[i-1] += outlies_count;
-        unsigned gcnt = 0;
-        for(j = 0; j < 128; j++)
-        {
-            unsigned cnt = 0;
-            float sumWin = .0f;
-            for(unsigned k = 0; k < times; k++)
-            {
-                if (.0f != P_HISWin[j*times+k])
-                {
-                    cnt++;
-                    gcnt++;
-                }
-            }
-            for(unsigned k = 0; k < times; k++)
-                sumWin +=  P_HISWin[j*times+k];
-            for(unsigned k = 0; k < times; k++)
-            {
-                if (.0f == P_HISWin[j*times+k])
-                    Q_HISWin[j*times+k] = .0f;
-                else
-                    Q_HISWin[j*times+k] = sumWin/cnt;
-            }
-        }
-
-        if (0 == gcnt) continue;
-
-        //for(j = 0; j < i; j++) winSumP += P_HISWin[j];
-        //for(j = 0; j < i; j++) winSumQ += Q_HISWin[j];
-        for(j = 0; j < i; j++)
-        {
-            P_HISWin[j] = (P_HISWin[j]+1)/(size+i);
-        }
-        for(j = 0; j < i; j++)
-        {
-            Q_HISWin[j] = (Q_HISWin[j]+1)/(size+i);
-        }
-        divSum = KL_divergence(P_HISWin, Q_HISWin, i);
-        if (divSum < minDivergence)
-        {
-            minDivergence = divSum;
-            m = i;
-        }
-    }
-    printf("min: %f m: %d %f\n", minDivergence, m, m*pstep);
-    //getchar();
-}
-
 void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, uint32_t crypto)
 {
     struct AES_ctx ctx;
@@ -477,7 +321,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     }
                     else
                     {
-                        PRINTF("\nERR: code should not reach here as wrong kernel size\n");
+                        printf("\nERR: code should not reach here as wrong kernel size\n");
                         exit(-1);
                     }
                 }
@@ -497,9 +341,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     pad_w = caffe_conv_param.pad_w();
                 }
                 else
-                {
                     pad_h = pad_w = 0;
-                }
 
                 if(caffe_conv_param.stride_size() == 1)
                 {
@@ -609,14 +451,11 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
 
                 if ((8 == fractions) && (0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
                 {
-                    //entropy(&blob_data_vec[0], blob_data_vec.size());
-                    //scaleThre = getOptimalThreshold(&blob_data_vec[0], blob_data_vec.size());
                     if (int8scaleMap.count(layer_name+"_param_0") <= 0)
                         printf("Int8 table, key %s not found\n", layer_name.c_str());
                     float int8scalew = int8scaleMap[layer_name+"_param_0"]; //get int8scalew from int8 table file
                     for(int k = 0; k != caffe_blob.data_size(); ++k)
                     {
-                        //fix8_t fix_data = (fix8_t)(caffe_blob.data(k)*127.0/scaleThre);
                         fix8_t fix_data = (fix8_t)(caffe_blob.data(k)*int8scalew);
                         blob_data_vec_fix8.push_back(fix_data);
                     }
@@ -803,7 +642,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                         width = caffe_blob.shape().dim(2);
                     }
                     else
-                        PRINTF("Unsupported dimension with dim size %d\n", caffe_blob.shape().dim_size());
+                        printf("Unsupported dimension with dim size %d\n", caffe_blob.shape().dim_size());
                 }
 
                 PRINTF("	[%ld, %ld, %ld, %ld, Fractions:", num, channels, height, width);
@@ -837,16 +676,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 blob_vec.push_back(blob_builder.Finish());
                 blob_data_vec_fix.clear();
                 blob_data_vec_fix8.clear();
-//#define DUMP_WEIGHTS
-#ifdef DUMP_WEIGHTS
-                if((8 == fractions) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
-                {
-                    char buff[10]= {0};
-                    sprintf(buff, "%04d", i);
-                    std::string num(buff);
-                    writeFileFloat(("./WeightFiles/"+num+"_"+layer_name+".txt").c_str(), &blob_data_vec[0], blob_data_vec.size());
-                }
-#endif
+
                 blob_data_vec.clear();
             }
             auto blobs_fbvec = fbb.CreateVector<flatbuffers::Offset<feather::BlobProto> >(blob_vec);
@@ -897,7 +727,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     }
                     else
                     {
-                        PRINTF("\nERR: code should not reach here as wrong kernel size\n");
+                        printf("\nERR: code should not reach here as wrong kernel size\n");
                         exit(-1);
                     }
                 }
@@ -925,7 +755,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 }
                 else
                 {
-                    PRINTF("\nERR: code should not reach here as wrong stride size\n");
+                    printf("\nERR: code should not reach here as wrong stride size\n");
                     exit(-1);
                 }
 
@@ -1033,7 +863,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     lrn_param_builder.add_norm_region(feather::LRNParameter_::NormRegion_WITHIN_CHANNEL);
                     break;
                 default:
-                    PRINTF("Unknown LRN method\n");
+                    printf("Unknown LRN method\n");
                     exit(-1);
                 }
                 lrn_param = lrn_param_builder.Finish();
@@ -1054,8 +884,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     pooling_param_builder.add_pool(feather::PoolingParameter_::PoolMethod_STOCHASTIC);
                     break;
                 default:
-                    //error handling
-                    ;
+                    printf("Unknown pooling method\n");
+                    exit(-1);
                 }
                 if(caffe_pooling_param.has_pad())
                 {
@@ -1125,8 +955,9 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     PRINTF("+ MAX op\n");
                     feather_op = feather::EltwiseParameter_::EltwiseOp_MAX;
                     break;
-defalut:
-                    PRINTF("Unknown eltwise parameter.\n");
+                default:
+                    printf("Unknown eltwise parameter.\n");
+					exit(-1);
                 }
                 std::vector<float> coeff_vec;
                 for(int i = 0; i < caffe_eltwise_param.coeff_size(); ++i)
@@ -1148,16 +979,10 @@ defalut:
                 dropout_param_builder.add_dropout_ratio(scale);
                 dropout_param = dropout_param_builder.Finish();
             }
-            else if(layer_type.compare("BatchNorm")==0)
-            {
-            }
-            else if(layer_type.compare("Softmax")==0)
-            {
-            }
-            else if(layer_type.compare("ReLU")==0)
-            {
-            }
-            else if(layer_type.compare("PReLU")==0)
+            else if((layer_type.compare("BatchNorm")==0) ||
+				    (layer_type.compare("Softmax")==0)   ||
+				    (layer_type.compare("ReLU")==0)      ||
+				    (layer_type.compare("PReLU")==0))
             {
             }
 

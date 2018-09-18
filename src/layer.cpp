@@ -55,21 +55,10 @@ Layer::~Layer()
         }
     }
     _top_blobs.clear();
-#if 0
-    {
-        std::map<std::string, const Blob<float>*>::iterator it = _bottom_blobs.begin();
-        while(it != _bottom_blobs.end())
-        {
-            delete it->second;
-            it++;
-        }
-    }
-#endif
     _bottom_blobs.clear();
     //printf("del data blob end\n");
 
     inBranchIdVec.clear();
-    inputVec.clear();
     outputVec.clear();
     //printf("layer end\n");
 }
@@ -95,7 +84,6 @@ Layer::Layer(const void* layer_param_in, const RuntimeParameter<float>* rt_param
     _bottom.clear();
     _top.clear();
     inBranchIdVec.clear();
-    inputVec.clear();
     outputVec.clear();
     newTopId = 0;
     for(int i = 0; i < VectorLength(layer_param->bottom()); ++i)

@@ -76,7 +76,6 @@ public:
     unsigned alignHeight;
     float* input;
     float* output;
-    std::map<std::string, float*> inputVec;
     std::map<std::string, float*> outputVec;
     std::string _subType;
     std::map<std::string, const Blob<float>*> _bottom_blobs;

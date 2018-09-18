@@ -36,6 +36,12 @@
 #include "layers/softmax_layer.h"
 #include "layers/concat_layer.h"
 #include "layers/conv_direct_layer.h"
+#include "layers/conv_direct_layer.h"
+#include "layers/permute_layer.h"
+#include "layers/flatten_layer.h"
+#include "layers/priorbox_layer.h"
+#include "layers/reshape_layer.h"
+#include "layers/detectionoutput_layer.h"
 #include "common.h"
 #include <stdio.h>
 
@@ -156,7 +162,27 @@ Layer *GetSoftmaxLayer(const LayerParameter *layer_param, const RuntimeParameter
 {
     return (Layer *)new SoftmaxLayer(layer_param, rt_param);
 }
-
+/* SSD OP */
+Layer *GetPermuteLayer(const LayerParameter *layer_param, const RuntimeParameter<float> * rt_param)
+{
+    return (Layer *)new PermuteLayer(layer_param, rt_param);
+}
+Layer *GetFlattenLayer(const LayerParameter *layer_param, const RuntimeParameter<float> * rt_param)
+{
+    return (Layer *)new FlattenLayer(layer_param, rt_param);
+}
+Layer *GetPriorBoxLayer(const LayerParameter *layer_param, const RuntimeParameter<float> * rt_param)
+{
+    return (Layer *)new PriorBoxLayer(layer_param, rt_param);
+}
+Layer *GetReshapeLayer(const LayerParameter *layer_param, const RuntimeParameter<float> * rt_param)
+{
+    return (Layer *)new ReshapeLayer(layer_param, rt_param);
+}
+Layer *GetDetectionOutputLayer(const LayerParameter *layer_param, const RuntimeParameter<float> * rt_param)
+{
+    return (Layer *)new DetectionOutputLayer(layer_param, rt_param);
+}
 void register_layer_creators()
 {
     REGISTER_LAYER_CREATOR(Input, GetInputLayer);
@@ -173,5 +199,10 @@ void register_layer_creators()
     REGISTER_LAYER_CREATOR(Eltwise, GetEltwiseLayer);
     REGISTER_LAYER_CREATOR(InnerProduct, GetInnerProductLayer);
     REGISTER_LAYER_CREATOR(Softmax, GetSoftmaxLayer);
+    REGISTER_LAYER_CREATOR(Permute, GetPermuteLayer);
+    REGISTER_LAYER_CREATOR(Flatten, GetFlattenLayer);
+    REGISTER_LAYER_CREATOR(PriorBox, GetPriorBoxLayer);
+    REGISTER_LAYER_CREATOR(Reshape, GetReshapeLayer);
+    REGISTER_LAYER_CREATOR(DetectionOutput, GetDetectionOutputLayer);
 }
 };
