@@ -50,6 +50,7 @@ public:
     int configCryptoBuffer(uint8_t* pKeyBuff);
     float* ExtractBlob(std::string blob_name);
     int GetBlobShape(unsigned *pChannel, unsigned *pWidth, unsigned *pHeight, std::string name);
+    int GetMaxTopBlobSize();
 
     uint8_t key[16];
     struct AES_ctx AESCtx;

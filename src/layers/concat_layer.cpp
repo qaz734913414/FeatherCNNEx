@@ -37,7 +37,6 @@ int ConcatLayer::GenerateTopBlobs()
     //printf("Output shape %d %d %d\n", channels, height, width);
     _top_blobs[_top[0]] = new Blob<float>(num, channels, height, width);
     _top_blobs[_top[0]]->_name = "Top";
-    //_top_blobs[_top[0]]->Alloc();
     return 0;
 }
 

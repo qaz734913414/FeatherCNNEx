@@ -1135,7 +1135,7 @@ struct DetectionOutputParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
     }
     bool share_location() const
     {
-        return GetField<uint8_t>(VT_SHARE_LOCATION, 0) != 0;
+        return GetField<uint8_t>(VT_SHARE_LOCATION, 1) != 0;
     }
     uint32_t background_label_id() const
     {
@@ -1143,19 +1143,19 @@ struct DetectionOutputParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
     }
     float nms_threshold() const
     {
-        return GetField<float>(VT_NMS_THRESHOLD, 0.0f);
+        return GetField<float>(VT_NMS_THRESHOLD, 0.3f);
     }
-    uint32_t top_k() const
+    int32_t top_k() const
     {
-        return GetField<uint32_t>(VT_TOP_K, 0);
+        return GetField<int32_t>(VT_TOP_K, 0);
     }
     feather::DetectionOutputParameter_::CodeType code_type() const
     {
         return static_cast<feather::DetectionOutputParameter_::CodeType>(GetField<int32_t>(VT_CODE_TYPE, 1));
     }
-    uint32_t keep_top_k() const
+    int32_t keep_top_k() const
     {
-        return GetField<uint32_t>(VT_KEEP_TOP_K, 0);
+        return GetField<int32_t>(VT_KEEP_TOP_K, -1);
     }
     float confidence_threshold() const
     {
@@ -1168,9 +1168,9 @@ struct DetectionOutputParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
                VerifyField<uint8_t>(verifier, VT_SHARE_LOCATION) &&
                VerifyField<uint32_t>(verifier, VT_BACKGROUND_LABEL_ID) &&
                VerifyField<float>(verifier, VT_NMS_THRESHOLD) &&
-               VerifyField<uint32_t>(verifier, VT_TOP_K) &&
+               VerifyField<int32_t>(verifier, VT_TOP_K) &&
                VerifyField<int32_t>(verifier, VT_CODE_TYPE) &&
-               VerifyField<uint32_t>(verifier, VT_KEEP_TOP_K) &&
+               VerifyField<int32_t>(verifier, VT_KEEP_TOP_K) &&
                VerifyField<float>(verifier, VT_CONFIDENCE_THRESHOLD) &&
                verifier.EndTable();
     }
@@ -1186,7 +1186,7 @@ struct DetectionOutputParameterBuilder
     }
     void add_share_location(bool share_location)
     {
-        fbb_.AddElement<uint8_t>(DetectionOutputParameter::VT_SHARE_LOCATION, static_cast<uint8_t>(share_location), 0);
+        fbb_.AddElement<uint8_t>(DetectionOutputParameter::VT_SHARE_LOCATION, static_cast<uint8_t>(share_location), 1);
     }
     void add_background_label_id(uint32_t background_label_id)
     {
@@ -1194,19 +1194,19 @@ struct DetectionOutputParameterBuilder
     }
     void add_nms_threshold(float nms_threshold)
     {
-        fbb_.AddElement<float>(DetectionOutputParameter::VT_NMS_THRESHOLD, nms_threshold, 0.0f);
+        fbb_.AddElement<float>(DetectionOutputParameter::VT_NMS_THRESHOLD, nms_threshold, 0.3f);
     }
-    void add_top_k(uint32_t top_k)
+    void add_top_k(int32_t top_k)
     {
-        fbb_.AddElement<uint32_t>(DetectionOutputParameter::VT_TOP_K, top_k, 0);
+        fbb_.AddElement<int32_t>(DetectionOutputParameter::VT_TOP_K, top_k, 0);
     }
     void add_code_type(feather::DetectionOutputParameter_::CodeType code_type)
     {
         fbb_.AddElement<int32_t>(DetectionOutputParameter::VT_CODE_TYPE, static_cast<int32_t>(code_type), 1);
     }
-    void add_keep_top_k(uint32_t keep_top_k)
+    void add_keep_top_k(int32_t keep_top_k)
     {
-        fbb_.AddElement<uint32_t>(DetectionOutputParameter::VT_KEEP_TOP_K, keep_top_k, 0);
+        fbb_.AddElement<int32_t>(DetectionOutputParameter::VT_KEEP_TOP_K, keep_top_k, -1);
     }
     void add_confidence_threshold(float confidence_threshold)
     {
@@ -1229,12 +1229,12 @@ struct DetectionOutputParameterBuilder
 inline flatbuffers::Offset<DetectionOutputParameter> CreateDetectionOutputParameter(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t num_classes = 0,
-    bool share_location = false,
+    bool share_location = true,
     uint32_t background_label_id = 0,
-    float nms_threshold = 0.0f,
-    uint32_t top_k = 0,
+    float nms_threshold = 0.3f,
+    int32_t top_k = 0,
     feather::DetectionOutputParameter_::CodeType code_type = feather::DetectionOutputParameter_::CodeType_CORNER,
-    uint32_t keep_top_k = 0,
+    int32_t keep_top_k = -1,
     float confidence_threshold = 0.0f)
 {
     DetectionOutputParameterBuilder builder_(_fbb);
@@ -1259,15 +1259,19 @@ struct PriorBoxParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
         VT_FLIP = 10,
         VT_CLIP = 12,
         VT_VARIANCE = 14,
-        VT_OFFSET = 16
+        VT_IMG_W = 16,
+        VT_IMG_H = 18,
+        VT_STEP_H = 20,
+        VT_STEP_W = 22,
+        VT_OFFSET = 24
     };
-    float min_size() const
+    const flatbuffers::Vector<float> *min_size() const
     {
-        return GetField<float>(VT_MIN_SIZE, 0.0f);
+        return GetPointer<const flatbuffers::Vector<float> *>(VT_MIN_SIZE);
     }
-    float max_size() const
+    const flatbuffers::Vector<float> *max_size() const
     {
-        return GetField<float>(VT_MAX_SIZE, 0.0f);
+        return GetPointer<const flatbuffers::Vector<float> *>(VT_MAX_SIZE);
     }
     const flatbuffers::Vector<float> *aspect_ratio() const
     {
@@ -1275,7 +1279,7 @@ struct PriorBoxParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     }
     bool flip() const
     {
-        return GetField<uint8_t>(VT_FLIP, 0) != 0;
+        return GetField<uint8_t>(VT_FLIP, 1) != 0;
     }
     bool clip() const
     {
@@ -1285,21 +1289,43 @@ struct PriorBoxParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     {
         return GetPointer<const flatbuffers::Vector<float> *>(VT_VARIANCE);
     }
+    uint32_t img_w() const
+    {
+        return GetField<uint32_t>(VT_IMG_W, 0);
+    }
+    uint32_t img_h() const
+    {
+        return GetField<uint32_t>(VT_IMG_H, 0);
+    }
+    uint32_t step_h() const
+    {
+        return GetField<uint32_t>(VT_STEP_H, 0);
+    }
+    uint32_t step_w() const
+    {
+        return GetField<uint32_t>(VT_STEP_W, 0);
+    }
     float offset() const
     {
-        return GetField<float>(VT_OFFSET, 0.0f);
+        return GetField<float>(VT_OFFSET, 0.5f);
     }
     bool Verify(flatbuffers::Verifier &verifier) const
     {
         return VerifyTableStart(verifier) &&
-               VerifyField<float>(verifier, VT_MIN_SIZE) &&
-               VerifyField<float>(verifier, VT_MAX_SIZE) &&
+               VerifyOffset(verifier, VT_MIN_SIZE) &&
+               verifier.VerifyVector(min_size()) &&
+               VerifyOffset(verifier, VT_MAX_SIZE) &&
+               verifier.VerifyVector(max_size()) &&
                VerifyOffset(verifier, VT_ASPECT_RATIO) &&
                verifier.VerifyVector(aspect_ratio()) &&
                VerifyField<uint8_t>(verifier, VT_FLIP) &&
                VerifyField<uint8_t>(verifier, VT_CLIP) &&
                VerifyOffset(verifier, VT_VARIANCE) &&
                verifier.VerifyVector(variance()) &&
+               VerifyField<uint32_t>(verifier, VT_IMG_W) &&
+               VerifyField<uint32_t>(verifier, VT_IMG_H) &&
+               VerifyField<uint32_t>(verifier, VT_STEP_H) &&
+               VerifyField<uint32_t>(verifier, VT_STEP_W) &&
                VerifyField<float>(verifier, VT_OFFSET) &&
                verifier.EndTable();
     }
@@ -1309,13 +1335,13 @@ struct PriorBoxParameterBuilder
 {
     flatbuffers::FlatBufferBuilder &fbb_;
     flatbuffers::uoffset_t start_;
-    void add_min_size(float min_size)
+    void add_min_size(flatbuffers::Offset<flatbuffers::Vector<float>> min_size)
     {
-        fbb_.AddElement<float>(PriorBoxParameter::VT_MIN_SIZE, min_size, 0.0f);
+        fbb_.AddOffset(PriorBoxParameter::VT_MIN_SIZE, min_size);
     }
-    void add_max_size(float max_size)
+    void add_max_size(flatbuffers::Offset<flatbuffers::Vector<float>> max_size)
     {
-        fbb_.AddElement<float>(PriorBoxParameter::VT_MAX_SIZE, max_size, 0.0f);
+        fbb_.AddOffset(PriorBoxParameter::VT_MAX_SIZE, max_size);
     }
     void add_aspect_ratio(flatbuffers::Offset<flatbuffers::Vector<float>> aspect_ratio)
     {
@@ -1323,7 +1349,7 @@ struct PriorBoxParameterBuilder
     }
     void add_flip(bool flip)
     {
-        fbb_.AddElement<uint8_t>(PriorBoxParameter::VT_FLIP, static_cast<uint8_t>(flip), 0);
+        fbb_.AddElement<uint8_t>(PriorBoxParameter::VT_FLIP, static_cast<uint8_t>(flip), 1);
     }
     void add_clip(bool clip)
     {
@@ -1333,9 +1359,25 @@ struct PriorBoxParameterBuilder
     {
         fbb_.AddOffset(PriorBoxParameter::VT_VARIANCE, variance);
     }
+    void add_img_w(uint32_t img_w)
+    {
+        fbb_.AddElement<uint32_t>(PriorBoxParameter::VT_IMG_W, img_w, 0);
+    }
+    void add_img_h(uint32_t img_h)
+    {
+        fbb_.AddElement<uint32_t>(PriorBoxParameter::VT_IMG_H, img_h, 0);
+    }
+    void add_step_h(uint32_t step_h)
+    {
+        fbb_.AddElement<uint32_t>(PriorBoxParameter::VT_STEP_H, step_h, 0);
+    }
+    void add_step_w(uint32_t step_w)
+    {
+        fbb_.AddElement<uint32_t>(PriorBoxParameter::VT_STEP_W, step_w, 0);
+    }
     void add_offset(float offset)
     {
-        fbb_.AddElement<float>(PriorBoxParameter::VT_OFFSET, offset, 0.0f);
+        fbb_.AddElement<float>(PriorBoxParameter::VT_OFFSET, offset, 0.5f);
     }
     explicit PriorBoxParameterBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb)
@@ -1353,16 +1395,24 @@ struct PriorBoxParameterBuilder
 
 inline flatbuffers::Offset<PriorBoxParameter> CreatePriorBoxParameter(
     flatbuffers::FlatBufferBuilder &_fbb,
-    float min_size = 0.0f,
-    float max_size = 0.0f,
+    flatbuffers::Offset<flatbuffers::Vector<float>> min_size = 0,
+    flatbuffers::Offset<flatbuffers::Vector<float>> max_size = 0,
     flatbuffers::Offset<flatbuffers::Vector<float>> aspect_ratio = 0,
-    bool flip = false,
+    bool flip = true,
     bool clip = false,
     flatbuffers::Offset<flatbuffers::Vector<float>> variance = 0,
-    float offset = 0.0f)
+    uint32_t img_w = 0,
+    uint32_t img_h = 0,
+    uint32_t step_h = 0,
+    uint32_t step_w = 0,
+    float offset = 0.5f)
 {
     PriorBoxParameterBuilder builder_(_fbb);
     builder_.add_offset(offset);
+    builder_.add_step_w(step_w);
+    builder_.add_step_h(step_h);
+    builder_.add_img_h(img_h);
+    builder_.add_img_w(img_w);
     builder_.add_variance(variance);
     builder_.add_aspect_ratio(aspect_ratio);
     builder_.add_max_size(max_size);
@@ -1374,22 +1424,30 @@ inline flatbuffers::Offset<PriorBoxParameter> CreatePriorBoxParameter(
 
 inline flatbuffers::Offset<PriorBoxParameter> CreatePriorBoxParameterDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    float min_size = 0.0f,
-    float max_size = 0.0f,
+    const std::vector<float> *min_size = nullptr,
+    const std::vector<float> *max_size = nullptr,
     const std::vector<float> *aspect_ratio = nullptr,
-    bool flip = false,
+    bool flip = true,
     bool clip = false,
     const std::vector<float> *variance = nullptr,
-    float offset = 0.0f)
+    uint32_t img_w = 0,
+    uint32_t img_h = 0,
+    uint32_t step_h = 0,
+    uint32_t step_w = 0,
+    float offset = 0.5f)
 {
     return feather::CreatePriorBoxParameter(
                _fbb,
-               min_size,
-               max_size,
+               min_size ? _fbb.CreateVector<float>(*min_size) : 0,
+               max_size ? _fbb.CreateVector<float>(*max_size) : 0,
                aspect_ratio ? _fbb.CreateVector<float>(*aspect_ratio) : 0,
                flip,
                clip,
                variance ? _fbb.CreateVector<float>(*variance) : 0,
+               img_w,
+               img_h,
+               step_h,
+               step_w,
                offset);
 }
 
@@ -1399,14 +1457,14 @@ struct PermuteParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     {
         VT_ORDER = 4
     };
-    int32_t order() const
+    uint32_t order() const
     {
-        return GetField<int32_t>(VT_ORDER, 0);
+        return GetField<uint32_t>(VT_ORDER, 0);
     }
     bool Verify(flatbuffers::Verifier &verifier) const
     {
         return VerifyTableStart(verifier) &&
-               VerifyField<int32_t>(verifier, VT_ORDER) &&
+               VerifyField<uint32_t>(verifier, VT_ORDER) &&
                verifier.EndTable();
     }
 };
@@ -1415,9 +1473,9 @@ struct PermuteParameterBuilder
 {
     flatbuffers::FlatBufferBuilder &fbb_;
     flatbuffers::uoffset_t start_;
-    void add_order(int32_t order)
+    void add_order(uint32_t order)
     {
-        fbb_.AddElement<int32_t>(PermuteParameter::VT_ORDER, order, 0);
+        fbb_.AddElement<uint32_t>(PermuteParameter::VT_ORDER, order, 0);
     }
     explicit PermuteParameterBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb)
@@ -1435,7 +1493,7 @@ struct PermuteParameterBuilder
 
 inline flatbuffers::Offset<PermuteParameter> CreatePermuteParameter(
     flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t order = 0)
+    uint32_t order = 0)
 {
     PermuteParameterBuilder builder_(_fbb);
     builder_.add_order(order);
@@ -3598,29 +3656,28 @@ struct ReshapeParameter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
 {
     enum
     {
-        VT_SHAPE = 4,
-        VT_AXIS = 6,
-        VT_NUM_AXES = 8
+        VT_C = 4,
+        VT_H = 6,
+        VT_W = 8
     };
-    const BlobShape *shape() const
+    uint32_t c() const
     {
-        return GetPointer<const BlobShape *>(VT_SHAPE);
+        return GetField<uint32_t>(VT_C, 0);
     }
-    int32_t axis() const
+    uint32_t h() const
     {
-        return GetField<int32_t>(VT_AXIS, 0);
+        return GetField<uint32_t>(VT_H, 0);
     }
-    int32_t num_axes() const
+    uint32_t w() const
     {
-        return GetField<int32_t>(VT_NUM_AXES, -1);
+        return GetField<uint32_t>(VT_W, 0);
     }
     bool Verify(flatbuffers::Verifier &verifier) const
     {
         return VerifyTableStart(verifier) &&
-               VerifyOffset(verifier, VT_SHAPE) &&
-               verifier.VerifyTable(shape()) &&
-               VerifyField<int32_t>(verifier, VT_AXIS) &&
-               VerifyField<int32_t>(verifier, VT_NUM_AXES) &&
+               VerifyField<uint32_t>(verifier, VT_C) &&
+               VerifyField<uint32_t>(verifier, VT_H) &&
+               VerifyField<uint32_t>(verifier, VT_W) &&
                verifier.EndTable();
     }
 };
@@ -3629,17 +3686,17 @@ struct ReshapeParameterBuilder
 {
     flatbuffers::FlatBufferBuilder &fbb_;
     flatbuffers::uoffset_t start_;
-    void add_shape(flatbuffers::Offset<BlobShape> shape)
+    void add_c(uint32_t c)
     {
-        fbb_.AddOffset(ReshapeParameter::VT_SHAPE, shape);
+        fbb_.AddElement<uint32_t>(ReshapeParameter::VT_C, c, 0);
     }
-    void add_axis(int32_t axis)
+    void add_h(uint32_t h)
     {
-        fbb_.AddElement<int32_t>(ReshapeParameter::VT_AXIS, axis, 0);
+        fbb_.AddElement<uint32_t>(ReshapeParameter::VT_H, h, 0);
     }
-    void add_num_axes(int32_t num_axes)
+    void add_w(uint32_t w)
     {
-        fbb_.AddElement<int32_t>(ReshapeParameter::VT_NUM_AXES, num_axes, -1);
+        fbb_.AddElement<uint32_t>(ReshapeParameter::VT_W, w, 0);
     }
     explicit ReshapeParameterBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb)
@@ -3657,14 +3714,14 @@ struct ReshapeParameterBuilder
 
 inline flatbuffers::Offset<ReshapeParameter> CreateReshapeParameter(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<BlobShape> shape = 0,
-    int32_t axis = 0,
-    int32_t num_axes = -1)
+    uint32_t c = 0,
+    uint32_t h = 0,
+    uint32_t w = 0)
 {
     ReshapeParameterBuilder builder_(_fbb);
-    builder_.add_num_axes(num_axes);
-    builder_.add_axis(axis);
-    builder_.add_shape(shape);
+    builder_.add_w(w);
+    builder_.add_h(h);
+    builder_.add_c(c);
     return builder_.Finish();
 }
 

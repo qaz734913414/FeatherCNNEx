@@ -189,7 +189,6 @@ int Layer::GenerateTopBlobs()
     Blob<float>* p_blob = new Blob<float>();
     p_blob->CopyShape(_bottom_blobs[_bottom[0]]);
     p_blob->_name = "Top";
-    //p_blob->Alloc(); //no need malloc, use net global input/output memory
     _top_blobs[_top[0]] = p_blob;
     return 0;
 }

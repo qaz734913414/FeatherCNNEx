@@ -101,27 +101,31 @@ table LayerParameter {
 
 table DetectionOutputParameter {
   num_classes:uint;
-  share_location:bool;
-  background_label_id:uint;
-  nms_threshold:float;
-  top_k:uint;
-  code_type:feather.DetectionOutputParameter_.CodeType=CORNER;
-  keep_top_k:uint;
+  share_location:bool = true;
+  background_label_id:uint = 0;
+  nms_threshold:float = 0.3;
+  top_k:int;
+  code_type:feather.DetectionOutputParameter_.CodeType = CORNER;
+  keep_top_k:int = -1;
   confidence_threshold:float;
 }
 
 table PriorBoxParameter {
-  min_size:float;
-  max_size:float;
+  min_size:[float];
+  max_size:[float];
   aspect_ratio:[float];
-  flip:bool;
-  clip:bool;
+  flip:bool = true;
+  clip:bool = false;
   variance:[float];
-  offset:float;
+  img_w:uint;
+  img_h:uint;
+  step_h:uint;
+  step_w:uint;
+  offset:float = 0.5;
 }
 
 table PermuteParameter {
-  order:int;
+  order:uint;
 }
 
 table ArgMaxParameter {
@@ -219,7 +223,6 @@ table FlattenParameter {
   end_axis:int = -1;
 }
 
-
 table ImageDataParameter {
   source:string;
   batch_size:uint = 1;
@@ -297,13 +300,12 @@ table ReLUParameter {
 }
 
 table ReshapeParameter {
-  shape:feather.BlobShape;
-  axis:int;
-  num_axes:int = -1;
+  c:uint;
+  h:uint;
+  w:uint;
 }
 table TanHParameter {
 }
-
 
 table ScaleParameter {
   axis:int = 1;

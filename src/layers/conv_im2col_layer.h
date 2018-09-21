@@ -291,7 +291,6 @@ public:
         _top_blobs[_top[0]] = new Blob<float>(1, eM, output_height, output_width);
         _top_blobs[_top[0]]->_name = "Top";
         _top_blobs[_top[0]]->setvalidChannels(M);
-        //_top_blobs[_top[0]]->Alloc(); //no need malloc, use net global input/output memory
         return 0;
     }
 

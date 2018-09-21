@@ -103,7 +103,6 @@ public:
 
         _top_blobs[_top[0]] = new Blob<float>(1, output_channels, 1, 1);
         _top_blobs[_top[0]]->_name = "Top";
-        //_top_blobs[_top[0]]->Alloc(); //no need malloc, use net global input/output memory
 
         output_size = _top_blobs[_top[0]]->data_size();
         return 0;

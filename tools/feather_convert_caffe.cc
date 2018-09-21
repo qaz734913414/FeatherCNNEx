@@ -363,7 +363,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 }
 
                 if ((1 == k_h) && (1 == k_w) && (0 == pad_h) && (0 == pad_w) &&
-                    (1 == step_h) && (1 == step_w) && (0 == (caffe_conv_param.num_output()%8)))
+                        (1 == step_h) && (1 == step_w) && (0 == (caffe_conv_param.num_output()%8)))
                 {
                     fractions = frac;
                 }
@@ -693,6 +693,12 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             flatbuffers::Offset<feather::InnerProductParameter> inner_product_param;
             flatbuffers::Offset<feather::PReLUParameter> prelu_param;
             flatbuffers::Offset<feather::DropoutParameter> dropout_param;
+            flatbuffers::Offset<feather::PriorBoxParameter> priorbox_param_fb;
+            flatbuffers::Offset<feather::PermuteParameter> permute_param_fb;
+            flatbuffers::Offset<feather::FlattenParameter> flatten_param_fb;
+            flatbuffers::Offset<feather::ReshapeParameter> reshape_param_fb;
+            flatbuffers::Offset<feather::DetectionOutputParameter> detectionoutput_param_fb;
+
             PRINTF("Layer param:\n");
             if((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0))
             {
@@ -957,7 +963,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     break;
                 default:
                     printf("Unknown eltwise parameter.\n");
-					exit(-1);
+                    exit(-1);
                 }
                 std::vector<float> coeff_vec;
                 for(int i = 0; i < caffe_eltwise_param.coeff_size(); ++i)
@@ -979,10 +985,228 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 dropout_param_builder.add_dropout_ratio(scale);
                 dropout_param = dropout_param_builder.Finish();
             }
+            else if(layer_type.compare("PriorBox")==0)
+            {
+                feather::PriorBoxParameterBuilder priorbox_param_builder(fbb);
+                auto prior_box_param = caffe_layer.prior_box_param();
+
+                int num_aspect_ratio = prior_box_param.aspect_ratio_size();
+                for (int j=0; j<prior_box_param.aspect_ratio_size(); j++)
+                {
+                    float ar = prior_box_param.aspect_ratio(j);
+                    if (fabs(ar - 1.) < 1e-6)
+                    {
+                        num_aspect_ratio--;
+                    }
+                }
+
+                std::vector<float> variances;
+                if (prior_box_param.variance_size() == 4)
+                {
+                    variances[0] = prior_box_param.variance(0);
+                    variances[1] = prior_box_param.variance(1);
+                    variances[2] = prior_box_param.variance(2);
+                    variances[3] = prior_box_param.variance(3);
+                }
+                else if (prior_box_param.variance_size() == 1)
+                {
+                    variances[0] = prior_box_param.variance(0);
+                    variances[1] = prior_box_param.variance(0);
+                    variances[2] = prior_box_param.variance(0);
+                    variances[3] = prior_box_param.variance(0);
+                }
+                else
+                {
+                    variances[0] = 0.1;
+                    variances[1] = 0.1;
+                    variances[2] = 0.1;
+                    variances[3] = 0.1;
+                }
+
+                priorbox_param_builder.add_variance(fbb.CreateVector<float>(variances));
+
+                int flip = prior_box_param.has_flip() ? prior_box_param.flip() : 1;
+                int clip = prior_box_param.has_clip() ? prior_box_param.clip() : 0;
+                priorbox_param_builder.add_flip(flip);
+                priorbox_param_builder.add_clip(clip);
+
+                int image_width = 0;
+                int image_height = 0;
+                if (prior_box_param.has_img_size())
+                {
+                    image_width = prior_box_param.img_size();
+                    image_height = prior_box_param.img_size();
+                }
+                else if (prior_box_param.has_img_w() && prior_box_param.has_img_h())
+                {
+                    image_width = prior_box_param.img_w();
+                    image_height = prior_box_param.img_h();
+                }
+                priorbox_param_builder.add_img_w(image_width);
+                priorbox_param_builder.add_img_h(image_height);
+
+                float step_width = 0;
+                float step_height = 0;
+                if (prior_box_param.has_step())
+                {
+                    step_width = prior_box_param.step();
+                    step_height = prior_box_param.step();
+                }
+                else if (prior_box_param.has_step_w() && prior_box_param.has_step_h())
+                {
+                    step_width = prior_box_param.step_w();
+                    step_height = prior_box_param.step_h();
+                }
+                priorbox_param_builder.add_step_w(step_width);
+                priorbox_param_builder.add_step_h(step_height);
+
+                std::vector<float> min_size;
+                for (int j=0; j<prior_box_param.min_size_size(); j++)
+                {
+                    min_size.push_back(prior_box_param.min_size(j));
+                }
+                priorbox_param_builder.add_min_size(fbb.CreateVector<float>(min_size));
+
+                std::vector<float> max_size;
+                for (int j=0; j<prior_box_param.max_size_size(); j++)
+                {
+                    max_size.push_back(prior_box_param.max_size(j));
+                }
+                priorbox_param_builder.add_max_size(fbb.CreateVector<float>(max_size));
+
+                std::vector<float> ar_v;
+                for (int j=0; j<prior_box_param.aspect_ratio_size(); j++)
+                {
+                    float ar = prior_box_param.aspect_ratio(j);
+                    if (fabs(ar - 1.) < 1e-6)
+                    {
+                        continue;
+                    }
+                    ar_v.push_back(ar);
+                }
+                priorbox_param_builder.add_aspect_ratio(fbb.CreateVector<float>(ar_v));
+                priorbox_param_builder.add_offset(prior_box_param.offset());
+
+                priorbox_param_fb = priorbox_param_builder.Finish();
+            }
+            else if (layer_type.compare("Permute")==0)
+            {
+                feather::PermuteParameterBuilder permute_param_builder(fbb);
+                auto permute_param = caffe_layer.permute_param();
+                int order_size = permute_param.order_size();
+                int order_type = 0;
+                if (order_size == 0)
+                    order_type = 0;
+                if (order_size == 1)
+                {
+                    int order0 = permute_param.order(0);
+                    if (order0 == 0)
+                        order_type = 0;
+                }
+                if (order_size == 2)
+                {
+                    int order0 = permute_param.order(0);
+                    int order1 = permute_param.order(1);
+                    if (order0 == 0)
+                    {
+                        if (order1 == 1) // 0 1 2 3
+                            order_type = 0;
+                        else if (order1 == 2) // 0 2 1 3
+                            order_type = 2;
+                        else if (order1 == 3) // 0 3 1 2
+                            order_type = 4;
+                    }
+                }
+                if (order_size == 3 || order_size == 4)
+                {
+                    int order0 = permute_param.order(0);
+                    int order1 = permute_param.order(1);
+                    int order2 = permute_param.order(2);
+                    if (order0 == 0)
+                    {
+                        if (order1 == 1)
+                        {
+                            if (order2 == 2) // 0 1 2 3
+                                order_type = 0;
+                            if (order2 == 3) // 0 1 3 2
+                                order_type = 1;
+                        }
+                        else if (order1 == 2)
+                        {
+                            if (order2 == 1) // 0 2 1 3
+                                order_type = 2;
+                            if (order2 == 3) // 0 2 3 1
+                                order_type = 3;
+                        }
+                        else if (order1 == 3)
+                        {
+                            if (order2 == 1) // 0 3 1 2
+                                order_type = 4;
+                            if (order2 == 2) // 0 3 2 1
+                                order_type = 5;
+                        }
+                    }
+                }
+                permute_param_builder.add_order(order_type);
+                permute_param_fb = permute_param_builder.Finish();
+            }
+            else if (layer_type.compare("Flatten")==0)
+            {
+                feather::FlattenParameterBuilder flatten_param_builder(fbb);
+                auto flatten_param = caffe_layer.flatten_param();
+                if (flatten_param.has_axis())
+                    flatten_param_builder.add_axis(flatten_param.axis());
+                if (flatten_param.has_end_axis())
+                    flatten_param_builder.add_end_axis(flatten_param.end_axis());
+                flatten_param_fb = flatten_param_builder.Finish();
+            }
+            else if (layer_type.compare("Reshape")==0)
+            {
+                feather::ReshapeParameterBuilder reshape_param_builder(fbb);
+                auto reshape_param = caffe_layer.reshape_param();
+                const caffe::BlobShape& bs = reshape_param.shape();
+                if (bs.dim_size() == 1)
+                {
+                    reshape_param_builder.add_w(bs.dim(0));
+                }
+                else if (bs.dim_size() == 2)
+                {
+                    reshape_param_builder.add_w(bs.dim(0));
+                    reshape_param_builder.add_h(bs.dim(1));
+                }
+                else if (bs.dim_size() == 3)
+                {
+                    reshape_param_builder.add_w(bs.dim(0));
+                    reshape_param_builder.add_h(bs.dim(1));
+                    reshape_param_builder.add_c(bs.dim(2));
+                }
+                else // bs.dim_size() == 4
+                {
+                    reshape_param_builder.add_h(bs.dim(1));
+                    reshape_param_builder.add_c(bs.dim(2));
+                    reshape_param_builder.add_w(bs.dim(3));
+                }
+
+                reshape_param_fb = reshape_param_builder.Finish();
+            }
+            else if (layer_type.compare("DetectionOutput")==0)
+            {
+                feather::DetectionOutputParameterBuilder detectionoutput_param_builder(fbb);
+                auto detection_output_param = caffe_layer.detection_output_param();
+                const caffe::NonMaximumSuppressionParameter& nms_param = detection_output_param.nms_param();
+
+                detectionoutput_param_builder.add_num_classes(detection_output_param.num_classes());
+                detectionoutput_param_builder.add_nms_threshold(nms_param.nms_threshold());
+                detectionoutput_param_builder.add_top_k(nms_param.top_k());
+                detectionoutput_param_builder.add_keep_top_k(detection_output_param.keep_top_k());
+                detectionoutput_param_builder.add_confidence_threshold(detection_output_param.confidence_threshold());
+
+                detectionoutput_param_fb = detectionoutput_param_builder.Finish();
+            }
             else if((layer_type.compare("BatchNorm")==0) ||
-				    (layer_type.compare("Softmax")==0)   ||
-				    (layer_type.compare("ReLU")==0)      ||
-				    (layer_type.compare("PReLU")==0))
+                    (layer_type.compare("Softmax")==0)   ||
+                    (layer_type.compare("ReLU")==0)      ||
+                    (layer_type.compare("PReLU")==0))
             {
             }
 
@@ -1014,7 +1238,16 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 layer_builder.add_prelu_param(prelu_param);
             else if(layer_type.compare("Dropout")==0)
                 layer_builder.add_dropout_param(dropout_param);
-
+            else if(layer_type.compare("PriorBox")==0)
+                layer_builder.add_priorbox_param(priorbox_param_fb);
+            else if (layer_type.compare("Permute")==0)
+                layer_builder.add_permute_param(permute_param_fb);
+            else if (layer_type.compare("Flatten")==0)
+                layer_builder.add_flatten_param(flatten_param_fb);
+            else if (layer_type.compare("Reshape")==0)
+                layer_builder.add_reshape_param(reshape_param_fb);
+            else if (layer_type.compare("DetectionOutput")==0)
+                layer_builder.add_detection_output_param(detectionoutput_param_fb);
             layer_vec.push_back(layer_builder.Finish());
         }
 
@@ -1103,20 +1336,20 @@ int main(int argc, char *argv[])
     printf("%s caffe proto: %s caffe model: %s featherCNN: %s fractions:%d threshold:%.3f crypto:%d SerialFile: %s Int8ScaleFile: %s\n", argv[0], argv[1], argv[2], output_model_name.c_str(), fractions, threshold, crypto, pSerialFile, pInt8ScaleFile);
     if ((NULL != pSerialFile) && (0 != crypto))
     {
-	    unsigned char *pFileBuff = readFile(pSerialFile);
-	    if (NULL != pFileBuff)
-	    {
-	        memcpy(key, pFileBuff, 16);
-	        free(pFileBuff);
-	        printf("Key:\n");
-	        for(int i = 0 ; i < 16; i++)
-	        {
-	            if ((0 != i)&& (0 == i % 16))
-	                printf("\n");
-	            printf("0x%x, ", key[i]);
-	        }
-	        printf("\n");
-	    }
+        unsigned char *pFileBuff = readFile(pSerialFile);
+        if (NULL != pFileBuff)
+        {
+            memcpy(key, pFileBuff, 16);
+            free(pFileBuff);
+            printf("Key:\n");
+            for(int i = 0 ; i < 16; i++)
+            {
+                if ((0 != i)&& (0 == i % 16))
+                    printf("\n");
+                printf("0x%x, ", key[i]);
+            }
+            printf("\n");
+        }
     }
 
     if (NULL != pInt8ScaleFile)

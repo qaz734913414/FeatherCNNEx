@@ -43,28 +43,12 @@ public:
             std::string input_name = input_param->name()->Get(i)->str();
             _top.push_back(input_name);
             _top_blobs[input_name] = new Blob<float>(num, channels, height, width);
-            //_top_blobs[input_name]->Alloc();
         }
     }
 
-    int Init()
+    float *getInputBuffer()
     {
-        return 0;
-    }
-
-    const Blob<float> *input_blob(std::string name)
-    {
-        return _top_blobs[name];
-    }
-
-    std::string input_name(int idx)
-    {
-        auto it = _top_blobs.begin();
-        for (int i = 0; i < idx; ++i)
-        {
-            ++it;
-        }
-        return it->first;
+        return _top_blobs[_top[0]]->data();
     }
 };
 };
