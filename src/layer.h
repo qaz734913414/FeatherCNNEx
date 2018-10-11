@@ -36,7 +36,7 @@ public:
     ~Layer();
 
     int SetupBottomBlob(const Blob<float>* p_blob, std::string name);
-    int ReplaceBottomBlob(std::string old_bottom, std::string new_bottom, const Blob<float>* p_blob);
+    int ReplaceBottomBlob(std::string old_bottom, const Blob<float>* p_blob);
     int TryFuse(Layer *next_layer);
 
     virtual int Fuse(Layer* next_layer);
@@ -61,6 +61,7 @@ public:
     const Blob<float>* weight_blob(size_t i) const;
     bool fusible() const;
     void printPrivateMempool();
+    void changeTopName(std::string oldName, std::string newName);
 
     std::vector<Blob<float>*> _weight_blobs;
     std::vector<Blob<short>*> _weight_blobs_fix;

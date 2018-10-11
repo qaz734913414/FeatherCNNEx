@@ -38,6 +38,11 @@ public:
         }
     }
 
+    ~SliceLayer()
+    {
+        slice_point.clear();
+    }
+
     int GenerateTopBlobs();
     int Forward();
     int Init();

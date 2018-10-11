@@ -137,24 +137,17 @@ int Layer::SetupBottomBlob(const Blob<float>* p_blob, std::string name)
     return 0;
 }
 
-int Layer::ReplaceBottomBlob(std::string old_bottom, std::string new_bottom, const Blob<float>* p_blob)
+int Layer::ReplaceBottomBlob(std::string old_bottom, const Blob<float>* p_blob)
 {
-    //printf("*old bottom %s to new bottom %s\n", old_bottom.c_str(), new_bottom.c_str());
-    std::vector<std::string>::iterator name_iter = _bottom.begin();
     std::map<std::string, const Blob<float>*>::iterator blob_iter = _bottom_blobs.begin();
-
-    name_iter = std::find(_bottom.begin(), _bottom.end(), old_bottom);
     blob_iter = _bottom_blobs.find(old_bottom);
-
-    if(name_iter == _bottom.end() || blob_iter == _bottom_blobs.end())
+    if(blob_iter == _bottom_blobs.end())
+    {
+        printf("old blob %s not found\n", old_bottom.c_str());
         return -1;
+    }
 
-    *name_iter = new_bottom; /* should not change order as concate constain */
-
-    _bottom_blobs.erase(blob_iter);
-    _bottom_blobs[new_bottom] = p_blob;
-    //printf("+old bottom %s to new bottom %s\n", old_bottom.c_str(), new_bottom.c_str());
-
+    _bottom_blobs[old_bottom] = p_blob;
     return 0;
 }
 
@@ -180,6 +173,29 @@ int Layer::TryFuse(Layer *next_layer)
 int Layer::Fuse(Layer* next_layer)
 {
     return 0;
+}
+
+void Layer::changeTopName(std::string oldName, std::string newName)
+{
+    Blob<float>*pBlob = NULL;
+    std::map<std::string, Blob<float>*>::iterator blob_iter = _top_blobs.begin();
+    std::vector<std::string>::iterator name_iter = _top.begin();
+
+    name_iter = std::find(_top.begin(), _top.end(), oldName);
+    blob_iter = _top_blobs.find(oldName);
+
+    if(blob_iter == _top_blobs.end() || name_iter == _top.end())
+    {
+        printf("Not found top blob map %s\n", oldName.c_str());
+        return;
+    }
+
+    *name_iter = newName;
+
+    pBlob = blob_iter->second;
+    _top_blobs.erase(blob_iter);
+    _top_blobs[newName] = pBlob;
+    return;
 }
 
 int Layer::GenerateTopBlobs()
@@ -225,7 +241,7 @@ int Layer::Forward()
         printf(" %p", top_blob(i)->data());
     printf(" ");
 #endif
-    if (outputVec.size() > 1)
+    if ((outputVec.size() > 1) && (0 != strcmp(type().c_str(), "Input")))
     {
         unsigned outSize = top_blob(0)->data_size() * top_blob(0)->element_size();
         std::map<std::string,float*>::iterator it = outputVec.begin();
@@ -239,12 +255,22 @@ int Layer::Forward()
             it++;
         }
     }
+
 #if 0
-    printf("[%10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f]\n[%10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f]\n",
-           bottom_blob(0)->data()[0], bottom_blob(0)->data()[1], bottom_blob(0)->data()[2], bottom_blob(0)->data()[3],
-           bottom_blob(0)->data()[4], bottom_blob(0)->data()[5], bottom_blob(0)->data()[6], bottom_blob(0)->data()[7],
-           top_blob(0)->data()[0], top_blob(0)->data()[1], top_blob(0)->data()[2], top_blob(0)->data()[3],
-           top_blob(0)->data()[4], top_blob(0)->data()[5], top_blob(0)->data()[6], top_blob(0)->data()[7]);
+    //if (0 == name().compare("conv14_2"))
+    {
+        printf("[%s] [%s] [%p] [%p]\n", name().c_str(), _subType.c_str(), bottom_blob(0), top_blob(0));
+        if ((NULL != bottom_blob(0)) && (NULL != bottom_blob(0)->data()))
+            printf("[%10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f]\n",
+                   bottom_blob(0)->data()[0], bottom_blob(0)->data()[1], bottom_blob(0)->data()[2], bottom_blob(0)->data()[3],
+                   bottom_blob(0)->data()[4], bottom_blob(0)->data()[5], bottom_blob(0)->data()[6], bottom_blob(0)->data()[7]);
+
+        if ((NULL != top_blob(0)) && (NULL != top_blob(0)->data()))
+            printf("[%10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f %10.6f] [%d %d %d]\n",
+                   top_blob(0)->data()[0], top_blob(0)->data()[1], top_blob(0)->data()[2], top_blob(0)->data()[3],
+                   top_blob(0)->data()[4], top_blob(0)->data()[5], top_blob(0)->data()[6], top_blob(0)->data()[7],
+                   top_blob(0)->channels(), top_blob(0)->height(), top_blob(0)->width());
+    }
 #endif
 
 #ifdef DUMP_DATA

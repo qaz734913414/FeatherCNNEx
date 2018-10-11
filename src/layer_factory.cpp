@@ -61,20 +61,14 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
     size_t stride_width = conv_param->stride_w();
     size_t input_channels = layer_param->blobs()->Get(0)->channels();
     size_t output_channels = layer_param->blobs()->Get(0)->num();
+
     ConvLayer *conv_layer = NULL;
     //printf("[conv] group:%lu kernel_height: %lu kernel_width: %lu stride %lu, %lu input_channels %lu output_channels %lu\n", group, kernel_height, kernel_width, stride_height, stride_width, input_channels, output_channels);
     if(group == 1 && kernel_height == 3 && kernel_width == 3 && stride_height == 1 && stride_width == 1 &&
-            input_channels > 0 && output_channels <= 1024 && (0 == output_channels % 4))
+            (0 == output_channels % 4))
     {
         conv_layer = (ConvLayer*) new ConvWinogradF63Layer(layer_param, rt_param);
         conv_layer->_subType = "winogradF63";
-    }
-    else if(group == 1 && kernel_height == 3 && kernel_width == 3 &&
-            stride_height == 1 && stride_width == 1 &&
-            input_channels > 4)
-    {
-        conv_layer = (ConvLayer*) new ConvWinogradLayer(layer_param, rt_param);
-        conv_layer->_subType = "winogradF23";
     }
     else if(group == 1 && kernel_height == 5 && kernel_width == 5 &&
             ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)))
@@ -89,15 +83,14 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
         conv_layer->_subType = "Direct7x7";
     }
     else if(CONV_TYPE_DIRECT == rt_param->conv3x3Type && group == 1 && kernel_height == 3 && kernel_width == 3 &&
-            ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)) &&
-            input_channels <= 4)
+            ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)))
     {
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
         conv_layer->_subType = "Direct3x3";
     }
-    else if((CONV_TYPE_DIRECT == rt_param->conv1x1Type && group == 1 && kernel_height == 1 && kernel_width == 1 &&
-             stride_height == 1 && stride_width == 1 &&
-             input_channels <= 64 && output_channels <= 64)||(0 != (output_channels%8)))
+    else if(CONV_TYPE_DIRECT == rt_param->conv1x1Type && group == 1 && kernel_height == 1 && kernel_width == 1 &&
+            stride_height == 1 && stride_width == 1
+            && input_channels <= 64 && (output_channels <= 64 || 0 != (output_channels%8)))
     {
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
         conv_layer->_subType = "Direct1x1";

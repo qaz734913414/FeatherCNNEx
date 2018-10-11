@@ -76,6 +76,8 @@ public:
                input_channels, input_height, input_width, output_channels, output_height, output_width,
                num_threads, fuse_prelu, bias_data, slopeDataPrelu, sharedPrelu, padding_left, padding_right, padding_top, padding_bottom);
 #endif
+        assert((int)input_channels * (int)kernel_width * (int)kernel_height <= kc);
+        //printf("MNK [%d %d %d]\n", (int)output_channels, (int)output_width * (int)output_height, (int)input_channels * (int)kernel_width * (int)kernel_height);
         if(kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1 && padding_left == 0 && padding_right == 0 && padding_top == 0 && padding_bottom == 0)
         {
             if (output_channels % 8 == 0) //Todo
@@ -323,10 +325,24 @@ public:
     {
         int M = (int)output_channels;
         int K = (int)input_channels * (int)kernel_height * (int)kernel_width;
+        int N = (int)output_width*(int)output_height;
         int eM = M + (8 - M % 8) % 8; /* extend M make sure 8 aligned */
+        int packBK = std::min(K, kc);
+        int packBN = std::min(N, nc);
 
-        //printf("MNK: %d %d %d, [%d %d %d] [%d %d %d]\n", M, K, eM, input_channels, input_height, input_width, output_channels, output_height, output_width);
         if (num_threads > 4) num_threads = 4;
+
+        unsigned int tN = N / num_threads;
+        tN = (tN + 7) & 0xFFFFFFF8;
+        int lastSN = N - (num_threads - 1) * tN;
+        while(lastSN <= 0)
+        {
+            --num_threads;
+            lastSN = N - (num_threads - 1) * tN;
+        }
+        num_threads = (num_threads <= 0) ? 1 : num_threads;
+
+        //printf("num_threads:%d MNK: %d %d %d, [%d %d %d] [%d %d %d], %d %d\n", num_threads, M, K, eM, input_channels, input_height, input_width, output_channels, output_height, output_width, packBK, packBN);
 
         if (0 == fractions) /* float32 */
         {
@@ -335,19 +351,19 @@ public:
 
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, elemSize * eM * K));
             for(int i = 0; i< num_threads; i++)
-                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], elemSize * kc * (int)output_width * (int)output_height));
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], elemSize * packBK * packBN));
         }
         else if (8 == fractions) /* int8 */
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(int8_t) * eM * K));
             for(int i = 0; i< num_threads; i++)
-                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(int8_t) * kc * (int)output_width * (int)output_height));
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(int8_t) * packBK * packBN));
         }
         else /* fix16 */
         {
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packed_kernel, sizeof(fix16_t) * eM * K));
             for(int i = 0; i< num_threads; i++)
-                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(fix16_t) * kc * (int)output_width * (int)output_height));
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&packB[i], sizeof(fix16_t) * packBK * packBN));
         }
 
         if (kernel_width != 1 || kernel_height != 1 || stride_height != 1 || stride_width != 1 ||

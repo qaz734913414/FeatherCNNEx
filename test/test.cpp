@@ -28,153 +28,215 @@ using namespace std;
 using namespace cv;
 using namespace feather;
 
-static float C_REF[] =
-#if 0
+enum RESULT_VIEW_TYPE
 {
-    0.476289,  0.523711
+    RESULT_VIEW_TYPE_SILENCE,
+    RESULT_VIEW_TYPE_VALUE,
+    RESULT_VIEW_TYPE_LABEL,
+    RESULT_VIEW_TYPE_DRAW
 };
-#elif 1
-//Azra
-    {
-        -1.851036,  0.623337, -0.525843,  1.556319, -0.354686, -0.860171, -1.055367, -4.224126, -0.683708,  1.449931, -1.623300, -1.609216,  1.740315,  0.919525, -3.278305, -1.286112,
-        0.028684,  0.393444,  2.596983,  1.816258,  1.466974, -0.903676, -0.226741,  2.928450,  2.627020, -0.765943, -2.376863, -1.178697,  2.633178, -1.041616,  1.060217, -1.040673,
-        -0.191353, -2.344230, -0.788326,  1.562018, -0.417556, -2.840775,  0.969850, -2.070940,  0.030912,  1.031416, -0.563308,  2.292546, -4.028679, -1.201510, -2.494291, -1.364829,
-        0.807302,  1.274871,  1.918519,  1.611955,  2.845672, -1.711516,  0.973080, -0.408807, -4.000790,  0.039535,  0.467152,  1.131927, -0.489457, -0.412889,  2.604370, -2.201038,
-        -2.095154,  0.472064,  0.041388, -0.483153,  0.473404,  2.644644, -2.194415, -1.233633, -1.970814,  1.871874, -0.776328, -0.790082, -0.384160,  0.549410, -2.276462, -0.692001,
-        3.238898, -1.358709, -1.442396, -1.795176,  0.760144,  2.022542, -0.831096, -2.462972, -1.070156,  0.823717,  0.838067,  1.296256, -0.025748,  1.333141,  0.574159,  1.051302,
-        -0.087367, -2.016579, -0.822999, -1.105822,  2.645237,  0.834430, -0.084114, -0.656802,  1.473411, -1.793370,  2.891586,  0.512458, -1.574885,  0.356898,  1.669953,  3.041773,
-        0.915015,  0.414059, -1.293664, -0.161438,  0.766161,  4.161430,  4.507892,  2.304584, -1.403159,  1.954045, -1.440621, -2.999346, -1.092185, -1.355052, -0.930666,  0.099404,
-        -2.004588,  0.081578, -0.137709,  2.303378,  0.917016, -1.197408, -3.879915, -1.859119,  0.252291,  1.424811,  0.150794,  0.557556,  0.145438, -1.788642, -2.660405, -0.552692,
-        -1.379316, -1.250114,  1.342980, -2.196590,  0.544526, -0.109882,  0.708812, -3.521704, -0.749268, -1.913632, -1.413001,  1.490721,  0.518091, -2.777456,  3.205705,  0.336397,
-        -2.149426,  1.628971, -1.102447,  0.210579, -1.253584, -1.714768,  1.818909,  0.031455,  0.292572, -0.285443, -0.973293, -1.493128,  1.060904, -2.923094,  0.480578, -0.082984,
-        -2.537405, -0.080848,  0.309167,  0.040653,  1.223453, -0.007970,  0.707285, -0.775588,  1.300650,  1.388535,  3.923844,  1.320332,  0.068921, -0.819371, -1.048925,  3.280931,
-        -3.971189,  2.391721,  0.848584,  0.919038,  1.693677,  1.414745,  1.831103, -0.360143,  1.108429,  2.562239, -0.464579,  0.775899, -1.641645, -2.087350, -1.809692,  1.400861,
-        -2.705205,  2.585192,  1.658971, -0.066958,  0.685590, -0.677460, -1.150578, -2.273293,  1.505003, -0.235235,  0.829545, -1.377759,  0.730106, -1.996317,  0.387061,  1.253679,
-        -1.086200,  2.293271,  2.059703, -1.896661, -0.190275,  0.394838,  3.042799,  0.857780, -0.448382,  3.333730,  1.817397, -0.150029, -1.077172,  0.074376,  0.177426,  0.199034,
-        1.850975,  2.292983,  0.416731, -1.404117,  1.944847, -1.285941, -0.186223, -0.814266,  0.708417, -0.820455,  2.960067, -0.475898, -0.328388, -2.618679,  0.554627,  1.907160
-        };
-#elif 0
-    {
-        1.005971, -0.595743,  0.302105, -0.370733, -0.597922,  0.360712, -1.480518, -0.535345,  0.542724,  1.290418,  0.549887,  0.644056,  0.154240, -0.349757,  1.595634,  0.524116,
-        0.056623,  0.620412,  0.618478, -0.904609,  0.855202, -0.460138,  0.407092, -0.061750, -0.910297, -0.149187, -1.691114, -0.682861,  1.894711, -0.393226, -0.565687, -2.048255,
-        0.627665, -0.565263,  0.479426, -0.750694, -1.142104, -0.241054,  0.381099, -0.347407,  0.888900,  0.156892, -0.820600,  0.334099, -0.117418, -0.698058, -1.471673, -0.396284,
-        0.570897,  1.694422,  1.218388, -0.625310, -0.454197,  0.632367, -0.669655, -0.082872,  0.733574,  0.947634, -0.191259,  0.159390,  0.042428,  0.397186, -0.220862, -0.394888,
-        0.802191,  1.289754,  0.652644,  0.755423, -0.627655,  0.995957,  0.493603, -0.157553, -0.936564,  0.410491,  1.787145, -1.034663,  0.312727,  1.030059,  0.736975, -1.687477,
-        1.268919, -1.349502,  0.523571, -0.137256,  0.832907, -0.727018, -0.370737, -1.068834, -0.277396, -1.377576,  0.668522,  1.310559, -0.538872, -0.632705, -0.266212, -0.990704,
-        -1.818728, -0.270002,  1.226003, -0.506690, -0.508972, -0.189839, -0.983820, -0.479934, -0.814068, -1.007039, -1.071146, -0.283661, -0.551502,  0.525702,  2.248174, -0.174415,
-        -1.774617, -0.196685,  0.441728, -1.332354,  0.564568, -1.304306,  0.866906, -1.398330, -1.688912, -0.599101,  1.223500,  0.038054,  1.729880,  0.913836, -1.162626,  0.039797,
-        -0.306184, -0.525713, -0.472914,  0.569643, -1.162176, -0.331602, -0.170370,  0.162857,  0.292748,  0.428439,  0.377915, -0.788466, -0.306702,  0.586210,  1.098490, -0.371701,
-        -0.010856,  1.543780,  0.137554, -1.265617,  0.026361, -0.462345,  0.108424,  0.041233, -1.518765, -0.192127,  0.428880,  0.656731,  0.986181,  1.103883,  0.246397,  0.350707,
-        0.750538,  0.588480, -1.120485, -0.835524, -0.591113,  0.989002,  1.225141, -0.171089, -0.076561,  1.038375, -0.432824, -0.521088,  1.271390,  0.284414,  0.581474,  0.126895,
-        0.841048,  1.146251,  0.680368, -0.062601,  0.994587,  1.184818,  0.381446, -0.229204,  0.541183, -0.250623, -1.292526,  0.082308,  1.714628,  0.957243, -0.928909,  0.101337,
-        -1.318428, -0.056514, -0.017178,  0.641731,  0.724535,  0.648302, -1.087357, -0.894499,  0.802007, -0.004586, -1.375750, -0.931633,  0.371056, -0.151872, -1.253936, -0.968621,
-        -0.093065,  1.357372,  0.947172,  0.139816,  0.635034,  0.430815, -0.652914,  0.689954, -0.821156, -0.833333, -0.308966,  0.664077, -0.513105,  0.495344,  1.592538,  0.013050,
-        0.758458,  0.889802,  1.593955,  0.270599, -0.004213,  0.977607, -0.879096, -0.983726,  0.052218, -0.887871, -1.075130, -0.215604,  0.201163,  1.054724, -0.214726,  0.752748,
-        0.966025, -0.921286, -0.205700, -0.472007, -0.537350,  0.854338,  1.151059, -0.674309,  0.128869, -0.162207, -0.305204, -0.075384, -1.642334,  0.771620,  0.289428, -1.459790
-        };
-#else
-    {
-        0.933749,1.221805,0.942836,2.124435,0.118743,2.065125,0.153669,0.245184,0.024626,0.609957,0.174229,0.199315,0.100794,0.800480,0.000000,0.907268,
-        0.053578,0.192186,0.353104,1.124146,3.151727,0.198787,0.245606,0.344097,0.000000,1.002228,0.000000,0.003053,0.388980,0.005686,0.089490,0.779931,
-        0.235635,2.439793,0.018313,0.087937,0.974636,2.655642,0.239401,0.251922,0.296813,0.140838,0.512339,0.333062,0.693797,2.921950,0.133481,4.653688,
-        0.000000,0.324613,0.098730,0.055202,0.139898,0.052006,0.000000,2.980098,0.000000,0.878949,0.071027,0.144047,2.408242,0.078959,1.027251,2.594565,
-        0.000000,0.083480,1.919285,0.936636,0.467862,0.101560,1.675370,0.575522,0.293421,0.000000,0.918900,0.021969,0.363817,0.000000,0.783534,0.028025,
-        0.023248,0.875875,0.259790,0.006164,0.384809,0.000000,0.805675,0.000000,0.747398,0.047613,0.859484,0.160446,1.175554,3.521654,0.182936,0.318085,
-        0.252131,0.857794,0.144891,0.270708,0.140377,1.974211,1.556120,0.604902,0.316916,3.463933,0.024745,0.144742,0.050238,0.107112,0.117158,1.508855,
-        0.265683,2.821200,0.729436,0.359863,0.000000,0.077613,0.236981,0.000067,2.951179,0.764845,1.142701,0.883148,0.032713,0.369207,0.060790,0.717021,
-        0.005024,0.009245,0.098420,0.558032,1.519055,0.000000,1.550093,2.587355,0.151327,0.131581,0.805024,0.109998,0.489689,0.269794,0.014104,1.268039,
-        0.257407,0.391928,1.388946,0.017771,0.207151,0.028289,0.287073,0.043769,2.109576,1.220630,0.674653,0.659865,0.452613,0.145623,0.007053,0.213908,
-        0.000000,0.000000,1.302742,0.102333,0.618102,1.001975,2.542703,0.472270,0.189629,1.050102,0.875248,0.622512,0.542078,0.691874,0.217648,1.494125,
-        0.214114,0.179772,0.000000,0.007845,0.148768,0.014195,0.310950,1.328574,0.000000,0.225374,0.188481,1.267861,0.000444,0.011105,0.005157,0.000000,
-        0.725186,0.134844,1.988012,0.838980,0.000769,0.076330,0.957824,0.000000,0.496945,0.807306,1.213272,0.009075,0.233134,0.012636,1.828221,2.429213,
-        1.805135,0.494339,0.000468,0.271773,0.040806,0.152876,0.559080,0.739888,1.394314,0.001260,0.115379,0.865632,0.015351,1.715788,0.177570,0.074670,
-        1.353334,0.087612,0.008405,0.184714,0.357347,0.760473,2.186742,1.167413,1.209644,0.125534,0.008401,0.940463,0.124080,0.010981,2.370603,0.000000,
-        1.452327,0.068199,1.480294,0.424987,0.013212,0.001163,0.001657,0.407346,0.000000,0.954632,0.124250,2.211001,0.808913,0.002507,2.235747,0.430729,
-        0.032883,0.011492,0.007314,0.777692,0.000000,0.340792,0.550286,1.190970,0.016129,0.000000,1.096821,1.783663,0.690416,1.194808,0.613193,0.794362,
-        0.234638,0.093891,0.271944,0.087658,0.479388,0.006724,0.158278,0.000000,0.304574,0.313330,0.417745,0.324008,0.046003,0.039058,0.004781,0.847698,
-        1.616466,0.477229,0.000000,4.438352,4.155348,0.371618,0.059839,1.323365,0.345599,0.013765,0.055146,0.008511,0.035057,0.000000,2.652249,0.000000,
-        0.550545,0.000000,0.108837,1.088737,0.502754,0.006651,0.019927,0.503464,2.707742,0.043677,0.910347,0.097399,0.806370,0.464375,1.027106,0.044727,
-        1.685541,0.002555,0.883808,0.111442,0.005113,0.406282,0.728982,0.087776,2.386451,0.014470,1.875118,0.037259,0.000000,4.279455,0.189061,1.651418,
-        0.750136,1.261214,0.336138,0.242002,0.225380,0.360039,0.520607,2.314614,0.099525,0.252469,2.730854,0.835702,0.006621,0.057516,1.059641,0.980411,
-        1.929533,1.584694,1.704435,0.341777,1.958663,0.000970,0.039561,3.292661,0.000000,0.093142,1.163145,0.692857,0.008751,0.031535,0.051034,0.026366,
-        0.187604,0.158738,0.830309,0.317271,0.148063,0.067554,0.053881,0.127160,0.451525,0.010053,0.000000,1.839725,0.144003,3.097952,0.305813,1.621636,
-        0.917974,0.262535,0.000000,0.058486,0.466949,3.664273,0.000000,0.065373,0.075259,0.095304,0.056989,0.498617,0.086833,2.704707,2.525265,0.161862,
-        0.104006,0.183719,0.189040,0.000000,0.851539,0.045484,5.567569,1.865962,0.000000,0.006317,1.583390,0.002532,2.545299,0.024614,0.026735,0.000000,
-        0.009775,0.112282,0.009802,0.093609,7.617025,0.000000,1.144189,5.722694,1.277627,0.680307,0.889530,0.025324,1.021842,0.010145,0.013431,0.335807,
-        0.106149,0.000000,0.000000,0.229720,1.048938,0.078847,0.245025,0.101035,0.000000,0.008202,0.000000,0.912539,0.014006,0.532336,0.016462,0.386075,
-        0.296756,1.068002,0.365077,1.293139,1.969919,0.748865,1.290827,1.048145,0.603616,0.458269,0.010459,0.152398,0.284944,0.943705,0.158868,1.034602,
-        1.719694,1.510343,0.172517,0.019718,0.000000,0.199998,1.068147,0.203094,1.573467,0.000000,0.225936,4.034974,0.947877,1.141978,0.000000,0.009066,
-        0.006376,0.104819,0.057114,1.670206,0.132337,0.495914,0.442948,0.738034,0.883779,3.392052,0.363638,0.101645,0.000000,0.000000,0.012612,0.758066,
-        0.019771,0.280428,0.009196,0.355242,0.840791,0.265378,0.008064,1.402990,0.017855,0.678500,0.315003,0.075483,1.213369,0.000000,0.000704,0.000000
-    };
-#endif
 
-#if 0
-int main(int argc, char *argv[])
+struct Object
 {
-    int cols = 1280;
-    int rows = 720;
-    unsigned char *pSrc = (unsigned char*)malloc(cols*rows*3/2);
-    unsigned char *pDst = (unsigned char*)malloc(cols*rows*3);
-    int num_threads  = atoi(argv[1]);
-    int loopCnt = atoi(argv[2]);
+    cv::Rect_<float> rect;
+    int label;
+    float prob;
+};
 
-    struct timeval beg, end;
-    gettimeofday(&beg, NULL);
-
-    for (int i = 0; i<loopCnt; i++)
-        from_nv122rgb(pSrc, cols, rows, cols, 0, 0, cols, rows, pDst, 0, num_threads);
-
-    gettimeofday(&end, NULL);
-    printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads);
-
-    free(pSrc);
-    free(pDst);
-    return 0;
+static void showResult(float *pOut, uint32_t data_size)
+{
+    for(int i = 0 ; i < data_size; i++)
+    {
+        if ((0 != i)&& (0 == i % 16))
+            printf("\n");
+        printf("%10.6f, ", pOut[i]);
+    }
+    printf("\n");
 }
-#else
-/*
--1.812379,  4.081425, -4.347051,  4.354116, -0.556802, -5.558001,  3.357385, 10.341537,  0.440753, -15.764411,  8.808333,  4.651664, -9.211784, -1.327926, -16.512342,  0.315715,
- 5.261196,  9.074323, -2.663439,  4.176068, -0.640883,  2.888079, -13.531235, -0.217256, -7.644547,  2.272054,  6.222339, -3.381551, -1.332794,  5.498738, -2.291775, -8.638482,
--8.490557,  2.221889,  4.446332,  3.584421, -4.748582, -13.319547, -3.616705,  4.987652, 18.340813, -6.888232,  3.902353,  9.943968,  6.715979,  6.032541, -1.458937, -3.837536,
--7.257421,  3.263789,  6.841688, -4.256768,  6.105454, -7.822162, -5.358116, -1.491241, -4.500320,  5.986435, -0.098746, -9.061723,  3.643913,  5.126673, 11.933592, -0.393316,
--1.466822,  8.726510,  5.456965,  9.867626, 12.184004,  1.289220, -10.053810,  5.860996,  2.209918,  7.400939, -0.278869,  6.676223, -0.197880,  0.832310,  1.536902,  5.028295,
-17.467724,  5.106631, -2.861564, -3.235081, -5.349757,  9.691916, -2.235164,  4.505077, -13.046526,  5.967677, 14.612733, -1.806151,  0.803580, -6.894249, -1.054083,  0.862652,
--5.682416, -8.662089,  3.608602,  5.405642,  2.209574,  7.963295,  7.639346, -16.061680, 10.105835,  8.511457, 17.687704,  0.214766, -3.783849, -7.300689,  2.820642, -9.717883,
- 3.058890, 11.749965, -3.097979, -1.708698,  5.854451, -7.117640, -2.148701, -5.632799, -12.668450,  1.601659, -7.965919, 11.794479, -5.448456,  5.566507, -4.827774,  0.388210,
-*/
+
+static void showImgNetLabel(float *pOut, uint32_t data_size)
+{
+    int top_class = 0;
+    float max_score = .0f;
+    for (size_t i=0; (1000 == data_size && i < data_size); i++)
+    {
+        float s = pOut[i];
+        if (s > max_score)
+        {
+            top_class = i;
+            max_score = s;
+        }
+    }
+
+    printf("\nlabel id: %d, label name: %s, max score: %f\n", top_class, label[top_class], max_score);
+}
+
+static void draw_objects(const cv::Mat& bgr, float *pOut)
+{
+    static const char* class_names[] = {"background",
+                                        "aeroplane", "bicycle", "bird", "boat",
+                                        "bottle", "bus", "car", "cat", "chair",
+                                        "cow", "diningtable", "dog", "horse",
+                                        "motorbike", "person", "pottedplant",
+                                        "sheep", "sofa", "train", "tvmonitor"
+                                       };
+
+    cv::Mat image = bgr.clone();
+    std::vector<Object> objects;
+
+    int cnt = (int)pOut[0];
+    printf("SSD objNum: %d\n", cnt);
+    pOut++;
+    for (int i=0; i < cnt; i++)
+    {
+        printf("[%d/%d] %d %f\n", i, cnt, (int)pOut[i*6], pOut[i*6+1]);
+        Object object;
+        object.label = (int)pOut[i*6];
+        object.prob = pOut[i*6+1];
+        object.rect.x = pOut[i*6+2] * bgr.cols;
+        object.rect.y = pOut[i*6+3] * bgr.rows;
+        object.rect.width = pOut[i*6+4] * bgr.cols - object.rect.x;
+        object.rect.height = pOut[i*6+5] * bgr.rows - object.rect.y;
+        objects.push_back(object);
+    }
+
+    for (size_t i = 0; i < objects.size(); i++)
+    {
+        const Object& obj = objects[i];
+
+        printf("%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.prob,
+               obj.rect.x, obj.rect.y, obj.rect.width, obj.rect.height);
+
+        cv::rectangle(image, obj.rect, cv::Scalar(255, 0, 0));
+
+        char text[256];
+        sprintf(text, "%s %.1f%%", class_names[obj.label], obj.prob * 100);
+
+        int baseLine = 0;
+        cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+
+        int x = obj.rect.x;
+        int y = obj.rect.y - label_size.height - baseLine;
+        if (y < 0)
+            y = 0;
+        if (x + label_size.width > image.cols)
+            x = image.cols - label_size.width;
+
+        cv::rectangle(image, cv::Rect(cv::Point(x, y),
+                                      cv::Size(label_size.width, label_size.height + baseLine)),
+                      cv::Scalar(255, 255, 255), CV_FILLED);
+
+        cv::putText(image, text, cv::Point(x, y + label_size.height),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0, 255, 0));
+    }
+    objects.clear();
+    cv::imwrite("ssd.jpg", image);
+    printf("image ssd.jpg saved\n");
+}
+
 int main(int argc, char *argv[])
 {
-    int colIdx = 0, maxabscol = 0, maxratiocol = 0;
-    int i = 1, loopCnt = 1;
+    int i = 1, loopCnt = 1, outLoopCnt = 1, num_threads = 4, bSameMean = 1, bLowPrecision = 1, bGray = 0, b1x1Sgemm = 0;
+    char *pFname = (char *)"300.jpg";
+    char *pModel = (char*)"MBSSDV2_detection_out_0.feathermodel";
+    char *pBlob = (char *)"detection_out";
     const char * pSerialFile = NULL;
-#if 1
-    char *pFname = (char *)"227_fork.jpg";
-    char *pModel = (char*)"squeeze_prob_0.feathermodel";
-    char *pBlob = (char *)"prob";
-#else
-    char *pFname = (char *)"dataset/112x96/Azra_Akin_Azra_Akin_0001.jpg";//"96_112.jpg";
-    char *pModel = (char*)"mbface_fc5_0.feathermodel";
-    char *pBlob = (char *)"fc5";
-#endif
-    int num_threads = 1;
-    int bSameMean = 0;
-    int bLowPrecision = 1;
+    enum RESULT_VIEW_TYPE viewType = RESULT_VIEW_TYPE_DRAW;
     struct timeval beg, end;
+    printf("e.g.: ./demo outLoopCnt loopCnt num_threads pFname pModel pBlob bsameMean bGray b1x1Sgemm bLowPrecision viewType[0:silence 1:value 2:label 3:draw] pSerialFile\n");
 
-    printf("e.g.:  ./demo 10 1 filelist.txt insano_mobilenet_v2_layer9_conv1x1_scale_14.feathermodel mobilenet_v2_layer9_conv1x1_bn bsameMean bLowPrecision serialfile\n");
+    if (argc > 1)  outLoopCnt    = atoi(argv[i++]);
+    if (argc > 2)  loopCnt       = atoi(argv[i++]);
+    if (argc > 3)  num_threads   = atoi(argv[i++]);
+    if (argc > 4)  pFname        = argv[i++];
+    if (argc > 5)  pModel        = argv[i++];
+    if (argc > 6)  pBlob         = argv[i++];
+    if (argc > 7)  bSameMean     = atoi(argv[i++]);
+    if (argc > 8)  bGray         = atoi(argv[i++]);
+    if (argc > 9)  b1x1Sgemm     = atoi(argv[i++]);
+    if (argc > 10) bLowPrecision = atoi(argv[i++]);
+    if (argc > 11) viewType      = (enum RESULT_VIEW_TYPE)atoi(argv[i++]);
+    if (argc > 12) pSerialFile   = argv[i++];
 
-    if (argc > 1) loopCnt = atoi(argv[i++]);
-    if (argc > 2) num_threads = atoi(argv[i++]);
-    if (argc > 3) pFname = argv[i++];
-    if (argc > 4) pModel = argv[i++];
-    if (argc > 5) pBlob = argv[i++];
-    if (argc > 6) bSameMean = atoi(argv[i++]);
-    if (argc > 7) bLowPrecision = atoi(argv[i++]);
-    if (argc > 8) pSerialFile = argv[i++];
+    printf("file: %s model: %s blob: %s loopCnt: %d num_threads: %d bSameMean:%d bGray: %d b1x1Sgemm:%d bLowPrecision: %d viewType: %d SerialFile: %s\n",
+           pFname, pModel, pBlob, loopCnt, num_threads, bSameMean, bGray, b1x1Sgemm, bLowPrecision, viewType, pSerialFile);
+#if 1
+    cv::Mat img;
+    if (bGray)
+        img = imread(pFname, 0);
+    else
+        img = imread(pFname);
+    if (img.empty())
+    {
+        printf("read img failed, %s\n", pFname);
+        return -1;
+    }
+    printf("img c: %d, w: %d, h : %d\n", img.channels(), img.cols, img.rows);
+    for(int outLoop = 0; outLoop < outLoopCnt; outLoop++)
+    {
+        Net *forward_net = new Net(num_threads);
+        if (b1x1Sgemm)
+            forward_net->config1x1ConvType(CONV_TYPE_SGEMM);
+        else
+            forward_net->config1x1ConvType(CONV_TYPE_DIRECT);
+        forward_net->config3x3ConvType(CONV_TYPE_DIRECT);
+        forward_net->configDWConvType(CONV_TYPE_DW_DIRECT);
+        forward_net->configWinogradLowPrecision(true);
+        forward_net->configSgemmLowPrecision(bLowPrecision);
+        forward_net->configDropoutWork(true);
+        forward_net->configCrypto(pSerialFile);
+        forward_net->inChannels = img.channels();
+        forward_net->inWidth = img.cols;
+        forward_net->inHeight = img.rows;
+        forward_net->InitFromPath(pModel);
 
-    printf("file: %s model: %s blob: %s loopCnt: %d num_threads: %d bSameMean:%d bLowPrecision: %d SerialFile: %s\n", pFname, pModel, pBlob, loopCnt, num_threads, bSameMean, bLowPrecision, pSerialFile);
-#if 0
+        size_t data_size = 0;
+        forward_net->GetBlobDataSize(&data_size, pBlob);
+        float *pOut = NULL;
+        float *pIn = forward_net->GetInputBuffer();
+        float meansDiff[] = {104.0f, 117.0f, 123.0f};
+        float meansSame[] = {127.5f, 127.5f, 127.5f};
+        float varSame[]   = {0.0078125f, 0.0078125f, 0.0078125f};
+
+        gettimeofday(&beg, NULL);
+        for(int loop = 0; loop < loopCnt; loop++)
+        {
+            if (1 == img.channels())
+                from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
+            else
+            {
+                if (bSameMean)
+                    from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
+                else
+                    from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
+            }
+            int ret = forward_net->Forward();
+            pOut = forward_net->ExtractBlob(pBlob);
+
+            printf("[%03d/%03d, %03d/%03d] ret: %d\n", outLoop, outLoopCnt, loop, loopCnt, ret);
+        }
+        gettimeofday(&end, NULL);
+        printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d, out blob size: %u\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads, (unsigned int)data_size);
+
+        switch(viewType)
+        {
+        case RESULT_VIEW_TYPE_VALUE:
+            showResult(pOut, data_size);
+            break;
+        case RESULT_VIEW_TYPE_LABEL:
+            showResult(pOut, data_size);
+            break;
+        case RESULT_VIEW_TYPE_DRAW:
+            draw_objects(img, pOut);
+            break;
+        case RESULT_VIEW_TYPE_SILENCE:
+        default:
+            break;
+        }
+
+        delete forward_net;
+    }
+#else
     FILE *fp = NULL;
     if(NULL == (fp = fopen(pFname,"r")))
     {
@@ -187,7 +249,6 @@ int main(int argc, char *argv[])
     size_t data_size;
     forward_net.GetBlobDataSize(&data_size, pBlob);
     float *pOut = NULL;
-    static float *pImgBuff = NULL;
 
     char tmp[1024];
     char strLine[1024];
@@ -216,60 +277,14 @@ int main(int argc, char *argv[])
             printf("read img failed, %s\n", imgFile);
             continue;
         }
-        if (NULL == pImgBuff)
-            pImgBuff = (float *)malloc(img.cols * img.rows * img.channels() *sizeof(float));
 
-        gettimeofday(&beg, NULL);
-
-        from_rgb_normal(img.data, img.cols, img.rows, pImgBuff, 127.5f, 0.0078125f, 0);
-        forward_net.Forward(pImgBuff);
-        pOut = forward_net.ExtractBlob(pBlob);
-
-        gettimeofday(&end, NULL);
-        total += (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000;
-
-        img.release();
-
-        FILE *fpw = NULL;
-        if(NULL == (fpw = fopen(tmp,"wb")))
-        {
-            printf("open output %s error!\n", tmp);
-            continue;
-        }
-        fwrite(pOut, data_size*sizeof(float), 1, fpw);
-        fclose(fpw);
-        printf("[%d] %s, %s\n", ++fileCnt, imgFile, tmp);
-    }
-    fclose(fp);
-    if (NULL != pImgBuff)
-        free(pImgBuff);
-    printf("average %9.6f ms, %d\n", total*1.0/fileCnt, fileCnt);
-#else
-
-#if 0
-    cv::Mat img = imread(pFname, 0);
-#else
-    cv::Mat img = imread(pFname);
-#endif
-    if (img.empty())
-    {
-        printf("read img failed, %s\n", pFname);
-        return -1;
-    }
-    //memset(img.data, 0, img.cols*img.rows);
-    printf("c: %d, w: %d, h : %d\n", img.channels(), img.cols, img.rows);
-
-    for(int k = 0; k < loopCnt; k++)
-    {
         Net *forward_net = new Net(num_threads);
-#if 1
-        forward_net->config1x1ConvType(CONV_TYPE_DIRECT);
+        if (b1x1Sgemm)
+            forward_net->config1x1ConvType(CONV_TYPE_SGEMM);
+        else
+            forward_net->config1x1ConvType(CONV_TYPE_DIRECT);
         forward_net->config3x3ConvType(CONV_TYPE_DIRECT);
         forward_net->configDWConvType(CONV_TYPE_DW_DIRECT);
-#else
-        forward_net->config1x1ConvType(CONV_TYPE_SGEMM);
-        forward_net->config3x3ConvType(CONV_TYPE_DIRECT);
-#endif
         forward_net->configWinogradLowPrecision(true);
         forward_net->configSgemmLowPrecision(bLowPrecision);
         forward_net->configDropoutWork(true);
@@ -285,92 +300,35 @@ int main(int argc, char *argv[])
         float *pIn = forward_net->GetInputBuffer();
         float meansDiff[] = {104.0f, 117.0f, 123.0f};
         float meansSame[] = {127.5f, 127.5f, 127.5f};
-        float varSame[] = {0.0078125f, 0.0078125f, 0.0078125f};
-        gettimeofday(&beg, NULL);
+        float varSame[]   = {0.0078125f, 0.0078125f, 0.0078125f};
 
-        for(int loop = 0; loop < loopCnt; loop++)
+        if (1 == img.channels())
+            from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
+        else
         {
-            if (1 == img.channels())
-                from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
+            if (bSameMean)
+                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
             else
-            {
-                if (bSameMean)
-                    from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
-                else
-                    from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
-            }
-            int ret = forward_net->Forward();
-            pOut = forward_net->ExtractBlob(pBlob);
-            printf("[%03d %03d/%03d] ret: %d\n", k, loop, loopCnt, ret);
+                from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
         }
+        forward_net->Forward();
+        pOut = forward_net->ExtractBlob(pBlob);
 
-        gettimeofday(&end, NULL);
-        printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads);
-#if 1
-        printf("out blob size: %u\n", (unsigned int)data_size);
-        for(int i = 0 ; i < data_size; i++)
+        img.release();
+
+        FILE *fpw = NULL;
+        if(NULL == (fpw = fopen(tmp,"wb")))
         {
-            if ((0 != i)&& (0 == i % 16))
-                printf("\n");
-            printf("%9.6f, ", pOut[i]);
+            printf("open output %s error!\n", tmp);
+            continue;
         }
-        printf("\n");
-#endif
+        fwrite(pOut, data_size*sizeof(float), 1, fpw);
+        fclose(fpw);
+        printf("[%d] %s, %s\n", ++fileCnt, imgFile, tmp);
 
-#if 0
-        int top_class = 0;
-        float max_score = .0f;
-        for (size_t i=0; (1000 == data_size && i < data_size); i++)
-        {
-            float s = pOut[i];
-            if (s > max_score)
-            {
-                top_class = i;
-                max_score = s;
-            }
-        }
-
-        printf("\n[%05d] id: %d, label:%s, score: %f\n", k, top_class, label[top_class], max_score);
-#endif
         delete forward_net;
     }
-#if 0
-    float maxDiff      = .0f;
-    float maxDiffRefC  =.0f, maxDiffAsm = .0f;
-    float maxDiffRatio = .0f;
-    float maxDiffRefCRatio =.0f, maxDiffAsmRatio = .0f;
-
-    for(int i = 0 ; i < data_size; i++)
-    {
-        if (0 == i) printf("col: %02d ", 0);
-        if ((0 != i)&& (0 == i % 8))
-            printf("\ncol: %02d ", ++colIdx);
-        printf("[%9.6f, %9.6f] ", pOut[i], C_REF[i]);
-        if (fabs(*(C_REF + i) - *(pOut + i)) > maxDiff)
-        {
-            maxDiffRefC = *(C_REF + i);
-            maxDiffAsm = *(pOut + i);
-            maxDiff = fabs(*(C_REF + i) - *(pOut + i));
-            maxabscol = colIdx;
-        }
-        if (0.f < fabs(*(C_REF + i)))
-        {
-            if ((fabs(*(C_REF + i) - *(pOut + i)) / fabs(*(C_REF + i))) > maxDiffRatio)
-            {
-                maxDiffRefCRatio = *(C_REF + i);
-                maxDiffAsmRatio = *(pOut + i);
-                maxDiffRatio = fabs(maxDiffRefCRatio - maxDiffAsmRatio) / fabs(maxDiffRefCRatio);
-                maxratiocol = colIdx;
-            }
-        }
-    }
-    printf("\n\nmaxDiff:\nabs   %9.6f [%9.6f, %9.6f] at cols %02d\nratio %9.6f [%9.6f, %9.6f] at cols %02d\n", maxDiff, maxDiffAsm, maxDiffRefC, maxabscol, maxDiffRatio, maxDiffAsmRatio, maxDiffRefCRatio, maxratiocol);
-
-    float cosv = distanceCos(C_REF, pOut, data_size);
-    printf("cos: %f\n", cosv);
-    printf("\n");
-#endif
+    fclose(fp);
 #endif
     return 0;
 }
-#endif

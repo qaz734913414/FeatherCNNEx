@@ -25,6 +25,9 @@
 
 namespace feather
 {
+
+#define DUMY_BRANCHID (0x88888888)
+
 Net::Net(size_t num_threads)
 {
     register_layer_creators();
@@ -56,13 +59,16 @@ int Net::getFreeBranch()
 
 int Net::returnBranch(int branchId)
 {
-    if ((NULL != pingpang[branchId][0]) && (NULL != pingpang[branchId][1]))
+    if (DUMY_BRANCHID !=branchId)
     {
-        branchStatus[branchId] = 0;
-        return 0;
-    }
+        if ((NULL != pingpang[branchId][0]) && (NULL != pingpang[branchId][1]))
+        {
+            branchStatus[branchId] = 0;
+            return 0;
+        }
 
-    printf("Breanch return failed as not init, %d\n", branchId);
+        printf("Branch return failed as not init, %d\n", branchId);
+    }
     return -1;
 }
 
@@ -214,7 +220,7 @@ int Net::Forward()
     tg.startBench();
 #endif
 
-    for (int i = 0; i < layers.size(); ++i)
+    for (uint32_t i = 0; i < layers.size(); ++i)
     {
         //printf("Forward layer%d:%s %s %s... \n", i, layers[i]->name().c_str(), layers[i]->type().c_str(), layers[i]->_subType.c_str());
 //#define TIME_PROFILE
@@ -331,8 +337,7 @@ int Net::InitFromBuffer(const void *net_buffer)
     uint32_t cur_top_blob_size = 0;
 
     /* layer 0 is data input layer not need to generate top blob */
-    std::string blob_name = layers[0]->top(0);
-    blob_map[blob_name] = layers[0]->top_blob(blob_name);
+    blob_map[layers[0]->top(0)] = layers[0]->top_blob(layers[0]->top(0));
 
     cur_top_blob_size = layers[0]->top_blob(0)->channels() * layers[0]->top_blob(0)->width() * layers[0]->top_blob(0)->height() * sizeof(float);
     if (cur_top_blob_size >= max_top_blob_size)
@@ -356,26 +361,22 @@ int Net::InitFromBuffer(const void *net_buffer)
                 return -4;
             }
         }
-
+        //printf("[%d] generate top blob %s beg\n", i, layers[i]->name().c_str());
         layers[i]->GenerateTopBlobs();
+        //printf("[%d] generate top blob %s end\n", i, layers[i]->name().c_str());
 
-        cur_top_blob_size = 0;
-        for (int k = 0; k < layers[i]->top_blob_size(); k++)
-            cur_top_blob_size   += layers[i]->top_blob(k)->channels() * (layers[i]->top_blob(k)->width()+layers[i]->alignWidth) * (layers[i]->top_blob(k)->height()+layers[i]->alignHeight) * sizeof(float);
+        assert(1 == layers[i]->top_size());
 
+        cur_top_blob_size = layers[i]->top_blob(0)->channels() * (layers[i]->top_blob(0)->width()+layers[i]->alignWidth) * (layers[i]->top_blob(0)->height()+layers[i]->alignHeight) * sizeof(float);
         if (cur_top_blob_size > max_top_blob_size)
         {
             max_top_blob_size = cur_top_blob_size;
             strcpy(max_top_blob_name, layers[i]->name().c_str());
         }
 
-        for (int t = 0; t < layers[i]->top_size(); ++t)
-        {
-            std::string blob_name = layers[i]->top(t);
-            blob_map[blob_name] = layers[i]->top_blob(blob_name);
-        }
+        blob_map[layers[i]->top(0)] = layers[i]->top_blob(layers[i]->top(0));
     }
-    //printf("Top blobs create ok, max top blob (%s, %d)\n", max_top_blob_size, max_top_blob_name);
+    //printf("Top blobs create ok, max blob (%s, %d)\n", max_top_blob_name, max_top_blob_size);
     /******************** generate top blobs ok ********************/
 
     /************************** layer fuse*************************/
@@ -400,10 +401,12 @@ int Net::InitFromBuffer(const void *net_buffer)
                     for (int b = 0; b < layers[k]->bottom_size(); ++b)
                     {
                         if (layers[k]->bottom(b).compare(old_bottom) == 0)
-                            layers[k]->ReplaceBottomBlob(old_bottom, new_bottom, cur_layer->top_blob(0));
+                            layers[k]->ReplaceBottomBlob(old_bottom, cur_layer->top_blob(0));
                     }
                 }
-                //printf("Erasing layer %d %-40s\n", j, next_layer->name().c_str());
+
+                cur_layer->changeTopName(new_bottom, old_bottom);
+                //printf("Erasing layer %d %-40s %-40s\n", j, next_layer->name().c_str(), next_layer->type().c_str());
                 layers.erase(layers.begin() + j);
                 delete next_layer;
                 next_layer = layers[j];
@@ -465,17 +468,28 @@ int Net::InitFromBuffer(const void *net_buffer)
         for(auto consumer:layers[i]->consumers)
         {
             unsigned branchId;
-            if (0 == idx++) /* inherit branch id from cur layers for first consumer */
-                branchId = layers[i]->branchId;
-            else            /* new branch for other consumer */
+            if ((0 == strcmp(layers[i]->type().c_str(), "Input")))
             {
-                branchId = getFreeBranch();
-                assert(-1 != branchId);
+                if (1 == layer_map[consumer]->producetsNum)
+                    branchId = layers[i]->branchId;
+                else
+                    branchId = DUMY_BRANCHID; /* dumy branch no need memory */
+            }
+            else
+            {
+                if (0 == idx++) /* inherit branch id from cur layers for first consumer */
+                    branchId = layers[i]->branchId;
+                else            /* new branch for other consumer */
+                {
+                    branchId = getFreeBranch();
+                    assert(-1 != branchId);
+                }
             }
             layer_map[consumer]->inBranchIdVec[layers[i]->name()] = branchId;
             //printf("[%d] layer: %-50s consumer: %-50s branchId: %d\n", idx-1, layers[i]->name().c_str(), consumer.c_str(), branchId);
         }
     }
+    //printf("Branchid init ok\n");
     /**************** layer default branch id init ********************/
 
     /******************* Rebuild blob map *****************************/
@@ -505,31 +519,34 @@ int Net::InitFromBuffer(const void *net_buffer)
             for(auto consumer:layers[i]->consumers)
             {
                 unsigned branchId = layer_map[consumer]->inBranchIdVec[layers[i]->name()];
-                if(0 == i) /* input data branch id is 0 by default */
+                if (DUMY_BRANCHID != branchId)
                 {
-                    assert(NULL != pingpang[0][branchPingPang[0]]);
-                    layers[i]->outputVec[consumer] = pingpang[0][branchPingPang[0]];
-                }
-                else
-                {
-                    branchPingPang[branchId] = (branchPingPang[branchId] + 1)%2;
-                    assert(NULL != pingpang[branchId][branchPingPang[branchId]]);
-                    layers[i]->outputVec[consumer] = pingpang[branchId][branchPingPang[branchId]];
-                }
+                    if(0 == i) /* input data branch id is 0 by default */
+                    {
+                        assert(NULL != pingpang[0][branchPingPang[0]]);
+                        layers[i]->outputVec[consumer] = pingpang[0][branchPingPang[0]];
+                    }
+                    else
+                    {
+                        branchPingPang[branchId] = (branchPingPang[branchId] + 1)%2;
+                        assert(NULL != pingpang[branchId][branchPingPang[branchId]]);
+                        layers[i]->outputVec[consumer] = pingpang[branchId][branchPingPang[branchId]];
+                    }
 
-                if (branchId == layers[i]->branchId) /* inherit branch */
-                {
-                    /* update top blob data buffer pointer */
-                    ((Blob<float> *)layers[i]->_top_blobs[layers[i]->_top[0]])->setData(layers[i]->outputVec[consumer]);
-                    //printf(" setdata: %s %p ", layers[i]->_top[0].c_str(), layers[i]->outputVec[consumer]);
+                    if (branchId == layers[i]->branchId) /* inherit branch */
+                    {
+                        /* update top blob data buffer pointer */
+                        ((Blob<float> *)layers[i]->_top_blobs[layers[i]->_top[0]])->setData(layers[i]->outputVec[consumer]);
+                        //printf(" setdata: %s %p ", layers[i]->_top[0].c_str(), layers[i]->outputVec[consumer]);
+                    }
+                    else /* new branch, generate new top blob and update consumer bottom blob */
+                    {
+                        string newBlobName = layers[i]->GenerateNewTopBlobs(layers[i]->outputVec[consumer]);
+                        layer_map[consumer]->SetupBottomBlob((const Blob<float>*)layers[i]->_top_blobs[newBlobName], layers[i]->top(0));
+                        blob_map[newBlobName] = (const Blob<float>*)layers[i]->_top_blobs[newBlobName];
+                    }
+                    //printf(" [%d] %p", branchId, layers[i]->outputVec[consumer]);
                 }
-                else /* new branch, generate new top blob and update consumer bottom blob */
-                {
-                    string newBlobName = layers[i]->GenerateNewTopBlobs(layers[i]->outputVec[consumer]);
-                    layer_map[consumer]->SetupBottomBlob((const Blob<float>*)layers[i]->_top_blobs[newBlobName], layers[i]->top(0));
-                    blob_map[newBlobName] = (const Blob<float>*)layers[i]->_top_blobs[newBlobName];
-                }
-                //printf(" [%d] %p", branchId, layers[i]->outputVec[consumer]);
             }
         }
 

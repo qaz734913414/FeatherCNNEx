@@ -117,10 +117,10 @@ table PriorBoxParameter {
   flip:bool = true;
   clip:bool = false;
   variance:[float];
-  img_w:uint;
-  img_h:uint;
-  step_h:uint;
-  step_w:uint;
+  img_w:uint = 0;
+  img_h:uint = 0;
+  step_h:uint = 0;
+  step_w:uint = 0;
   offset:float = 0.5;
 }
 
@@ -300,6 +300,7 @@ table ReLUParameter {
 }
 
 table ReshapeParameter {
+  dims:uint;
   c:uint;
   h:uint;
   w:uint;

@@ -23,8 +23,8 @@ typedef void (*sgemm_tiny_scale_func_fp16)(int L, fix16_t *a, int lda, float *b,
 typedef void (*internalPackA_func)(int L, float* packA, float* a, int lda);
 
 const int mc = 1024; //do not modify this value, or sgemm fused with prelu channel info will be wrong
-const int kc = 256;
-const int nc = 256;
+const int kc = 0x7fffffff;
+const int nc = 64;
 
 void externalPackA_FP16(int M, int L, fix16_t* packA, float* a, int lda);
 void externalPackA8_FP16(int M, int L, short* packA, float* a, int lda);

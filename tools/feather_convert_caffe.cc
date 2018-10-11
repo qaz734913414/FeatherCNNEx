@@ -9,6 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <sstream>
+#include <map>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +32,8 @@
 #endif
 
 using namespace caffe;
+using namespace flatbuffers;
+
 using google::protobuf::io::FileInputStream;
 using google::protobuf::Message;
 
@@ -118,6 +121,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
         AES_init_ctx_iv(&ctx, key, iv);
         printf("Encrpty init ok\n");
     }
+    std::map<std::string, std::string> top_vec_map;
 
     std::string OutputLayerName;
     {
@@ -127,8 +131,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
         int gFlag = 1;
         size_t input_layer_idx = -1;
         flatbuffers::FlatBufferBuilder fbb(204800);
-        std::vector<flatbuffers::Offset<feather::LayerParameter>> layer_vec;
-        std::vector<flatbuffers::Offset<flatbuffers::String>> 	input_name_vec;
+        std::vector<Offset<feather::LayerParameter>> layer_vec;
+        std::vector<Offset<flatbuffers::String>> 	input_name_vec;
         std::vector<int64_t>      								input_dim_vec;
 
         size_t input_num = caffe_prototxt.input_size();
@@ -279,24 +283,28 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
 
             PRINTF("New Bottom:");
             /* create flat buffer for bottom & top names  */
-            std::vector<flatbuffers::Offset<flatbuffers::String>> bottom_fbstr_vec;
+            std::vector<Offset<flatbuffers::String>> bottom_fbstr_vec;
             for(int i = 0; i < bottom_vec.size(); ++i)
             {
                 bottom_fbstr_vec.push_back(fbb.CreateString(bottom_vec[i]));
                 PRINTF(" %s", bottom_vec[i].c_str());
             }
-            auto bottom_fbvec = fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(bottom_fbstr_vec);
+            auto bottom_fbvec = fbb.CreateVector<Offset<flatbuffers::String>>(bottom_fbstr_vec);
             PRINTF("\nNew Top:");
 
-            std::vector<flatbuffers::Offset<flatbuffers::String>> top_fbstr_vec;
+            std::vector<Offset<flatbuffers::String>> top_fbstr_vec;
+            std::string top_names;
             for(int i = 0; i < top_vec.size(); ++i)
             {
                 top_fbstr_vec.push_back(fbb.CreateString(top_vec[i]));
                 OutputLayerName = top_vec[i];
                 PRINTF(" %s", top_vec[i].c_str());
+
+                top_names += " " + top_vec[i];
             }
-            auto top_fbvec = fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(top_fbstr_vec);
+            auto top_fbvec = fbb.CreateVector<Offset<flatbuffers::String>>(top_fbstr_vec);
             PRINTF("\n");
+            top_vec_map[layer_name] = top_names;
 
             // First step, only 1x1 conv sgemm used fix16
             if (layer_type.compare("Convolution")==0)
@@ -406,7 +414,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             /* Blobs */
             auto caffe_model_layer = caffe_weight.layer(caffe_model_layer_map[layer_name]);
             PRINTF("Blob num (%s): %d, fractions: %d\n", layer_type.c_str(), caffe_model_layer.blobs_size(), fractions);
-            std::vector<flatbuffers::Offset<feather::BlobProto> > blob_vec;
+            std::vector<Offset<feather::BlobProto> > blob_vec;
             float scaleThre = .0f;
             for (int j = 0; j != caffe_model_layer.blobs_size(); ++j)
             {
@@ -502,9 +510,9 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     }
                 }
 
-                flatbuffers::Offset<flatbuffers::Vector<int8_t> > blob_data_fbvec_fix8;
-                flatbuffers::Offset<flatbuffers::Vector<fix16_t> > blob_data_fbvec_fix;
-                flatbuffers::Offset<flatbuffers::Vector<float> > blob_data_fbvec;
+                Offset<Vector<int8_t> > blob_data_fbvec_fix8;
+                Offset<Vector<fix16_t> > blob_data_fbvec_fix;
+                Offset<Vector<float> > blob_data_fbvec;
                 unsigned validSize = 0, realSize = 0;
                 if ((0 == j) && (0 != fractions) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
                 {
@@ -679,25 +687,27 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
 
                 blob_data_vec.clear();
             }
-            auto blobs_fbvec = fbb.CreateVector<flatbuffers::Offset<feather::BlobProto> >(blob_vec);
+            auto blobs_fbvec = fbb.CreateVector<Offset<feather::BlobProto> >(blob_vec);
             blob_vec.clear();
             /*--------------------------blob data & dim info add end-----------------------------------*/
 
             /*------------------------------------Params-----------------------------------------------*/
-            flatbuffers::Offset<feather::ConvolutionParameter> conv_param;
-            flatbuffers::Offset<feather::LRNParameter> lrn_param;
-            flatbuffers::Offset<feather::PoolingParameter> pooling_param;
-            flatbuffers::Offset<feather::BatchNormParameter> bn_param;
-            flatbuffers::Offset<feather::ScaleParameter> scale_param;
-            flatbuffers::Offset<feather::EltwiseParameter> eltwise_param;
-            flatbuffers::Offset<feather::InnerProductParameter> inner_product_param;
-            flatbuffers::Offset<feather::PReLUParameter> prelu_param;
-            flatbuffers::Offset<feather::DropoutParameter> dropout_param;
-            flatbuffers::Offset<feather::PriorBoxParameter> priorbox_param_fb;
-            flatbuffers::Offset<feather::PermuteParameter> permute_param_fb;
-            flatbuffers::Offset<feather::FlattenParameter> flatten_param_fb;
-            flatbuffers::Offset<feather::ReshapeParameter> reshape_param_fb;
-            flatbuffers::Offset<feather::DetectionOutputParameter> detectionoutput_param_fb;
+            Offset<feather::ConvolutionParameter> conv_param;
+            Offset<feather::LRNParameter> lrn_param;
+            Offset<feather::PoolingParameter> pooling_param;
+            Offset<feather::BatchNormParameter> bn_param;
+            Offset<feather::ScaleParameter> scale_param;
+            Offset<feather::EltwiseParameter> eltwise_param;
+            Offset<feather::InnerProductParameter> inner_product_param;
+            Offset<feather::PReLUParameter> prelu_param;
+            Offset<feather::DropoutParameter> dropout_param;
+            Offset<feather::PriorBoxParameter> priorbox_param_fb;
+            Offset<feather::PermuteParameter> permute_param_fb;
+            Offset<feather::FlattenParameter> flatten_param_fb;
+            Offset<feather::ReshapeParameter> reshape_param_fb;
+            Offset<feather::DetectionOutputParameter> detectionoutput_param_fb;
+            Offset<feather::ConcatParameter> concat_param_fb;
+			Offset<feather::SoftmaxParameter> softmax_param_fb;
 
             PRINTF("Layer param:\n");
             if((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0))
@@ -987,48 +997,37 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             }
             else if(layer_type.compare("PriorBox")==0)
             {
-                feather::PriorBoxParameterBuilder priorbox_param_builder(fbb);
+                Offset<Vector<float>> param_variances, param_min_size, param_max_size, param_ar_v;
                 auto prior_box_param = caffe_layer.prior_box_param();
-
-                int num_aspect_ratio = prior_box_param.aspect_ratio_size();
-                for (int j=0; j<prior_box_param.aspect_ratio_size(); j++)
-                {
-                    float ar = prior_box_param.aspect_ratio(j);
-                    if (fabs(ar - 1.) < 1e-6)
-                    {
-                        num_aspect_ratio--;
-                    }
-                }
 
                 std::vector<float> variances;
                 if (prior_box_param.variance_size() == 4)
                 {
-                    variances[0] = prior_box_param.variance(0);
-                    variances[1] = prior_box_param.variance(1);
-                    variances[2] = prior_box_param.variance(2);
-                    variances[3] = prior_box_param.variance(3);
+	                variances.push_back(prior_box_param.variance(0));
+	                variances.push_back(prior_box_param.variance(1));
+	                variances.push_back(prior_box_param.variance(2));
+	                variances.push_back(prior_box_param.variance(3));
+					printf("variance size 4: %f %f %f %f\n", variances[0], variances[1], variances[2], variances[3]);
                 }
                 else if (prior_box_param.variance_size() == 1)
                 {
-                    variances[0] = prior_box_param.variance(0);
-                    variances[1] = prior_box_param.variance(0);
-                    variances[2] = prior_box_param.variance(0);
-                    variances[3] = prior_box_param.variance(0);
+	                variances.push_back(prior_box_param.variance(0));
+	                variances.push_back(prior_box_param.variance(0));
+	                variances.push_back(prior_box_param.variance(0));
+	                variances.push_back(prior_box_param.variance(0));
                 }
                 else
                 {
-                    variances[0] = 0.1;
-                    variances[1] = 0.1;
-                    variances[2] = 0.1;
-                    variances[3] = 0.1;
+	                variances.push_back(0.1);
+	                variances.push_back(0.1);
+	                variances.push_back(0.1);
+	                variances.push_back(0.1);
                 }
 
-                priorbox_param_builder.add_variance(fbb.CreateVector<float>(variances));
+                param_variances = fbb.CreateVector<float>(variances);
 
                 int flip = prior_box_param.has_flip() ? prior_box_param.flip() : 1;
                 int clip = prior_box_param.has_clip() ? prior_box_param.clip() : 0;
-                priorbox_param_builder.add_flip(flip);
-                priorbox_param_builder.add_clip(clip);
 
                 int image_width = 0;
                 int image_height = 0;
@@ -1042,8 +1041,6 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     image_width = prior_box_param.img_w();
                     image_height = prior_box_param.img_h();
                 }
-                priorbox_param_builder.add_img_w(image_width);
-                priorbox_param_builder.add_img_h(image_height);
 
                 float step_width = 0;
                 float step_height = 0;
@@ -1057,41 +1054,51 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     step_width = prior_box_param.step_w();
                     step_height = prior_box_param.step_h();
                 }
-                priorbox_param_builder.add_step_w(step_width);
-                priorbox_param_builder.add_step_h(step_height);
 
                 std::vector<float> min_size;
                 for (int j=0; j<prior_box_param.min_size_size(); j++)
                 {
                     min_size.push_back(prior_box_param.min_size(j));
+                    printf("min_size: %f\n", min_size[j]);
                 }
-                priorbox_param_builder.add_min_size(fbb.CreateVector<float>(min_size));
+                param_min_size = fbb.CreateVector<float>(min_size);
 
                 std::vector<float> max_size;
                 for (int j=0; j<prior_box_param.max_size_size(); j++)
                 {
                     max_size.push_back(prior_box_param.max_size(j));
+                    printf("max_size: %f\n", max_size[j]);
                 }
-                priorbox_param_builder.add_max_size(fbb.CreateVector<float>(max_size));
+                param_max_size = fbb.CreateVector<float>(max_size);
 
                 std::vector<float> ar_v;
                 for (int j=0; j<prior_box_param.aspect_ratio_size(); j++)
                 {
                     float ar = prior_box_param.aspect_ratio(j);
                     if (fabs(ar - 1.) < 1e-6)
-                    {
                         continue;
-                    }
                     ar_v.push_back(ar);
                 }
-                priorbox_param_builder.add_aspect_ratio(fbb.CreateVector<float>(ar_v));
-                priorbox_param_builder.add_offset(prior_box_param.offset());
+                param_ar_v = fbb.CreateVector<float>(ar_v);
+                float offset = prior_box_param.offset();
+
+                feather::PriorBoxParameterBuilder priorbox_param_builder(fbb);
+                priorbox_param_builder.add_variance(param_variances);
+				priorbox_param_builder.add_min_size(param_min_size);
+                priorbox_param_builder.add_max_size(param_max_size);
+                priorbox_param_builder.add_aspect_ratio(param_ar_v);
+                priorbox_param_builder.add_step_w(step_width);
+                priorbox_param_builder.add_step_h(step_height);
+                priorbox_param_builder.add_img_w(image_width);
+                priorbox_param_builder.add_img_h(image_height);
+                priorbox_param_builder.add_flip(flip);
+                priorbox_param_builder.add_clip(clip);
+                priorbox_param_builder.add_offset(offset);
 
                 priorbox_param_fb = priorbox_param_builder.Finish();
             }
             else if (layer_type.compare("Permute")==0)
             {
-                feather::PermuteParameterBuilder permute_param_builder(fbb);
                 auto permute_param = caffe_layer.permute_param();
                 int order_size = permute_param.order_size();
                 int order_type = 0;
@@ -1147,6 +1154,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                         }
                     }
                 }
+                feather::PermuteParameterBuilder permute_param_builder(fbb);
                 permute_param_builder.add_order(order_type);
                 permute_param_fb = permute_param_builder.Finish();
             }
@@ -1182,27 +1190,63 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 }
                 else // bs.dim_size() == 4
                 {
-                    reshape_param_builder.add_h(bs.dim(1));
-                    reshape_param_builder.add_c(bs.dim(2));
-                    reshape_param_builder.add_w(bs.dim(3));
+                    reshape_param_builder.add_w(bs.dim(1));
+                    reshape_param_builder.add_h(bs.dim(2));
+                    reshape_param_builder.add_c(bs.dim(3));
                 }
-
+                reshape_param_builder.add_dims(bs.dim_size());
                 reshape_param_fb = reshape_param_builder.Finish();
             }
             else if (layer_type.compare("DetectionOutput")==0)
             {
                 feather::DetectionOutputParameterBuilder detectionoutput_param_builder(fbb);
                 auto detection_output_param = caffe_layer.detection_output_param();
-                const caffe::NonMaximumSuppressionParameter& nms_param = detection_output_param.nms_param();
 
-                detectionoutput_param_builder.add_num_classes(detection_output_param.num_classes());
-                detectionoutput_param_builder.add_nms_threshold(nms_param.nms_threshold());
-                detectionoutput_param_builder.add_top_k(nms_param.top_k());
-                detectionoutput_param_builder.add_keep_top_k(detection_output_param.keep_top_k());
-                detectionoutput_param_builder.add_confidence_threshold(detection_output_param.confidence_threshold());
+                if(detection_output_param.has_num_classes())
+                    detectionoutput_param_builder.add_num_classes(detection_output_param.num_classes());
+                if(detection_output_param.has_nms_param())
+                {
+                    const caffe::NonMaximumSuppressionParameter& nms_param = detection_output_param.nms_param();
+                    if(nms_param.has_nms_threshold())
+                        detectionoutput_param_builder.add_nms_threshold(nms_param.nms_threshold());
+                    if(nms_param.has_top_k())
+                        detectionoutput_param_builder.add_top_k(nms_param.top_k());
+                }
+                if(detection_output_param.has_keep_top_k())
+                    detectionoutput_param_builder.add_keep_top_k(detection_output_param.keep_top_k());
+                if(detection_output_param.has_confidence_threshold())
+                    detectionoutput_param_builder.add_confidence_threshold(detection_output_param.confidence_threshold());
+                if(detection_output_param.has_code_type())
+                    detectionoutput_param_builder.add_code_type((feather::DetectionOutputParameter_::CodeType)detection_output_param.code_type());
 
                 detectionoutput_param_fb = detectionoutput_param_builder.Finish();
             }
+            else if (layer_type.compare("Concat")==0)
+            {
+                feather::ConcatParameterBuilder concat_param_builder(fbb);
+                auto concat_param = caffe_layer.concat_param();
+                if (concat_param.has_axis())
+                {
+                    int axis = concat_param.axis();
+                    concat_param_builder.add_axis(axis);
+                }
+                if (concat_param.has_concat_dim())
+                {
+                    uint32_t concat_dim = concat_param.concat_dim();
+                    concat_param_builder.add_concat_dim(concat_dim);
+                }
+                concat_param_fb = concat_param_builder.Finish();
+            }
+			else if (layer_type.compare("Softmax")==0)
+			{
+                int axis = 1;
+                feather::SoftmaxParameterBuilder softmax_param_builder(fbb);
+                auto softmax_param = caffe_layer.softmax_param();
+                if (softmax_param.has_axis())
+                    axis = softmax_param.axis();
+                softmax_param_builder.add_axis(axis);
+                softmax_param_fb = softmax_param_builder.Finish();
+			}
             else if((layer_type.compare("BatchNorm")==0) ||
                     (layer_type.compare("Softmax")==0)   ||
                     (layer_type.compare("ReLU")==0)      ||
@@ -1211,7 +1255,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             }
 
             auto layer_name_fbb = fbb.CreateString(layer_name);
-            flatbuffers::Offset<flatbuffers::String> layer_type_fbb;
+            Offset<flatbuffers::String> layer_type_fbb;
             if((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0))
                 layer_type_fbb = fbb.CreateString("Convolution");
             else
@@ -1248,12 +1292,26 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 layer_builder.add_reshape_param(reshape_param_fb);
             else if (layer_type.compare("DetectionOutput")==0)
                 layer_builder.add_detection_output_param(detectionoutput_param_fb);
+            else if (layer_type.compare("Concat")==0)
+                layer_builder.add_concat_param(concat_param_fb);
+            else if (layer_type.compare("Softmax")==0)
+                layer_builder.add_softmax_param(softmax_param_fb);
             layer_vec.push_back(layer_builder.Finish());
         }
 
         printf("\nTotal Conv: %02d, Sgemm Conv: %02d, DW Conv: %02d, winograd Conv: %02d\n", totalConvCnt, sgemmConvCnt, dwConvCnt, totalConvCnt - sgemmConvCnt - dwConvCnt);
 
-        auto layer_fbvec = fbb.CreateVector<flatbuffers::Offset<feather::LayerParameter>>(layer_vec);
+        FILE *layerBlobTxt = NULL;
+        layerBlobTxt = fopen((output_name+"_BlobNameMap.txt").c_str(), "wb");
+        for (int i = 0; i != caffe_prototxt.layer_size(); ++i)
+        {
+            auto caffe_layer = caffe_prototxt.layer(i);
+            std::string layer_name = caffe_layer.name();
+            fprintf(layerBlobTxt, "[%s] -%s\n", layer_name.c_str(), top_vec_map[layer_name].c_str());
+        }
+        fclose(layerBlobTxt);
+
+        auto layer_fbvec = fbb.CreateVector<Offset<feather::LayerParameter>>(layer_vec);
         auto name_fbb = fbb.CreateString(caffe_prototxt.name());
         feather::NetParameterBuilder net_builder(fbb);
         net_builder.add_layer(layer_fbvec);

@@ -25,12 +25,21 @@ public:
     ConcatLayer(const LayerParameter* layer_param, const RuntimeParameter<float>* rt_param)
         : Layer(layer_param, rt_param)
     {
-
+        const ConcatParameter *concat = layer_param->concat_param();
+        axis = concat->axis();
+        concat_dim = concat->concat_dim();
+        _fusible = true;
+#ifdef PRT_PARAM
+        printf("axis: %d, concat_dim: 0x%x\n", axis, concat_dim);
+#endif
     }
     int Forward();
     int Init();
     int GenerateTopBlobs();
+    int Fuse(Layer *next_layer);
 private:
     std::vector<float*> _top_ptr_table;
+    int axis;
+    uint32_t concat_dim = 0xffffffff;
 };
 };

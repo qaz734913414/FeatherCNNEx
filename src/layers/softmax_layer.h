@@ -25,14 +25,22 @@ public:
     SoftmaxLayer(const LayerParameter* layer_param, const RuntimeParameter<float>* rt_param)
         : Layer(layer_param, rt_param)
     {
+        const SoftmaxParameter *softmax_param = layer_param->softmax_param();
+        axis = softmax_param->axis();
+        _fusible = true;
+        max = NULL;
+        //printf("axis: %d\n", axis);
     }
+    int Fuse(Layer *next_layer);
     int Forward();
     int Init();
 private:
-    int NE_softmax(float *input, unsigned c, unsigned h, unsigned w, float *output, unsigned num_threads);
+    int NE_softmax_axis_1(float *input, unsigned c, unsigned h, unsigned w, float *output, unsigned num_threads);
+    int NE_softmax_axis_2(float *input, unsigned c, unsigned h, unsigned w, float *output, unsigned num_threads);
     unsigned c;
     unsigned h;
     unsigned w;
     float *max;
+    int axis;
 };
 };
