@@ -1250,7 +1250,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             else if((layer_type.compare("BatchNorm")==0) ||
                     (layer_type.compare("Softmax")==0)   ||
                     (layer_type.compare("ReLU")==0)      ||
-                    (layer_type.compare("PReLU")==0))
+                    (layer_type.compare("PReLU")==0)     ||
+                    (layer_type.compare("Sigmoid")==0))
             {
             }
 
@@ -1296,6 +1297,13 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 layer_builder.add_concat_param(concat_param_fb);
             else if (layer_type.compare("Softmax")==0)
                 layer_builder.add_softmax_param(softmax_param_fb);
+            else if((layer_type.compare("BatchNorm")==0) ||
+                    (layer_type.compare("Softmax")==0)   ||
+                    (layer_type.compare("ReLU")==0)      ||
+                    (layer_type.compare("PReLU")==0)     ||
+                    (layer_type.compare("Sigmoid")==0))
+            {
+            }
             layer_vec.push_back(layer_builder.Finish());
         }
 

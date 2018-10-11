@@ -42,6 +42,7 @@
 #include "layers/priorbox_layer.h"
 #include "layers/reshape_layer.h"
 #include "layers/detectionoutput_layer.h"
+#include "layers/sigmoid_layer.h"
 #include "common.h"
 #include <stdio.h>
 
@@ -176,6 +177,11 @@ Layer *GetDetectionOutputLayer(const LayerParameter *layer_param, const RuntimeP
 {
     return (Layer *)new DetectionOutputLayer(layer_param, rt_param);
 }
+Layer *GetSigmoidLayer(const LayerParameter *layer_param, const RuntimeParameter<float> * rt_param)
+{
+    return (Layer *)new SigmoidLayer(layer_param, rt_param);
+}
+
 void register_layer_creators()
 {
     REGISTER_LAYER_CREATOR(Input, GetInputLayer);
@@ -197,5 +203,6 @@ void register_layer_creators()
     REGISTER_LAYER_CREATOR(PriorBox, GetPriorBoxLayer);
     REGISTER_LAYER_CREATOR(Reshape, GetReshapeLayer);
     REGISTER_LAYER_CREATOR(DetectionOutput, GetDetectionOutputLayer);
+    REGISTER_LAYER_CREATOR(Sigmoid, GetSigmoidLayer);
 }
 };
