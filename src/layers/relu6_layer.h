@@ -31,8 +31,20 @@ public:
 
     int Forward()
     {
-        for (size_t i = 0; i < size; ++i)
-            output[i] = std::max(std::min(input[i], 0.0f), 6.0f);
+        size_t i = 0;
+        if (size >= 4)
+        {
+            for (; i < size - 4; i += 4)
+            {
+                float32x4_t vinput = vld1q_f32(input + i);
+                vinput = vmaxq_f32(vinput, zero);
+                vinput = vminq_f32(vinput, six);
+                vst1q_f32(output + i, vinput);
+            }
+        }
+
+        for (; i < size; ++i)
+            output[i] = std::min(std::max(input[i], 0.0f), 6.0f);
 
         Layer::Forward();
         return 0;
@@ -46,10 +58,21 @@ public:
         input  = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
         size = c * w * h;
+
+        zero[0] = 0.0f;
+        zero[1] = 0.0f;
+        zero[2] = 0.0f;
+        zero[3] = 0.0f;
+        six[0]	= 6.0f;
+        six[1]	= 6.0f;
+        six[2]	= 6.0f;
+        six[3]	= 6.0f;
+
         return 0;
     }
 
 protected:
+    float32x4_t zero, six;
     int c, h, w, size;
     float *input;
     float *output;
