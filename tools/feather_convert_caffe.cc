@@ -1250,6 +1250,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             else if((layer_type.compare("BatchNorm")==0) ||
                     (layer_type.compare("Softmax")==0)   ||
                     (layer_type.compare("ReLU")==0)      ||
+                    (layer_type.compare("ReLU6")==0)     ||
                     (layer_type.compare("PReLU")==0)     ||
                     (layer_type.compare("Sigmoid")==0))
             {
@@ -1300,6 +1301,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             else if((layer_type.compare("BatchNorm")==0) ||
                     (layer_type.compare("Softmax")==0)   ||
                     (layer_type.compare("ReLU")==0)      ||
+                    (layer_type.compare("ReLU6")==0)     ||
                     (layer_type.compare("PReLU")==0)     ||
                     (layer_type.compare("Sigmoid")==0))
             {
