@@ -27,6 +27,7 @@
 #include "layers/batchnorm_layer.h"
 #include "layers/lrn_layer.h"
 #include "layers/relu_layer.h"
+#include "layers/relu6_layer.h"
 #include "layers/prelu_layer.h"
 #include "layers/scale_layer.h"
 #include "layers/slice_layer.h"
@@ -128,6 +129,10 @@ Layer *GetReluLayer(const LayerParameter *layer_param, const RuntimeParameter<fl
 {
     return (Layer *)new ReluLayer(layer_param, rt_param);
 }
+Layer *GetRelu6Layer(const LayerParameter *layer_param, const RuntimeParameter<float> * rt_param)
+{
+    return (Layer *)new Relu6Layer(layer_param, rt_param);
+}
 Layer *GetPReluLayer(const LayerParameter *layer_param, const RuntimeParameter<float> * rt_param)
 {
     return (Layer *)new PReluLayer(layer_param, rt_param);
@@ -191,6 +196,7 @@ void register_layer_creators()
     REGISTER_LAYER_CREATOR(Concat, GetConcatLayer);
     REGISTER_LAYER_CREATOR(Dropout, GetDropoutLayer);
     REGISTER_LAYER_CREATOR(ReLU, GetReluLayer);
+    REGISTER_LAYER_CREATOR(ReLU6, GetRelu6Layer);
     REGISTER_LAYER_CREATOR(PReLU, GetPReluLayer);
     REGISTER_LAYER_CREATOR(Scale, GetScaleLayer);
     REGISTER_LAYER_CREATOR(Slice, GetSliceLayer);
