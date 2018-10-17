@@ -1263,6 +1263,7 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
 #endif
     {
         const float32x4_t vZero = vdupq_n_f32(0.f);
+        const float32x4_t vSix	= vdupq_n_f32(6.0f);
 
         for (int j = 0; j < nColBlocks; ++j)
         {
@@ -1413,6 +1414,34 @@ static void winogradOutputTransformF63(float *output, int outputh, int outputw, 
                         r6 = vmulq_f32(r5, r2);
                         r5 = vbslq_f32(r3, r6, r5);
                     }
+                    else if ((BiasReLU6 == outType) || (ReLU6 == outType))
+                    {
+                        l0 = vmaxq_f32(l0, vZero);
+                        l1 = vmaxq_f32(l1, vZero);
+                        l2 = vmaxq_f32(l2, vZero);
+                        l3 = vmaxq_f32(l3, vZero);
+                        l4 = vmaxq_f32(l4, vZero);
+                        l5 = vmaxq_f32(l5, vZero);
+                        l6 = vmaxq_f32(l6, vZero);
+                        l7 = vmaxq_f32(l7, vZero);
+                        r0 = vmaxq_f32(r0, vZero);
+                        r1 = vmaxq_f32(r1, vZero);
+                        r4 = vmaxq_f32(r4, vZero);
+                        r5 = vmaxq_f32(r5, vZero);
+
+                        l0 = vminq_f32(l0, vSix);
+                        l1 = vminq_f32(l1, vSix);
+                        l2 = vminq_f32(l2, vSix);
+                        l3 = vminq_f32(l3, vSix);
+                        l4 = vminq_f32(l4, vSix);
+                        l5 = vminq_f32(l5, vSix);
+                        l6 = vminq_f32(l6, vSix);
+                        l7 = vminq_f32(l7, vSix);
+                        r0 = vminq_f32(r0, vSix);
+                        r1 = vminq_f32(r1, vSix);
+                        r4 = vminq_f32(r4, vSix);
+                        r5 = vminq_f32(r5, vSix);
+                    }
                     else
                     {
                         l0 = vmaxq_f32(l0, vZero);
@@ -1552,6 +1581,7 @@ void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float 
         winogradOutputTransformF63<false, false>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads, preluData, sharedPrelu, outType);
         break;
     case ReLU:
+    case ReLU6:
     case PReLU:
         winogradOutputTransformF63<true, false>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads, preluData, sharedPrelu, outType);
         break;
@@ -1559,6 +1589,7 @@ void winogradNonFusedTransform_inner(float *output, int ldout, float *WT, float 
         winogradOutputTransformF63<false, true>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads, preluData, sharedPrelu, outType);
         break;
     case BiasReLU:
+    case BiasReLU6:
     case BiasPReLU:
         winogradOutputTransformF63<true, true>(output, inputh-2, inputw-2,ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads, preluData, sharedPrelu, outType);
         break;

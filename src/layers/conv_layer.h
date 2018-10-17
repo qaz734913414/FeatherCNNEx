@@ -48,6 +48,14 @@ public:
         int8scaleW = conv_param->int8scaleW();//FLOAT2FIX(fix16_t, FRACTION, conv_param->int8scaleW());
         int8scaleIn = conv_param->int8scaleIn();
         int8scaleOut = conv_param->int8scaleOut();
+        /*
+        enum TFPaddingMethod : int {
+          SAME = 0, //like caffe but sometimes use pad [0, 0, 1, 1]
+          VALID = 1,//no padding
+        }
+        */
+        tf_pad = (0 == conv_param->tf_pad())?true:false;
+
         if (0 == fractions)
         {
             kernel_data = this->_weight_blobs[0]->data();
@@ -82,8 +90,28 @@ public:
             stride_width = 1;
             stride_height = 1;
         }
-        output_width = (input_width + padding_left + padding_right - kernel_width) / stride_width + 1;
-        output_height = (input_height + padding_top + padding_bottom - kernel_height) / stride_height + 1;
+
+        if (tf_pad) /* TF SAME */
+        {
+            output_width  = ceil((float)input_width / (float)stride_width);
+            output_height = ceil((float)input_height / (float)stride_height);
+
+            int pad_all_height = (output_height - 1) * stride_height + kernel_height - input_height;
+            padding_top = int(pad_all_height / 2.0);
+            padding_bottom = pad_all_height - padding_top;
+
+            int pad_all_width = (output_width - 1) * stride_width + kernel_width - input_width;
+            padding_left = int(pad_all_width / 2.0);
+            padding_right = pad_all_width - padding_left;
+            pad_only_bottom = padding_top == 0?true:false;
+            pad_only_right = padding_left == 0?true:false;
+            printf("conv pad: [%d %d %d %d]\n", padding_left, padding_right, padding_top, padding_bottom);
+        }
+        else
+        {
+            output_width = (input_width + padding_left + padding_right - kernel_width) / stride_width + 1;
+            output_height = (input_height + padding_top + padding_bottom - kernel_height) / stride_height + 1;
+        }
 
         _top_blobs[_top[0]] = new Blob<float>(1, output_channels, output_height, output_width);
         _top_blobs[_top[0]]->_name = "Top";
@@ -118,7 +146,9 @@ protected:
     float int8scaleIn;
     float int8scaleOut;
     bool bias_term;
-
+    bool tf_pad;
+    bool pad_only_bottom = false;
+    bool pad_only_right = false;
     float *kernel_data;
     short *kernel_data_fix;
     int8_t  *kernel_data_fix8;

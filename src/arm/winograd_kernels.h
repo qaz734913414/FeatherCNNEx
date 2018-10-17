@@ -19,7 +19,7 @@
 
 enum WinogradOutType
 {
-    None, ReLU, PReLU, Bias, BiasReLU, BiasPReLU
+    None, ReLU, PReLU, Bias, BiasReLU, BiasPReLU, ReLU6, BiasReLU6
 };
 
 void transformKernel(float* UT, float* kernel, int inChannels, int outChannels, float *ST);

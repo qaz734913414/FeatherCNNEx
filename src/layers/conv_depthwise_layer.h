@@ -70,9 +70,9 @@ public:
         {
             if (useDirect && ((1 == stride_width && 1 == stride_height && 3 == kernel_width && 3 == kernel_height) ||
                               (2 == stride_width && 2 == stride_height && 3 == kernel_width && 3 == kernel_height)))
-                makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, 16, .0f, num_threads);
+                makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 16, .0f, num_threads);
             else
-                pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
+                makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 1, .0f, num_threads);
         }
 
         if (0 == this->fractions)

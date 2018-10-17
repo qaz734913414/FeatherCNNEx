@@ -719,6 +719,13 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 feather::ConvolutionParameterBuilder conv_param_builder(fbb);
                 PRINTF("+ bias term %d\n", caffe_conv_param.bias_term());
                 conv_param_builder.add_bias_term(caffe_conv_param.bias_term());
+
+                if(caffe_conv_param.has_tf_pad())
+                {
+                    conv_param_builder.add_tf_pad((feather::ConvolutionParameter_::TFPaddingMethod)caffe_conv_param.tf_pad());
+                    printf("TF pad: %d\n", (feather::ConvolutionParameter_::TFPaddingMethod)caffe_conv_param.tf_pad());
+                }
+
                 if(caffe_conv_param.kernel_size_size() == 1)
                 {
                     k_w = k_h = caffe_conv_param.kernel_size(0);

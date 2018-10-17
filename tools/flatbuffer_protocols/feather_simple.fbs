@@ -1,3 +1,10 @@
+namespace feather.ConvolutionParameter_;
+
+enum TFPaddingMethod : int {
+  SAME = 0, //like caffe but sometimes use pad [0, 0, 1, 1]
+  VALID = 1,//no padding
+}
+
 namespace feather.EltwiseParameter_;
 
 enum EltwiseOp : int {
@@ -154,6 +161,7 @@ table BiasParameter {
 table ConvolutionParameter {
   num_output:uint;
   bias_term:bool;
+  tf_pad:feather.ConvolutionParameter_.TFPaddingMethod = VALID;
   pad:[uint];
   kernel_size:[uint];
   stride:[uint];

@@ -23,6 +23,7 @@ public:
         _fusible = true;
         fuse_prelu = false;
         fuse_relu = false;
+        fuse_relu6 = false;
         fusedWeightBlobId = 0;
     }
 
@@ -42,6 +43,11 @@ public:
         else if(next_layer->type().compare("ReLU") == 0)
         {
             fuse_relu = false;
+            return 0;
+        }
+        else if(next_layer->type().compare("ReLU6") == 0)
+        {
+            fuse_relu6 = false;
             return 0;
         }
         else
@@ -77,6 +83,33 @@ public:
                 else
                     outPtr[i] = inPtr[i];
             }
+        }
+    }
+
+    void relu6_padchannel(float *input, float *output, unsigned num_threads)
+    {
+        int size = output_height*output_width;
+        int inSize = size + padOutChannel;
+        float32x4_t zero = vdupq_n_f32(0.f);
+        float32x4_t six = vdupq_n_f32(6.0f);
+
+        #pragma omp parallel for num_threads(num_threads)
+        for (int q=0; q<output_channels; q++)
+        {
+            const float* inPtr = input + q*inSize;
+            float* outPtr = output + q*size;
+            int i = 0;
+#ifdef __ARM_NEON
+            for (; i < size - 4; i += 4)
+            {
+                float32x4_t vinput = vld1q_f32(inPtr + i);
+                vinput = vmaxq_f32(vinput, zero);
+                vinput = vminq_f32(vinput, six);
+                vst1q_f32(outPtr + i, vinput);
+            }
+#endif
+            for (; i<size; i++)
+                outPtr[i] = std::min(std::max(inPtr[i], 0.0f), 6.0f);
         }
     }
 
@@ -128,9 +161,9 @@ public:
     {
         if (kernel_width == 3 && kernel_height == 3 && stride_height == 1 && stride_width == 1)
         {
-            if (0 != (padding_left + padding_top))
+            if (0 != (padding_left + padding_right + padding_top + padding_bottom))
             {
-                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_top, 16, .0f, num_threads);
+                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 16, .0f, num_threads);
             }
             else
             {
@@ -147,14 +180,16 @@ public:
                 prelu_padchannel(align_output, output, num_threads);
             else if (fuse_relu)
                 relu_padchannel(align_output, output, num_threads);
+            else if (fuse_relu6)
+                relu6_padchannel(align_output, output, num_threads);
             else if (padOutChannel)
                 padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
         else if (kernel_width == 5 && kernel_height == 5)
         {
-            if (0 != (padding_left + padding_top))
+            if (0 != (padding_left + padding_right + padding_top + padding_bottom))
             {
-                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_top, 16, .0f, num_threads);
+                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 16, .0f, num_threads);
             }
             else
             {
@@ -176,14 +211,16 @@ public:
                 prelu_padchannel(align_output, output, num_threads);
             else if (fuse_relu)
                 relu_padchannel(align_output, output, num_threads);
+            else if (fuse_relu6)
+                relu6_padchannel(align_output, output, num_threads);
             else if (padOutChannel)
                 padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
         else if (kernel_width == 7 && kernel_height == 7)
         {
-            if (0 != (padding_left + padding_top))
+            if (0 != (padding_left + padding_right + padding_top + padding_bottom))
             {
-                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_top, 16, .0f, num_threads);
+                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 16, .0f, num_threads);
             }
             else
             {
@@ -205,14 +242,16 @@ public:
                 prelu_padchannel(align_output, output, num_threads);
             else if (fuse_relu)
                 relu_padchannel(align_output, output, num_threads);
+            else if (fuse_relu6)
+                relu6_padchannel(align_output, output, num_threads);
             else if (padOutChannel)
                 padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
         else if (kernel_width == 3 && kernel_height == 3 && stride_height == 2 && stride_width == 2)
         {
-            if (0 != (padding_left + padding_top))
+            if (0 != (padding_left + padding_right + padding_top + padding_bottom))
             {
-                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_top, 16, .0f, num_threads);
+                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 16, .0f, num_threads);
             }
             else
             {
@@ -229,14 +268,16 @@ public:
                 prelu_padchannel(align_output, output, num_threads);
             else if (fuse_relu)
                 relu_padchannel(align_output, output, num_threads);
+            else if (fuse_relu6)
+                relu6_padchannel(align_output, output, num_threads);
             else if (padOutChannel)
                 padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
         else if (kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1)
         {
-            if (0 != (padding_left + padding_top))
+            if (0 != (padding_left + padding_right + padding_top + padding_bottom))
             {
-                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_top, 16, .0f, num_threads);
+                makeborder(align_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 16, .0f, num_threads);
             }
             else
             {
@@ -253,6 +294,8 @@ public:
                 prelu_padchannel(align_output, output, num_threads);
             else if (fuse_relu)
                 relu_padchannel(align_output, output, num_threads);
+            else if (fuse_relu6)
+                relu6_padchannel(align_output, output, num_threads);
             else if (padOutChannel)
                 padChannelBufferInv(output, align_output, output_height*output_width, padOutChannel, output_channels, num_threads);
         }
@@ -273,7 +316,7 @@ public:
     {
         padInputSize  = alignSize((input_height+padding_top+padding_bottom)*(input_width+padding_left+padding_right), 16) - (input_height+padding_top+padding_bottom)*(input_width+padding_left+padding_right);
         padOutChannel = alignSize(output_height*output_width, 16) - output_height*output_width;
-        if (0 != (padding_top + padding_left) || 0 != padInputSize)
+        if (0 != (padding_left + padding_right + padding_top + padding_bottom) || 0 != padInputSize)
             MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&align_input, sizeof(float) * input_channels * alignSize((input_height+padding_top+padding_bottom)*(input_width+padding_left+padding_right),   16)));
 
         if (0 != padOutChannel)
@@ -287,6 +330,7 @@ private:
     unsigned fusedWeightBlobId;
     bool fuse_prelu;
     bool fuse_relu;
+    bool fuse_relu6;
     unsigned padOutChannel;
     unsigned padInputSize;
     float* align_input;

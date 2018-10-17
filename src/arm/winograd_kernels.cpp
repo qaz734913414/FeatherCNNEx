@@ -964,6 +964,67 @@ static void winogradOutputTransformBiasReLU(float* output, int ldout, float* WT,
     }
 }
 
+static void winogradOutputTransformBiasReLU6(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, float *biasArr, int num_threads)
+{
+    int nBlocks = nRowBlocks * nColBlocks;
+    const float32x2_t vZero2 = vdup_n_f32(0.f);
+    const float32x2_t vSix = vdup_n_f32(6.0f);
+
+    #pragma omp parallel for num_threads(num_threads) schedule(static)
+    for(int oc = 0; oc < outChannels; ++oc)
+    {
+        float32x2_t vBias = vdup_n_f32(biasArr[oc]);
+        const int offset = nRowBlocks * nColBlocks * 4 * oc;
+        float *wp[4];
+        wp[0] = WT + offset;
+        wp[1] = wp[0] + outChannels * nRowBlocks * nColBlocks * 4;
+        wp[2] = wp[1] + outChannels * nRowBlocks * nColBlocks * 4;
+        wp[3] = wp[2] + outChannels * nRowBlocks * nColBlocks * 4;
+
+        float32x4_t s0, s1, s2, s3;
+        float32x2_t o0, o1;
+        float32x2_t d0, d1, d2, d3;
+
+        for(int j = 0; j < nColBlocks; ++j)
+        {
+            float* outRow0 = output  + oc * 4 * nBlocks + j * ldout * 2;
+            float* outRow1 = outRow0 + ldout;
+            for(int i = 0; i < nRowBlocks; ++i)
+            {
+                s0 = vld1q_f32(wp[0]);
+                wp[0] += 4;
+                s1 = vld1q_f32(wp[1]);
+                wp[1] += 4;
+                s2 = vld1q_f32(wp[2]);
+                wp[2] += 4;
+                s3 = vld1q_f32(wp[3]);
+                wp[3] += 4;
+
+                s0 = s0 + s1 + s2;
+                s1 = s1 - s2 + s3;
+                float32x4x2_t rows = vtrnq_f32(s0, s1);
+                d0 = vget_low_f32(rows.val[0]);
+                d1 = vget_low_f32(rows.val[1]);
+                d2 = vget_high_f32(rows.val[0]);
+                d3 = vget_high_f32(rows.val[1]);
+                o0 = d0 + d1 + d2 + vBias;
+                o1 = d1 - d2 + d3 + vBias;
+
+                o0 = vmax_f32(o0, vZero2);
+                o1 = vmax_f32(o1, vZero2);
+
+                o0 = vmin_f32(o0, vSix);
+                o1 = vmin_f32(o1, vSix);
+
+                vst1_f32(outRow0, o0);
+                vst1_f32(outRow1, o1);
+                outRow0 += 2;
+                outRow1 += 2;
+            }
+        }
+    }
+}
+
 static void winogradOutputTransformReLU(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, int num_threads)
 {
     int nBlocks = nRowBlocks * nColBlocks;
@@ -1020,6 +1081,66 @@ static void winogradOutputTransformReLU(float* output, int ldout, float* WT, int
     }
 }
 
+static void winogradOutputTransformReLU6(float* output, int ldout, float* WT, int outChannels, int nRowBlocks, int nColBlocks, int num_threads)
+{
+    int nBlocks = nRowBlocks * nColBlocks;
+    const float32x2_t vZero2 = vdup_n_f32(0.f);
+    const float32x2_t vSix = vdup_n_f32(6.0f);
+
+    #pragma omp parallel for num_threads(num_threads) schedule(static)
+    for(int oc = 0; oc < outChannels; ++oc)
+    {
+        const int offset = nRowBlocks * nColBlocks * 4 * oc;
+        float *wp[4];
+        wp[0] = WT + offset;
+        wp[1] = wp[0] + outChannels * nRowBlocks * nColBlocks * 4;
+        wp[2] = wp[1] + outChannels * nRowBlocks * nColBlocks * 4;
+        wp[3] = wp[2] + outChannels * nRowBlocks * nColBlocks * 4;
+
+        float32x4_t s0, s1, s2, s3;
+        float32x2_t o0, o1;
+        float32x2_t d0, d1, d2, d3;
+
+        for(int j = 0; j < nColBlocks; ++j)
+        {
+            float* outRow0 = output  + oc * 4 * nBlocks + j * ldout * 2;
+            float* outRow1 = outRow0 + ldout;
+            for(int i = 0; i < nRowBlocks; ++i)
+            {
+                s0 = vld1q_f32(wp[0]);
+                wp[0] += 4;
+                s1 = vld1q_f32(wp[1]);
+                wp[1] += 4;
+                s2 = vld1q_f32(wp[2]);
+                wp[2] += 4;
+                s3 = vld1q_f32(wp[3]);
+                wp[3] += 4;
+
+                s0 = s0 + s1 + s2;
+                s1 = s1 - s2 + s3;
+                float32x4x2_t rows = vtrnq_f32(s0, s1);
+                d0 = vget_low_f32(rows.val[0]);
+                d1 = vget_low_f32(rows.val[1]);
+                d2 = vget_high_f32(rows.val[0]);
+                d3 = vget_high_f32(rows.val[1]);
+                o0 = d0 + d1 + d2;
+                o1 = d1 - d2 + d3;
+
+                o0 = vmax_f32(o0, vZero2);
+                o1 = vmax_f32(o1, vZero2);
+
+                o0 = vmin_f32(o0, vSix);
+                o1 = vmin_f32(o1, vSix);
+
+                vst1_f32(outRow0, o0);
+                vst1_f32(outRow1, o1);
+                outRow0 += 2;
+                outRow1 += 2;
+            }
+        }
+    }
+}
+
 template<typename T>
 static void winogradNonFusedTransform_inner(float *output, int ldout, float* WT, T* VT, int ldvt, T* UT, int ldut, int inChannels, int outChannels, float* input, int frameStride, int ldin, int nRowBlocks, int nColBlocks, WinogradOutType outType, float* biasArr)
 {
@@ -1053,11 +1174,17 @@ static void winogradNonFusedTransform_inner(float *output, int ldout, float* WT,
     case ReLU:
         winogradOutputTransformReLU(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, 1);
         break;
+    case ReLU6:
+        winogradOutputTransformReLU6(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, 1);
+        break;
     case Bias:
         winogradOutputTransformBias(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, 1);
         break;
     case BiasReLU:
         winogradOutputTransformBiasReLU(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, 1);
+        break;
+    case BiasReLU6:
+        winogradOutputTransformBiasReLU6(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, 1);
         break;
     case PReLU:
     case BiasPReLU:
@@ -1114,11 +1241,17 @@ static void winogradNonFusedTransformMT_inner(float *output, int ldout, float* W
     case ReLU:
         winogradOutputTransformReLU(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, num_threads);
         break;
+    case ReLU6:
+        winogradOutputTransformReLU6(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, num_threads);
+        break;
     case Bias:
         winogradOutputTransformBias(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
         break;
     case BiasReLU:
         winogradOutputTransformBiasReLU(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
+        break;
+    case BiasReLU6:
+        winogradOutputTransformBiasReLU6(output, ldout, WT, outChannels, nRowBlocks, nColBlocks, biasArr, num_threads);
         break;
     case PReLU:
     case BiasPReLU:

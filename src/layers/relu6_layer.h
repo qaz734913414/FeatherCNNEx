@@ -31,20 +31,24 @@ public:
 
     int Forward()
     {
-        size_t i = 0;
-        if (size >= 4)
+        #pragma omp parallel for num_threads(num_threads)
+        for (int q=0; q<c; q++)
         {
+            const float* inPtr = input + q*size;
+            float* outPtr = output + q*size;
+            int i = 0;
+#ifdef __ARM_NEON
             for (; i < size - 4; i += 4)
             {
-                float32x4_t vinput = vld1q_f32(input + i);
+                float32x4_t vinput = vld1q_f32(inPtr + i);
                 vinput = vmaxq_f32(vinput, zero);
                 vinput = vminq_f32(vinput, six);
-                vst1q_f32(output + i, vinput);
+                vst1q_f32(outPtr + i, vinput);
             }
+#endif
+            for (; i<size; i++)
+                outPtr[i] = std::min(std::max(inPtr[i], 0.0f), 6.0f);
         }
-
-        for (; i < size; ++i)
-            output[i] = std::min(std::max(input[i], 0.0f), 6.0f);
 
         Layer::Forward();
         return 0;
@@ -57,7 +61,7 @@ public:
         c = _bottom_blobs[_bottom[0]]->validChannels();
         input  = _bottom_blobs[_bottom[0]]->data();
         output = _top_blobs[_top[0]]->data();
-        size = c * w * h;
+        size = w * h;
 
         zero[0] = 0.0f;
         zero[1] = 0.0f;

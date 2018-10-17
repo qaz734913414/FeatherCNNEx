@@ -68,6 +68,63 @@ public:
         }
     }
 
+    static inline bool is_a_ge_zero_and_a_lt_b(int a, int b)
+    {
+        return static_cast<unsigned>(a) < static_cast<unsigned>(b);
+    }
+
+    void im2col_cpu_tf(const float* data_im, const int channels,
+                       const int height, const int width, const int kernel_h, const int kernel_w,
+                       const int pad_h, const int pad_w,
+                       const int stride_h, const int stride_w,
+                       const int dilation_h, const int dilation_w,
+                       float* data_col, const bool pad_only_bottom, const bool pad_only_right)
+    {
+        const int output_h = (height + 2 * pad_h -
+                              (dilation_h * (kernel_h - 1) + 1)) / stride_h + 1;
+        const int output_w = (width + 2 * pad_w -
+                              (dilation_w * (kernel_w - 1) + 1)) / stride_w + 1;
+        const int channel_size = height * width;
+
+        #pragma omp parallel for num_threads(num_threads)
+        for (int channel = 0; channel < channels; channel++)
+        {
+            const float *pData = data_im + channel*channel_size;
+            for (int kernel_row = 0; kernel_row < kernel_h; kernel_row++)
+            {
+                for (int kernel_col = 0; kernel_col < kernel_w; kernel_col++)
+                {
+                    int input_row = kernel_row * dilation_h;
+                    if (!pad_only_bottom)
+                        input_row -= pad_h;
+                    for (int output_rows = output_h; output_rows; output_rows--)
+                    {
+                        if (!is_a_ge_zero_and_a_lt_b(input_row, height))
+                        {
+                            for (int output_cols = output_w; output_cols; output_cols--)
+                                *(data_col++) = 0;
+                        }
+                        else
+                        {
+                            int input_col = kernel_col * dilation_w;
+                            if (!pad_only_right)
+                                input_col -= pad_w;
+                            for (int output_col = output_w; output_col; output_col--)
+                            {
+                                if (is_a_ge_zero_and_a_lt_b(input_col, width))
+                                    *(data_col++) = pData[input_row * width + input_col];
+                                else
+                                    *(data_col++) = 0;
+                                input_col += stride_w;
+                            }
+                        }
+                        input_row += stride_h;
+                    }
+                }
+            }
+        }
+    }
+
     int Forward()
     {
 #if 0
@@ -78,7 +135,8 @@ public:
 #endif
         assert((int)input_channels * (int)kernel_width * (int)kernel_height <= kc);
         //printf("MNK [%d %d %d]\n", (int)output_channels, (int)output_width * (int)output_height, (int)input_channels * (int)kernel_width * (int)kernel_height);
-        if(kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1 && padding_left == 0 && padding_right == 0 && padding_top == 0 && padding_bottom == 0)
+        if(kernel_width == 1 && kernel_height == 1 && stride_height == 1 && stride_width == 1 &&
+                padding_left == 0 && padding_right == 0 && padding_top == 0 && padding_bottom == 0)
         {
             if (output_channels % 8 == 0) //Todo
             {
@@ -123,7 +181,12 @@ public:
         {
             MEMPOOL_CHECK_RETURN(common_mempool->GetPtr(&img_buffer));
             if (NULL == img_buffer) return -1;
-            Im2col();
+            if (tf_pad)
+                im2col_cpu_tf(input, input_channels, input_height, input_width, kernel_height,
+                              kernel_width, padding_top, padding_left, stride_height, stride_width, 1, 1,
+                              img_buffer, pad_only_bottom, pad_only_right);
+            else
+                Im2col();
 
             int block = (int)input_channels/group * (int)kernel_width * (int)kernel_height;
             if (output_channels % 8 == 0)

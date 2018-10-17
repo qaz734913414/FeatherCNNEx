@@ -49,6 +49,32 @@ void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned 
     }
 }
 
+void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned h, unsigned pad_left, unsigned pad_right, unsigned pad_top, unsigned pad_bottom, unsigned channelAlignSize, float val, unsigned num_threads)
+{
+    int dstChannelSize = alignSize((w+pad_left+pad_right)*(h+pad_top+pad_bottom), channelAlignSize);
+    #pragma omp parallel for if (channels > 4) num_threads(num_threads)
+    for(int i = 0; i < channels; i++)
+    {
+        float *pDst = dst + i*dstChannelSize;
+        /* fill top */
+        fill(pDst, (w+pad_left+pad_right)*pad_top, val);
+
+        pDst += pad_top*(w+pad_left+pad_right);
+        for(int j = 0; j < h; j++)
+        {
+            /* fill left */
+            fill(pDst   + j*(w+pad_left+pad_right), pad_left, val);
+            /* copy image */
+            memcpy(pDst + j*(w+pad_left+pad_right) + pad_left, src + i*w*h + j*w, w*sizeof(float));
+            /* fill right */
+            fill(pDst   + j*(w+pad_left+pad_right) + pad_left + w, pad_right, val);
+        }
+        /* fill bottom */
+        pDst = dst + i*dstChannelSize + (pad_top+h)*(w+pad_left+pad_right);
+        fill(pDst, (w+pad_left+pad_right)*pad_bottom, val);
+    }
+}
+
 void writeFileFloat16(const char *pFname, fix16_t *pData, unsigned size)
 {
     FILE* pfile = fopen(pFname, "wb");

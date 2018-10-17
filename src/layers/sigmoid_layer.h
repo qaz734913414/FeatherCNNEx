@@ -17,6 +17,7 @@
 #include "../feather_simple_generated.h"
 #include "../layer.h"
 #include "arm/generic_kernels.h"
+#include "arm/power.h"
 
 namespace feather
 {
@@ -42,15 +43,28 @@ public:
 
     int Forward()
     {
-        #pragma omp parallel for num_threads(num_threads)
+        float32x4_t vone = vdupq_n_f32(1.0f);
+        float32x4_t vzero = vdupq_n_f32(0.0f);
+
+        //#pragma omp parallel for num_threads(num_threads)
         for (int q=0; q<c; q++)
         {
             float* ptrIn  = input  + q * size;
             float* ptrOut = output + q * size;
-            for (int i=0; i<size; i++)
+            int i = 0;
+#ifdef __ARM_NEON
+            for (; i < size - 4; i += 4)
             {
-                ptrOut[i] = 1.f / (1.f + exp(-ptrIn[i]));
+                float32x4_t _p = vld1q_f32(ptrIn + i);
+                _p = vsubq_f32(vzero, _p);
+                _p = exp_ps(_p);
+                _p = vaddq_f32(vone, _p);
+                _p = vrecpeq_f32(_p);
+                vst1q_f32(ptrOut + i, _p);
             }
+#endif
+            for (; i<size; i++)
+                ptrOut[i] = 1.f / (1.f + exp(-ptrIn[i]));
         }
 
         Layer::Forward();

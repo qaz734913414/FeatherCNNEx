@@ -33,6 +33,7 @@ public:
         : ConvLayer(layer_param, rt_param)
     {
         fuse_relu = false;
+        fuse_relu6 = false;
         fuse_prelu = false;
         _fusible = true;
         winogradLowPrecision = rt_param->winogradLowPrecision;
@@ -55,8 +56,7 @@ public:
         float *padded_input = packInput + packInputSize;           //Offset by sizeof WT
         if (0 != (padding_left + padding_top + padding_right + padding_bottom))
         {
-            makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, 1, .0f, num_threads);
-            //pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
+            makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 1, .0f, num_threads);
         }
         else
             padded_input = input;
@@ -75,6 +75,11 @@ public:
         if (next_layer->type().compare("ReLU") == 0)
         {
             fuse_relu = true;
+            return 1;
+        }
+        if (next_layer->type().compare("ReLU6") == 0)
+        {
+            fuse_relu6 = true;
             return 1;
         }
         else if(next_layer->type().compare("PReLU") == 0)
@@ -125,12 +130,16 @@ public:
 
         if(bias_term && fuse_relu)
             winograd_out_type = BiasReLU;
+        else if(bias_term && fuse_relu6)
+            winograd_out_type = BiasReLU6;
         else if(bias_term && fuse_prelu)
             winograd_out_type = BiasPReLU;
         else if(bias_term)
             winograd_out_type = Bias;
         else if(fuse_relu)
             winograd_out_type = ReLU;
+        else if(fuse_relu6)
+            winograd_out_type = ReLU6;
         else if(fuse_prelu)
             winograd_out_type = PReLU;
         else
@@ -146,6 +155,7 @@ private:
     fix16_t *UT_FIX;
     size_t packInputSize;
     bool fuse_relu;
+    bool fuse_relu6;
     WinogradOutType winograd_out_type;
     unsigned fusedWeightBlobId;
     bool fuse_prelu;

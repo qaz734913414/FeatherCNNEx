@@ -16,7 +16,6 @@
 
 #include <stdio.h>
 
-void pad_input(float* padded, const float* input, const size_t input_channels, const size_t input_width, const size_t input_height, const size_t padding_left, const size_t padding_top, const size_t padding_right, const size_t padding_bottom);
 
 template<bool fuse_relu>
 void add_relu(float* dst, const float* A, const float* B, const size_t len, const size_t num_threads);

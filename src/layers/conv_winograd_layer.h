@@ -48,7 +48,8 @@ public:
         float *VT = common_mem;
         float *WT = VT + 16 * (inputw / 2 - 1) * (inputh / 2 - 1) * input_channels;            //Offset by sizeof VT
         float *padded_input = WT + 16 * (inputw / 2 - 1) * (inputh / 2 - 1) * output_channels; //Offset by sizeof WT
-        pad_input(padded_input, input, input_channels, input_width, input_height, padding_left, padding_top, padding_right, padding_bottom);
+
+        makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 1, 0.0f, num_threads);
 
         //printf("F23 [%d %d]\n", ext_pad_w, ext_pad_h);
         if (ext_pad_w || ext_pad_h)
