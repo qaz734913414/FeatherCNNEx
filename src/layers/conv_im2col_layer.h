@@ -183,7 +183,7 @@ public:
             if (NULL == img_buffer) return -1;
             if (tf_pad)
                 im2col_cpu_tf(input, input_channels, input_height, input_width, kernel_height,
-                              kernel_width, padding_top, padding_left, stride_height, stride_width, 1, 1,
+                              kernel_width, padding_bottom, padding_right, stride_height, stride_width, 1, 1,
                               img_buffer, pad_only_bottom, pad_only_right);
             else
                 Im2col();
@@ -380,7 +380,7 @@ public:
             fuse_relu = true;
             return 1;
         }
-        else
+        else /* TODO: Relu6 fuse */
             return 0;
     }
 
