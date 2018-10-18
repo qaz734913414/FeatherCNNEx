@@ -13,12 +13,12 @@ COPYRIGHT_HOLDER:
 #ifdef __aarch64__
 /* RSV X19~X28 */
 /**************in param**************/
-#define WTP 		 X0
-#define LDC		 W1
-#define LDCX		 X1
-#define UTP              x2
-#define VP               x3
-#define L                w4
+#define WTP            X0
+#define LDC            W1
+#define LDCX           X1
+#define UTP            x2
+#define VP             x3
+#define L              w4
 
 /* RSV V8~V15 */
 #define VSRC_4H_V0     V0.4H
@@ -78,253 +78,253 @@ COPYRIGHT_HOLDER:
 #define VSRC_16B_CF    V31.16B
 
 /* void TensorGEMMInnerKernel4x4x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels) */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _TensorGEMMInnerKernel4x4x4_fp16
+    .global _TensorGEMMInnerKernel4x4x4_fp16
 _TensorGEMMInnerKernel4x4x4_fp16:
 #else
-	.global TensorGEMMInnerKernel4x4x4_fp16
+    .global TensorGEMMInnerKernel4x4x4_fp16
 TensorGEMMInnerKernel4x4x4_fp16:
 #endif
-	lsl LDC, LDC, #2
-	sxtw LDCX, LDC
+    lsl LDC, LDC, #2
+    sxtw LDCX, LDC
 
-	cbz L, __END4
+    cbz L, __END4
 
-	eor VSRC_16B_C0, VSRC_16B_C0, VSRC_16B_C0
-	prfm PLDL1KEEP, [UTP, #32]
-	mov VSRC_16B_C1, VSRC_16B_C0
-	eor VSRC_16B_C2, VSRC_16B_C2, VSRC_16B_C2
-	mov VSRC_16B_C3, VSRC_16B_C1
-	eor VSRC_16B_C4, VSRC_16B_C4, VSRC_16B_C4
-	mov VSRC_16B_C5, VSRC_16B_C2
-	eor VSRC_16B_C6, VSRC_16B_C6, VSRC_16B_C6
-	mov VSRC_16B_C7, VSRC_16B_C3
-	eor VSRC_16B_C8, VSRC_16B_C8, VSRC_16B_C8
-	mov VSRC_16B_C9, VSRC_16B_C4
-	eor VSRC_16B_CA, VSRC_16B_CA, VSRC_16B_CA
-	mov VSRC_16B_CB, VSRC_16B_C5
-	eor VSRC_16B_CC, VSRC_16B_CC, VSRC_16B_CC
-	mov VSRC_16B_CD, VSRC_16B_C6
-	eor VSRC_16B_CE, VSRC_16B_CE, VSRC_16B_CE
-	mov VSRC_16B_CF, VSRC_16B_C7
+    eor VSRC_16B_C0, VSRC_16B_C0, VSRC_16B_C0
+    prfm PLDL1KEEP, [UTP, #32]
+    mov VSRC_16B_C1, VSRC_16B_C0
+    eor VSRC_16B_C2, VSRC_16B_C2, VSRC_16B_C2
+    mov VSRC_16B_C3, VSRC_16B_C1
+    eor VSRC_16B_C4, VSRC_16B_C4, VSRC_16B_C4
+    mov VSRC_16B_C5, VSRC_16B_C2
+    eor VSRC_16B_C6, VSRC_16B_C6, VSRC_16B_C6
+    mov VSRC_16B_C7, VSRC_16B_C3
+    eor VSRC_16B_C8, VSRC_16B_C8, VSRC_16B_C8
+    mov VSRC_16B_C9, VSRC_16B_C4
+    eor VSRC_16B_CA, VSRC_16B_CA, VSRC_16B_CA
+    mov VSRC_16B_CB, VSRC_16B_C5
+    eor VSRC_16B_CC, VSRC_16B_CC, VSRC_16B_CC
+    mov VSRC_16B_CD, VSRC_16B_C6
+    eor VSRC_16B_CE, VSRC_16B_CE, VSRC_16B_CE
+    mov VSRC_16B_CF, VSRC_16B_C7
 
 __LOOP4:
-	ld1 {VSRC_8H_U0, VSRC_8H_U1}, [UTP], #32
-	subs L, L, #1
-	fcvtl  VSRC_4S_U0, VSRC_4H_U0
-	ld1 {VSRC_4H_V0, VSRC_4H_V1, VSRC_4H_V2, VSRC_4H_V3}, [VP], #32
+    ld1 {VSRC_8H_U0, VSRC_8H_U1}, [UTP], #32
+    subs L, L, #1
+    fcvtl  VSRC_4S_U0, VSRC_4H_U0
+    ld1 {VSRC_4H_V0, VSRC_4H_V1, VSRC_4H_V2, VSRC_4H_V3}, [VP], #32
 
-	fcvtl  VSRC_4S_V0, VSRC_4H_V0
-	prfm PLDL1KEEP, [VP, #32]
-	fcvtl  VSRC_4S_V1, VSRC_4H_V1
-	fmla VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
-	fcvtl  VSRC_4S_V2, VSRC_4H_V2
-	fmla VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
-	fcvtl  VSRC_4S_V3, VSRC_4H_V3
-	fmla VSRC_4S_C2, VSRC_4S_U0, VSRC_4S_V2
-	fcvtl2 VSRC_4S_U1, VSRC_8H_U0
-	fmla VSRC_4S_C3, VSRC_4S_U0, VSRC_4S_V3
+    fcvtl  VSRC_4S_V0, VSRC_4H_V0
+    prfm PLDL1KEEP, [VP, #32]
+    fcvtl  VSRC_4S_V1, VSRC_4H_V1
+    fmla VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
+    fcvtl  VSRC_4S_V2, VSRC_4H_V2
+    fmla VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
+    fcvtl  VSRC_4S_V3, VSRC_4H_V3
+    fmla VSRC_4S_C2, VSRC_4S_U0, VSRC_4S_V2
+    fcvtl2 VSRC_4S_U1, VSRC_8H_U0
+    fmla VSRC_4S_C3, VSRC_4S_U0, VSRC_4S_V3
 
-	prfm PLDL1KEEP, [UTP, #32]
+    prfm PLDL1KEEP, [UTP, #32]
 
-	fcvtl  VSRC_4S_U2, VSRC_4H_U1
-	fmla VSRC_4S_C4, VSRC_4S_U1, VSRC_4S_V0
-	fmla VSRC_4S_C5, VSRC_4S_U1, VSRC_4S_V1
-	fmla VSRC_4S_C6, VSRC_4S_U1, VSRC_4S_V2
-	fmla VSRC_4S_C7, VSRC_4S_U1, VSRC_4S_V3
+    fcvtl  VSRC_4S_U2, VSRC_4H_U1
+    fmla VSRC_4S_C4, VSRC_4S_U1, VSRC_4S_V0
+    fmla VSRC_4S_C5, VSRC_4S_U1, VSRC_4S_V1
+    fmla VSRC_4S_C6, VSRC_4S_U1, VSRC_4S_V2
+    fmla VSRC_4S_C7, VSRC_4S_U1, VSRC_4S_V3
 
-	fcvtl2 VSRC_4S_U3, VSRC_8H_U1
-	fmla VSRC_4S_C8, VSRC_4S_U2, VSRC_4S_V0
-	fmla VSRC_4S_C9, VSRC_4S_U2, VSRC_4S_V1
-	fmla VSRC_4S_CA, VSRC_4S_U2, VSRC_4S_V2
-	fmla VSRC_4S_CB, VSRC_4S_U2, VSRC_4S_V3
+    fcvtl2 VSRC_4S_U3, VSRC_8H_U1
+    fmla VSRC_4S_C8, VSRC_4S_U2, VSRC_4S_V0
+    fmla VSRC_4S_C9, VSRC_4S_U2, VSRC_4S_V1
+    fmla VSRC_4S_CA, VSRC_4S_U2, VSRC_4S_V2
+    fmla VSRC_4S_CB, VSRC_4S_U2, VSRC_4S_V3
 
-	fmla VSRC_4S_CC, VSRC_4S_U3, VSRC_4S_V0
-	fmla VSRC_4S_CD, VSRC_4S_U3, VSRC_4S_V1
-	fmla VSRC_4S_CE, VSRC_4S_U3, VSRC_4S_V2
-	fmla VSRC_4S_CF, VSRC_4S_U3, VSRC_4S_V3
+    fmla VSRC_4S_CC, VSRC_4S_U3, VSRC_4S_V0
+    fmla VSRC_4S_CD, VSRC_4S_U3, VSRC_4S_V1
+    fmla VSRC_4S_CE, VSRC_4S_U3, VSRC_4S_V2
+    fmla VSRC_4S_CF, VSRC_4S_U3, VSRC_4S_V3
 
-	cbnz L, __LOOP4
+    cbnz L, __LOOP4
 
-	st1 {VSRC_4S_C0, VSRC_4S_C1, VSRC_4S_C2, VSRC_4S_C3}, [WTP], LDCX
-	st1 {VSRC_4S_C4, VSRC_4S_C5, VSRC_4S_C6, VSRC_4S_C7}, [WTP], LDCX
-	st1 {VSRC_4S_C8, VSRC_4S_C9, VSRC_4S_CA, VSRC_4S_CB}, [WTP], LDCX
-	st1 {VSRC_4S_CC, VSRC_4S_CD, VSRC_4S_CE, VSRC_4S_CF}, [WTP]
+    st1 {VSRC_4S_C0, VSRC_4S_C1, VSRC_4S_C2, VSRC_4S_C3}, [WTP], LDCX
+    st1 {VSRC_4S_C4, VSRC_4S_C5, VSRC_4S_C6, VSRC_4S_C7}, [WTP], LDCX
+    st1 {VSRC_4S_C8, VSRC_4S_C9, VSRC_4S_CA, VSRC_4S_CB}, [WTP], LDCX
+    st1 {VSRC_4S_CC, VSRC_4S_CD, VSRC_4S_CE, VSRC_4S_CF}, [WTP]
 __END4:
-	ret
+    ret
 
 /* void TensorGEMMInnerKernel4x3x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels) */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _TensorGEMMInnerKernel4x3x4_fp16
+    .global _TensorGEMMInnerKernel4x3x4_fp16
 _TensorGEMMInnerKernel4x3x4_fp16:
 #else
-	.global TensorGEMMInnerKernel4x3x4_fp16
+    .global TensorGEMMInnerKernel4x3x4_fp16
 TensorGEMMInnerKernel4x3x4_fp16:
 #endif
-	lsl LDC, LDC, #2
-	sxtw LDCX, LDC
+    lsl LDC, LDC, #2
+    sxtw LDCX, LDC
 
-	cbz L, __END3
+    cbz L, __END3
 
-	prfm PLDL1KEEP, [UTP, #32]
-	eor VSRC_16B_C0, VSRC_16B_C0, VSRC_16B_C0
-	mov VSRC_16B_C1, VSRC_16B_C0
-	eor VSRC_16B_C2, VSRC_16B_C2, VSRC_16B_C2
-	mov VSRC_16B_C3, VSRC_16B_C1
-	eor VSRC_16B_C4, VSRC_16B_C4, VSRC_16B_C4
-	mov VSRC_16B_C5, VSRC_16B_C2
-	eor VSRC_16B_C6, VSRC_16B_C6, VSRC_16B_C6
-	mov VSRC_16B_C7, VSRC_16B_C3
-	eor VSRC_16B_C8, VSRC_16B_C8, VSRC_16B_C8
-	mov VSRC_16B_C9, VSRC_16B_C4
-	eor VSRC_16B_CA, VSRC_16B_CA, VSRC_16B_CA
-	mov VSRC_16B_CB, VSRC_16B_C5
+    prfm PLDL1KEEP, [UTP, #32]
+    eor VSRC_16B_C0, VSRC_16B_C0, VSRC_16B_C0
+    mov VSRC_16B_C1, VSRC_16B_C0
+    eor VSRC_16B_C2, VSRC_16B_C2, VSRC_16B_C2
+    mov VSRC_16B_C3, VSRC_16B_C1
+    eor VSRC_16B_C4, VSRC_16B_C4, VSRC_16B_C4
+    mov VSRC_16B_C5, VSRC_16B_C2
+    eor VSRC_16B_C6, VSRC_16B_C6, VSRC_16B_C6
+    mov VSRC_16B_C7, VSRC_16B_C3
+    eor VSRC_16B_C8, VSRC_16B_C8, VSRC_16B_C8
+    mov VSRC_16B_C9, VSRC_16B_C4
+    eor VSRC_16B_CA, VSRC_16B_CA, VSRC_16B_CA
+    mov VSRC_16B_CB, VSRC_16B_C5
 __LOOP3:
-	ld1 {VSRC_8H_U0, VSRC_8H_U1}, [UTP], #32
-	subs L, L, #1
-	fcvtl  VSRC_4S_U0, VSRC_4H_U0
-	ld1 {VSRC_4H_V0, VSRC_4H_V1, VSRC_4H_V2}, [VP], #24
-	fcvtl  VSRC_4S_V0, VSRC_4H_V0
-	prfm PLDL1KEEP, [UTP, #32]
-	fcvtl  VSRC_4S_V1, VSRC_4H_V1
-	fmla VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
-	fcvtl  VSRC_4S_V2, VSRC_4H_V2
-	fmla VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
-	fcvtl2 VSRC_4S_U1, VSRC_8H_U0
-	fmla VSRC_4S_C2, VSRC_4S_U0, VSRC_4S_V2
+    ld1 {VSRC_8H_U0, VSRC_8H_U1}, [UTP], #32
+    subs L, L, #1
+    fcvtl  VSRC_4S_U0, VSRC_4H_U0
+    ld1 {VSRC_4H_V0, VSRC_4H_V1, VSRC_4H_V2}, [VP], #24
+    fcvtl  VSRC_4S_V0, VSRC_4H_V0
+    prfm PLDL1KEEP, [UTP, #32]
+    fcvtl  VSRC_4S_V1, VSRC_4H_V1
+    fmla VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
+    fcvtl  VSRC_4S_V2, VSRC_4H_V2
+    fmla VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
+    fcvtl2 VSRC_4S_U1, VSRC_8H_U0
+    fmla VSRC_4S_C2, VSRC_4S_U0, VSRC_4S_V2
 
-	prfm PLDL1KEEP, [VP, #24]
-	fmla VSRC_4S_C3, VSRC_4S_U1, VSRC_4S_V0
-	fcvtl  VSRC_4S_U2, VSRC_4H_U1
-	fmla VSRC_4S_C4, VSRC_4S_U1, VSRC_4S_V1
-	fcvtl2 VSRC_4S_U3, VSRC_8H_U1
-	fmla VSRC_4S_C5, VSRC_4S_U1, VSRC_4S_V2
+    prfm PLDL1KEEP, [VP, #24]
+    fmla VSRC_4S_C3, VSRC_4S_U1, VSRC_4S_V0
+    fcvtl  VSRC_4S_U2, VSRC_4H_U1
+    fmla VSRC_4S_C4, VSRC_4S_U1, VSRC_4S_V1
+    fcvtl2 VSRC_4S_U3, VSRC_8H_U1
+    fmla VSRC_4S_C5, VSRC_4S_U1, VSRC_4S_V2
 
-	fmla VSRC_4S_C6, VSRC_4S_U2, VSRC_4S_V0
-	fmla VSRC_4S_C7, VSRC_4S_U2, VSRC_4S_V1
-	fmla VSRC_4S_C8, VSRC_4S_U2, VSRC_4S_V2
+    fmla VSRC_4S_C6, VSRC_4S_U2, VSRC_4S_V0
+    fmla VSRC_4S_C7, VSRC_4S_U2, VSRC_4S_V1
+    fmla VSRC_4S_C8, VSRC_4S_U2, VSRC_4S_V2
 
-	fmla VSRC_4S_C9, VSRC_4S_U3, VSRC_4S_V0
-	fmla VSRC_4S_CA, VSRC_4S_U3, VSRC_4S_V1
-	fmla VSRC_4S_CB, VSRC_4S_U3, VSRC_4S_V2
+    fmla VSRC_4S_C9, VSRC_4S_U3, VSRC_4S_V0
+    fmla VSRC_4S_CA, VSRC_4S_U3, VSRC_4S_V1
+    fmla VSRC_4S_CB, VSRC_4S_U3, VSRC_4S_V2
 
-	cbnz L, __LOOP3
+    cbnz L, __LOOP3
 
-	st1 {VSRC_4S_C0, VSRC_4S_C1, VSRC_4S_C2}, [WTP], LDCX
-	st1 {VSRC_4S_C3, VSRC_4S_C4, VSRC_4S_C5}, [WTP], LDCX
-	st1 {VSRC_4S_C6, VSRC_4S_C7, VSRC_4S_C8}, [WTP], LDCX
-	st1 {VSRC_4S_C9, VSRC_4S_CA, VSRC_4S_CB}, [WTP]
+    st1 {VSRC_4S_C0, VSRC_4S_C1, VSRC_4S_C2}, [WTP], LDCX
+    st1 {VSRC_4S_C3, VSRC_4S_C4, VSRC_4S_C5}, [WTP], LDCX
+    st1 {VSRC_4S_C6, VSRC_4S_C7, VSRC_4S_C8}, [WTP], LDCX
+    st1 {VSRC_4S_C9, VSRC_4S_CA, VSRC_4S_CB}, [WTP]
 __END3:
-	ret
+    ret
 
 /* void TensorGEMMInnerKernel4x2x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels) */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _TensorGEMMInnerKernel4x2x4_fp16
+    .global _TensorGEMMInnerKernel4x2x4_fp16
 _TensorGEMMInnerKernel4x2x4_fp16:
 #else
-	.global TensorGEMMInnerKernel4x2x4_fp16
+    .global TensorGEMMInnerKernel4x2x4_fp16
 TensorGEMMInnerKernel4x2x4_fp16:
 #endif
-	lsl LDC, LDC, #2
-	sxtw LDCX, LDC
+    lsl LDC, LDC, #2
+    sxtw LDCX, LDC
 
-	cbz L, __END2
+    cbz L, __END2
 
-	prfm PLDL1KEEP, [UTP, #32]
-	eor VSRC_16B_C0, VSRC_16B_C0, VSRC_16B_C0
-	mov VSRC_16B_C1, VSRC_16B_C0
-	eor VSRC_16B_C2, VSRC_16B_C2, VSRC_16B_C2
-	mov VSRC_16B_C3, VSRC_16B_C1
-	eor VSRC_16B_C4, VSRC_16B_C4, VSRC_16B_C4
-	mov VSRC_16B_C5, VSRC_16B_C2
-	eor VSRC_16B_C6, VSRC_16B_C6, VSRC_16B_C6
-	mov VSRC_16B_C7, VSRC_16B_C3
+    prfm PLDL1KEEP, [UTP, #32]
+    eor VSRC_16B_C0, VSRC_16B_C0, VSRC_16B_C0
+    mov VSRC_16B_C1, VSRC_16B_C0
+    eor VSRC_16B_C2, VSRC_16B_C2, VSRC_16B_C2
+    mov VSRC_16B_C3, VSRC_16B_C1
+    eor VSRC_16B_C4, VSRC_16B_C4, VSRC_16B_C4
+    mov VSRC_16B_C5, VSRC_16B_C2
+    eor VSRC_16B_C6, VSRC_16B_C6, VSRC_16B_C6
+    mov VSRC_16B_C7, VSRC_16B_C3
 
 __LOOP2:
-	ld1 {VSRC_8H_U0, VSRC_8H_U1}, [UTP], #32
-	subs L, L, #1
-	fcvtl  VSRC_4S_U0, VSRC_4H_U0
-	ld1 {VSRC_4H_V0, VSRC_4H_V1}, [VP], #16
-	prfm PLDL1KEEP, [UTP, #32]
-	fcvtl  VSRC_4S_V0, VSRC_4H_V0
-	fcvtl  VSRC_4S_V1, VSRC_4H_V1
-	fmla VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
-	prfm PLDL1KEEP, [VP, #16]
-	fcvtl2 VSRC_4S_U1, VSRC_8H_U0
-	fmla VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
-	fcvtl  VSRC_4S_U2, VSRC_4H_U1
+    ld1 {VSRC_8H_U0, VSRC_8H_U1}, [UTP], #32
+    subs L, L, #1
+    fcvtl  VSRC_4S_U0, VSRC_4H_U0
+    ld1 {VSRC_4H_V0, VSRC_4H_V1}, [VP], #16
+    prfm PLDL1KEEP, [UTP, #32]
+    fcvtl  VSRC_4S_V0, VSRC_4H_V0
+    fcvtl  VSRC_4S_V1, VSRC_4H_V1
+    fmla VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
+    prfm PLDL1KEEP, [VP, #16]
+    fcvtl2 VSRC_4S_U1, VSRC_8H_U0
+    fmla VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
+    fcvtl  VSRC_4S_U2, VSRC_4H_U1
 
-	fmla VSRC_4S_C2, VSRC_4S_U1, VSRC_4S_V0
-	fcvtl2 VSRC_4S_U3, VSRC_8H_U1
-	fmla VSRC_4S_C3, VSRC_4S_U1, VSRC_4S_V1
+    fmla VSRC_4S_C2, VSRC_4S_U1, VSRC_4S_V0
+    fcvtl2 VSRC_4S_U3, VSRC_8H_U1
+    fmla VSRC_4S_C3, VSRC_4S_U1, VSRC_4S_V1
 
-	fmla VSRC_4S_C4, VSRC_4S_U2, VSRC_4S_V0
-	fmla VSRC_4S_C5, VSRC_4S_U2, VSRC_4S_V1
+    fmla VSRC_4S_C4, VSRC_4S_U2, VSRC_4S_V0
+    fmla VSRC_4S_C5, VSRC_4S_U2, VSRC_4S_V1
 
-	fmla VSRC_4S_C6, VSRC_4S_U3, VSRC_4S_V0
-	fmla VSRC_4S_C7, VSRC_4S_U3, VSRC_4S_V1
+    fmla VSRC_4S_C6, VSRC_4S_U3, VSRC_4S_V0
+    fmla VSRC_4S_C7, VSRC_4S_U3, VSRC_4S_V1
 
-	cbnz L, __LOOP2
+    cbnz L, __LOOP2
 
-	st1 {VSRC_4S_C0, VSRC_4S_C1}, [WTP], LDCX
-	st1 {VSRC_4S_C2, VSRC_4S_C3}, [WTP], LDCX
-	st1 {VSRC_4S_C4, VSRC_4S_C5}, [WTP], LDCX
-	st1 {VSRC_4S_C6, VSRC_4S_C7}, [WTP]
+    st1 {VSRC_4S_C0, VSRC_4S_C1}, [WTP], LDCX
+    st1 {VSRC_4S_C2, VSRC_4S_C3}, [WTP], LDCX
+    st1 {VSRC_4S_C4, VSRC_4S_C5}, [WTP], LDCX
+    st1 {VSRC_4S_C6, VSRC_4S_C7}, [WTP]
 __END2:
-	ret
+    ret
 
 /* void TensorGEMMInnerKernel4x1x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels) */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _TensorGEMMInnerKernel4x1x4_fp16
+    .global _TensorGEMMInnerKernel4x1x4_fp16
 _TensorGEMMInnerKernel4x1x4_fp16:
 #else
-	.global TensorGEMMInnerKernel4x1x4_fp16
+    .global TensorGEMMInnerKernel4x1x4_fp16
 TensorGEMMInnerKernel4x1x4_fp16:
 #endif
-	lsl LDC, LDC, #2
-	sxtw LDCX, LDC
+    lsl LDC, LDC, #2
+    sxtw LDCX, LDC
 
-	cbz L, __END1
+    cbz L, __END1
 
-	prfm PLDL1KEEP, [UTP, #32]
-	eor VSRC_16B_C0, VSRC_16B_C0, VSRC_16B_C0
-	mov VSRC_16B_C1, VSRC_16B_C0
-	eor VSRC_16B_C2, VSRC_16B_C2, VSRC_16B_C2
-	mov VSRC_16B_C3, VSRC_16B_C1
+    prfm PLDL1KEEP, [UTP, #32]
+    eor VSRC_16B_C0, VSRC_16B_C0, VSRC_16B_C0
+    mov VSRC_16B_C1, VSRC_16B_C0
+    eor VSRC_16B_C2, VSRC_16B_C2, VSRC_16B_C2
+    mov VSRC_16B_C3, VSRC_16B_C1
 
 __LOOP1:
-	ld1 {VSRC_4H_V0}, [VP], #8
-	subs L, L, #1
-	fcvtl  VSRC_4S_V0, VSRC_4H_V0
-	ld1 {VSRC_8H_U0, VSRC_8H_U1}, [UTP], #32
+    ld1 {VSRC_4H_V0}, [VP], #8
+    subs L, L, #1
+    fcvtl  VSRC_4S_V0, VSRC_4H_V0
+    ld1 {VSRC_8H_U0, VSRC_8H_U1}, [UTP], #32
 
-	fcvtl  VSRC_4S_U0, VSRC_4H_U0
-	prfm PLDL1KEEP, [UTP, #32]
+    fcvtl  VSRC_4S_U0, VSRC_4H_U0
+    prfm PLDL1KEEP, [UTP, #32]
 
-	fcvtl2 VSRC_4S_U1, VSRC_8H_U0
-	fmla VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
-	fcvtl  VSRC_4S_U2, VSRC_4H_U1
-	fmla VSRC_4S_C1, VSRC_4S_U1, VSRC_4S_V0
-	fcvtl2 VSRC_4S_U3, VSRC_8H_U1
-	fmla VSRC_4S_C2, VSRC_4S_U2, VSRC_4S_V0
-	fmla VSRC_4S_C3, VSRC_4S_U3, VSRC_4S_V0
+    fcvtl2 VSRC_4S_U1, VSRC_8H_U0
+    fmla VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
+    fcvtl  VSRC_4S_U2, VSRC_4H_U1
+    fmla VSRC_4S_C1, VSRC_4S_U1, VSRC_4S_V0
+    fcvtl2 VSRC_4S_U3, VSRC_8H_U1
+    fmla VSRC_4S_C2, VSRC_4S_U2, VSRC_4S_V0
+    fmla VSRC_4S_C3, VSRC_4S_U3, VSRC_4S_V0
 
-	cbnz L, __LOOP1
+    cbnz L, __LOOP1
 
-	st1 {VSRC_4S_C0}, [WTP], LDCX
-	st1 {VSRC_4S_C1}, [WTP], LDCX
-	st1 {VSRC_4S_C2}, [WTP], LDCX
-	st1 {VSRC_4S_C3}, [WTP]
+    st1 {VSRC_4S_C0}, [WTP], LDCX
+    st1 {VSRC_4S_C1}, [WTP], LDCX
+    st1 {VSRC_4S_C2}, [WTP], LDCX
+    st1 {VSRC_4S_C3}, [WTP]
 __END1:
-	ret
+    ret
 
 #else
 
@@ -332,14 +332,14 @@ __END1:
 
 /* RSV [r4~r9,fp] */
 /**************in param**************/
-#define WTP 		 r0
-#define LDC		 r1
-#define UTP              r2
-#define VP               r3
+#define WTP          r0
+#define LDC          r1
+#define UTP          r2
+#define VP           r3
 
 /********** Backup R Regs ***********/
-#define L                r4
-#define VST              r5
+#define L            r4
+#define VST          r5
 
 /************ Stack Param ***********/
 /* fp <--> r11 */
@@ -408,16 +408,16 @@ __END1:
             |                                                           |          ^
             |                                                           |          ^
 NEW_SP(TOP)-|--------------L ADDR----------------|-->[fp - 512 - 12] ---|--------PUSH BASE---
-            |				   	 |                      |
-            |	         (512-128) 	         |                      |
-            |				   	 |                      |
+            |                    |                      |
+            |            (512-128)           |                      |
+            |                    |                      |
 FP - 140----|------------RSV(128)---STACK_END----|    STACK_SIZE(512)   |
-            |	          	 		 |                      |
-            |		 s0~s31    	         |                      |
-            |			 		 |                      |
+            |                        |                      |
+            |        s0~s31              |                      |
+            |                    |                      |
 PUSH_SP-----|------------------------------------|-----------------------
             |                                    |
-            |	     (R4~R5, FP) 12 Bytes        |
+            |        (R4~R5, FP) 12 Bytes        |
             |                                    |
 0LD_SP FP --|------------------------------------|
             |          PARM_0(FP+ 0)             |
@@ -438,307 +438,307 @@ TensorGEMMInnerKernel4x4x4_fp16(WTp + 2*wstride, wstride, UTp + 8, vp, inChannel
 =========================================================================================
 void TensorGEMMInnerKernel4x4x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels)
 */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _TensorGEMMInnerKernel4x4x4_fp16
+    .global _TensorGEMMInnerKernel4x4x4_fp16
 _TensorGEMMInnerKernel4x4x4_fp16:
 #else
-	.global TensorGEMMInnerKernel4x4x4_fp16
+    .global TensorGEMMInnerKernel4x4x4_fp16
 TensorGEMMInnerKernel4x4x4_fp16:
 #endif
-	push {r4-r5, fp}
-	add fp, sp, #12
-	sub sp, sp, #STACK_SIZE
+    push {r4-r5, fp}
+    add fp, sp, #12
+    sub sp, sp, #STACK_SIZE
 
-	sub r4, fp, #140   /* [fp, -140] */
-	vstm r4, {s0-s31}
+    sub r4, fp, #140   /* [fp, -140] */
+    vstm r4, {s0-s31}
 
-	ldr L, ST_L        /* load L param from ST_L */
-	lsl LDC, LDC, #2
-	pld [VP, #32]
+    ldr L, ST_L        /* load L param from ST_L */
+    lsl LDC, LDC, #2
+    pld [VP, #32]
 
-	cmp L, #0
-	beq __END4_N
+    cmp L, #0
+    beq __END4_N
 
-	veor VSRC_4S_C0, VSRC_4S_C0, VSRC_4S_C0
-	vmov VSRC_4S_C1, VSRC_4S_C0
-	mov r5, #32
-	veor VSRC_4S_C2, VSRC_4S_C2, VSRC_4S_C2
-	vmov VSRC_4S_C3, VSRC_4S_C0
-	veor VSRC_4S_C4, VSRC_4S_C4, VSRC_4S_C4
-	vmov VSRC_4S_C5, VSRC_4S_C0
-	veor VSRC_4S_C6, VSRC_4S_C6, VSRC_4S_C6
-	veor VSRC_4S_C7, VSRC_4S_C7, VSRC_4S_C7
+    veor VSRC_4S_C0, VSRC_4S_C0, VSRC_4S_C0
+    vmov VSRC_4S_C1, VSRC_4S_C0
+    mov r5, #32
+    veor VSRC_4S_C2, VSRC_4S_C2, VSRC_4S_C2
+    vmov VSRC_4S_C3, VSRC_4S_C0
+    veor VSRC_4S_C4, VSRC_4S_C4, VSRC_4S_C4
+    vmov VSRC_4S_C5, VSRC_4S_C0
+    veor VSRC_4S_C6, VSRC_4S_C6, VSRC_4S_C6
+    veor VSRC_4S_C7, VSRC_4S_C7, VSRC_4S_C7
 __LOOP4_N:
-	vld1.16 {VSRC_8H_U0, VSRC_8H_V0}, [VP:128]!
-	vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_U0
-	subs L, L, #1
-	vcvt.f32.f16 VSRC_4S_V1, VSRC_4H_U1
-	vld1.16 {VSRC_8H_U0}, [UTP:128], r5
-	vcvt.f32.f16 VSRC_4S_U0, VSRC_4H_U0
-	pld [UTP, #16]
-	vcvt.f32.f16 VSRC_4S_V2, VSRC_4H_V0
+    vld1.16 {VSRC_8H_U0, VSRC_8H_V0}, [VP:128]!
+    vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_U0
+    subs L, L, #1
+    vcvt.f32.f16 VSRC_4S_V1, VSRC_4H_U1
+    vld1.16 {VSRC_8H_U0}, [UTP:128], r5
+    vcvt.f32.f16 VSRC_4S_U0, VSRC_4H_U0
+    pld [UTP, #16]
+    vcvt.f32.f16 VSRC_4S_V2, VSRC_4H_V0
 
-	vmla.f32 VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
-	pld [VP, #32]
-	vcvt.f32.f16 VSRC_4S_V3, VSRC_4H_V1
-	vmla.f32 VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
-	vcvt.f32.f16 VSRC_4S_U1, VSRC_4H_U1
-	vmla.f32 VSRC_4S_C2, VSRC_4S_U0, VSRC_4S_V2
-	vmla.f32 VSRC_4S_C3, VSRC_4S_U0, VSRC_4S_V3
+    vmla.f32 VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
+    pld [VP, #32]
+    vcvt.f32.f16 VSRC_4S_V3, VSRC_4H_V1
+    vmla.f32 VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
+    vcvt.f32.f16 VSRC_4S_U1, VSRC_4H_U1
+    vmla.f32 VSRC_4S_C2, VSRC_4S_U0, VSRC_4S_V2
+    vmla.f32 VSRC_4S_C3, VSRC_4S_U0, VSRC_4S_V3
 
-	vmla.f32 VSRC_4S_C4, VSRC_4S_U1, VSRC_4S_V0
-	vmla.f32 VSRC_4S_C5, VSRC_4S_U1, VSRC_4S_V1
-	vmla.f32 VSRC_4S_C6, VSRC_4S_U1, VSRC_4S_V2
-	vmla.f32 VSRC_4S_C7, VSRC_4S_U1, VSRC_4S_V3
+    vmla.f32 VSRC_4S_C4, VSRC_4S_U1, VSRC_4S_V0
+    vmla.f32 VSRC_4S_C5, VSRC_4S_U1, VSRC_4S_V1
+    vmla.f32 VSRC_4S_C6, VSRC_4S_U1, VSRC_4S_V2
+    vmla.f32 VSRC_4S_C7, VSRC_4S_U1, VSRC_4S_V3
 
-	cmp L, #0
-	bne __LOOP4_N
+    cmp L, #0
+    bne __LOOP4_N
 #if 0
-	vst1.32 {VSRC_4S_C0, VSRC_4S_C1}, [WTP]!
-	vst1.32 {VSRC_4S_C2, VSRC_4S_C3}, [WTP]
-	sub WTP, #32
-	add WTP, WTP, LDC
-	vst1.32 {VSRC_4S_C4, VSRC_4S_C5}, [WTP]!
-	vst1.32 {VSRC_4S_C6, VSRC_4S_C7}, [WTP]
+    vst1.32 {VSRC_4S_C0, VSRC_4S_C1}, [WTP]!
+    vst1.32 {VSRC_4S_C2, VSRC_4S_C3}, [WTP]
+    sub WTP, #32
+    add WTP, WTP, LDC
+    vst1.32 {VSRC_4S_C4, VSRC_4S_C5}, [WTP]!
+    vst1.32 {VSRC_4S_C6, VSRC_4S_C7}, [WTP]
 #else
-	vstm WTP, {VSRC_4S_C0-VSRC_4S_C3}
-	add WTP, WTP, LDC
-	vstm WTP, {VSRC_4S_C4-VSRC_4S_C7}
+    vstm WTP, {VSRC_4S_C0-VSRC_4S_C3}
+    add WTP, WTP, LDC
+    vstm WTP, {VSRC_4S_C4-VSRC_4S_C7}
 #endif
 __END4_N:
-	sub r4, fp, #140
-	vldm r4, {s0-s31}
-	sub sp, fp, #12
-	pop {r4-r5, fp}
-	bx lr
+    sub r4, fp, #140
+    vldm r4, {s0-s31}
+    sub sp, fp, #12
+    pop {r4-r5, fp}
+    bx lr
 
 /* void TensorGEMMInnerKernel4x3x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels) */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _TensorGEMMInnerKernel4x3x4_fp16
+    .global _TensorGEMMInnerKernel4x3x4_fp16
 _TensorGEMMInnerKernel4x3x4_fp16:
 #else
-	.global TensorGEMMInnerKernel4x3x4_fp16
+    .global TensorGEMMInnerKernel4x3x4_fp16
 TensorGEMMInnerKernel4x3x4_fp16:
 #endif
-	push {r4-r5, fp}
-	add fp, sp, #12
-	sub sp, sp, #STACK_SIZE
+    push {r4-r5, fp}
+    add fp, sp, #12
+    sub sp, sp, #STACK_SIZE
 
-	sub r4, fp, #140   /* [fp, -140] */
-	vstm r4, {s0-s31}
+    sub r4, fp, #140   /* [fp, -140] */
+    vstm r4, {s0-s31}
 
-	ldr L, ST_L        /* load L param from ST_L */
-	lsl LDC, LDC, #2
-	sub VST, fp, #396   /* [fp, -396] ST_Q0_Q7 */
+    ldr L, ST_L        /* load L param from ST_L */
+    lsl LDC, LDC, #2
+    sub VST, fp, #396   /* [fp, -396] ST_Q0_Q7 */
 
-	cmp L, #0
-	beq __END3
+    cmp L, #0
+    beq __END3
 
-	veor VSRC_4S_C0, VSRC_4S_C0, VSRC_4S_C0
-	pld [UTP, #32]
-	vmov VSRC_4S_C1, VSRC_4S_C0
-	vmov VSRC_4S_C2, VSRC_4S_C0
-	vmov VSRC_4S_C3, VSRC_4S_C0
-	vmov VSRC_4S_C4, VSRC_4S_C0
-	vmov VSRC_4S_C5, VSRC_4S_C0
+    veor VSRC_4S_C0, VSRC_4S_C0, VSRC_4S_C0
+    pld [UTP, #32]
+    vmov VSRC_4S_C1, VSRC_4S_C0
+    vmov VSRC_4S_C2, VSRC_4S_C0
+    vmov VSRC_4S_C3, VSRC_4S_C0
+    vmov VSRC_4S_C4, VSRC_4S_C0
+    vmov VSRC_4S_C5, VSRC_4S_C0
 
-	vpush {VSRC_4S_C0-VSRC_4S_C5}
-	vstm VST, {VSRC_4S_C8-VSRC_4S_CD}
+    vpush {VSRC_4S_C0-VSRC_4S_C5}
+    vstm VST, {VSRC_4S_C8-VSRC_4S_CD}
 
 __LOOP3:
-	vld1.16 {VSRC_8H_U0}, [UTP]!
-	subs L, L, #1
-	vcvt.f32.f16 VSRC_4S_U0, VSRC_4H_U0
+    vld1.16 {VSRC_8H_U0}, [UTP]!
+    subs L, L, #1
+    vcvt.f32.f16 VSRC_4S_U0, VSRC_4H_U0
 
-	vld1.16 {VSRC_8H_V0}, [VP]!
-	vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_V0
-	vcvt.f32.f16 VSRC_4S_V1, VSRC_4H_V1
+    vld1.16 {VSRC_8H_V0}, [VP]!
+    vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_V0
+    vcvt.f32.f16 VSRC_4S_V1, VSRC_4H_V1
 
-	vld1.16 {VSRC_4H_V0}, [VP]!
-	vcvt.f32.f16 VSRC_4S_V2, VSRC_4H_V0
+    vld1.16 {VSRC_4H_V0}, [VP]!
+    vcvt.f32.f16 VSRC_4S_V2, VSRC_4H_V0
 
-	vpop {VSRC_4S_C0-VSRC_4S_C5}
+    vpop {VSRC_4S_C0-VSRC_4S_C5}
 
-	vmla.f32 VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
-	pld [UTP, #16]
-	vmla.f32 VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
-	vcvt.f32.f16 VSRC_4S_U1, VSRC_4H_U1
-	vmla.f32 VSRC_4S_C2, VSRC_4S_U0, VSRC_4S_V2
+    vmla.f32 VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
+    pld [UTP, #16]
+    vmla.f32 VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
+    vcvt.f32.f16 VSRC_4S_U1, VSRC_4H_U1
+    vmla.f32 VSRC_4S_C2, VSRC_4S_U0, VSRC_4S_V2
 
-	vld1.16 {VSRC_8H_U0}, [UTP]!
-	vmla.f32 VSRC_4S_C3, VSRC_4S_U1, VSRC_4S_V0
-	vmla.f32 VSRC_4S_C4, VSRC_4S_U1, VSRC_4S_V1
-	vcvt.f32.f16 VSRC_4S_U2, VSRC_4H_U0
-	vmla.f32 VSRC_4S_C5, VSRC_4S_U1, VSRC_4S_V2
+    vld1.16 {VSRC_8H_U0}, [UTP]!
+    vmla.f32 VSRC_4S_C3, VSRC_4S_U1, VSRC_4S_V0
+    vmla.f32 VSRC_4S_C4, VSRC_4S_U1, VSRC_4S_V1
+    vcvt.f32.f16 VSRC_4S_U2, VSRC_4H_U0
+    vmla.f32 VSRC_4S_C5, VSRC_4S_U1, VSRC_4S_V2
 
-	vpush {VSRC_4S_C0-VSRC_4S_C5}
+    vpush {VSRC_4S_C0-VSRC_4S_C5}
 
-	vldm VST, {VSRC_4S_C8-VSRC_4S_CD}
+    vldm VST, {VSRC_4S_C8-VSRC_4S_CD}
 
-	vmla.f32 VSRC_4S_C8, VSRC_4S_U2, VSRC_4S_V0
-	pld [UTP, #16]
-	vmla.f32 VSRC_4S_C9, VSRC_4S_U2, VSRC_4S_V1
-	vcvt.f32.f16 VSRC_4S_U3, VSRC_4H_U1
-	vmla.f32 VSRC_4S_CA, VSRC_4S_U2, VSRC_4S_V2
+    vmla.f32 VSRC_4S_C8, VSRC_4S_U2, VSRC_4S_V0
+    pld [UTP, #16]
+    vmla.f32 VSRC_4S_C9, VSRC_4S_U2, VSRC_4S_V1
+    vcvt.f32.f16 VSRC_4S_U3, VSRC_4H_U1
+    vmla.f32 VSRC_4S_CA, VSRC_4S_U2, VSRC_4S_V2
 
-	pld [VP, #16]
-	vmla.f32 VSRC_4S_CB, VSRC_4S_U3, VSRC_4S_V0
-	vmla.f32 VSRC_4S_CC, VSRC_4S_U3, VSRC_4S_V1
-	vmla.f32 VSRC_4S_CD, VSRC_4S_U3, VSRC_4S_V2
+    pld [VP, #16]
+    vmla.f32 VSRC_4S_CB, VSRC_4S_U3, VSRC_4S_V0
+    vmla.f32 VSRC_4S_CC, VSRC_4S_U3, VSRC_4S_V1
+    vmla.f32 VSRC_4S_CD, VSRC_4S_U3, VSRC_4S_V2
 
-	vstm VST, {VSRC_4S_C8-VSRC_4S_CD}
+    vstm VST, {VSRC_4S_C8-VSRC_4S_CD}
 
-	cmp L, #0
-	bne __LOOP3
+    cmp L, #0
+    bne __LOOP3
 
-	vpop {VSRC_4S_C0-VSRC_4S_C5}
-	vstm WTP, {VSRC_4S_C0-VSRC_4S_C2}
-	add WTP, WTP, LDC
-	vstm WTP, {VSRC_4S_C3-VSRC_4S_C5}
-	add WTP, WTP, LDC
-	vldm VST, {VSRC_4S_C8-VSRC_4S_CD}
-	vstm WTP, {VSRC_4S_C8-VSRC_4S_CA}
-	add WTP, WTP, LDC
-	vstm WTP, {VSRC_4S_CB-VSRC_4S_CD}
+    vpop {VSRC_4S_C0-VSRC_4S_C5}
+    vstm WTP, {VSRC_4S_C0-VSRC_4S_C2}
+    add WTP, WTP, LDC
+    vstm WTP, {VSRC_4S_C3-VSRC_4S_C5}
+    add WTP, WTP, LDC
+    vldm VST, {VSRC_4S_C8-VSRC_4S_CD}
+    vstm WTP, {VSRC_4S_C8-VSRC_4S_CA}
+    add WTP, WTP, LDC
+    vstm WTP, {VSRC_4S_CB-VSRC_4S_CD}
 __END3:
-	sub r4, fp, #140
-	vldm r4, {s0-s31}
-	sub sp, fp, #12
-	pop {r4-r5, fp}
-	bx lr
+    sub r4, fp, #140
+    vldm r4, {s0-s31}
+    sub sp, fp, #12
+    pop {r4-r5, fp}
+    bx lr
 
 /* void TensorGEMMInnerKernel4x2x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels) */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _TensorGEMMInnerKernel4x2x4_fp16
+    .global _TensorGEMMInnerKernel4x2x4_fp16
 _TensorGEMMInnerKernel4x2x4_fp16:
 #else
-	.global TensorGEMMInnerKernel4x2x4_fp16
+    .global TensorGEMMInnerKernel4x2x4_fp16
 TensorGEMMInnerKernel4x2x4_fp16:
 #endif
-	push {r4-r5, fp}
-	add fp, sp, #12
-	sub sp, sp, #STACK_SIZE
+    push {r4-r5, fp}
+    add fp, sp, #12
+    sub sp, sp, #STACK_SIZE
 
-	sub r4, fp, #140   /* [fp, -140] */
-	vstm r4, {s0-s31}
+    sub r4, fp, #140   /* [fp, -140] */
+    vstm r4, {s0-s31}
 
-	ldr L, ST_L        /* load L param from ST_L */
-	lsl LDC, LDC, #2
+    ldr L, ST_L        /* load L param from ST_L */
+    lsl LDC, LDC, #2
 
-	cmp L, #0
-	beq __END2
+    cmp L, #0
+    beq __END2
 
-	veor VSRC_4S_C0, VSRC_4S_C0, VSRC_4S_C0
-	pld [UTP, #32]
-	vmov VSRC_4S_C1, VSRC_4S_C0
-	vmov VSRC_4S_C2, VSRC_4S_C0
-	vmov VSRC_4S_C3, VSRC_4S_C0
-	vmov VSRC_4S_C4, VSRC_4S_C0
-	vmov VSRC_4S_C5, VSRC_4S_C0
-	vmov VSRC_4S_C6, VSRC_4S_C0
-	vmov VSRC_4S_C7, VSRC_4S_C0
+    veor VSRC_4S_C0, VSRC_4S_C0, VSRC_4S_C0
+    pld [UTP, #32]
+    vmov VSRC_4S_C1, VSRC_4S_C0
+    vmov VSRC_4S_C2, VSRC_4S_C0
+    vmov VSRC_4S_C3, VSRC_4S_C0
+    vmov VSRC_4S_C4, VSRC_4S_C0
+    vmov VSRC_4S_C5, VSRC_4S_C0
+    vmov VSRC_4S_C6, VSRC_4S_C0
+    vmov VSRC_4S_C7, VSRC_4S_C0
 __LOOP2:
-	vld1.16 {VSRC_8H_U0}, [UTP]!
-	subs L, L, #1
-	vcvt.f32.f16 VSRC_4S_U0, VSRC_4H_U0
-	vld1.16 {VSRC_8H_V0}, [VP]!
-	vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_V0
-	vcvt.f32.f16 VSRC_4S_V1, VSRC_4H_V1
+    vld1.16 {VSRC_8H_U0}, [UTP]!
+    subs L, L, #1
+    vcvt.f32.f16 VSRC_4S_U0, VSRC_4H_U0
+    vld1.16 {VSRC_8H_V0}, [VP]!
+    vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_V0
+    vcvt.f32.f16 VSRC_4S_V1, VSRC_4H_V1
 
-	vmla.f32 VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
-	pld [UTP, #16]
-	vmla.f32 VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
-	vcvt.f32.f16 VSRC_4S_U1, VSRC_4H_U1
+    vmla.f32 VSRC_4S_C0, VSRC_4S_U0, VSRC_4S_V0
+    pld [UTP, #16]
+    vmla.f32 VSRC_4S_C1, VSRC_4S_U0, VSRC_4S_V1
+    vcvt.f32.f16 VSRC_4S_U1, VSRC_4H_U1
 
-	vld1.16 {VSRC_8H_U0}, [UTP]!
-	vmla.f32 VSRC_4S_C2, VSRC_4S_U1, VSRC_4S_V0
-	vcvt.f32.f16 VSRC_4S_U2, VSRC_4H_U0
-	vmla.f32 VSRC_4S_C3, VSRC_4S_U1, VSRC_4S_V1
-	vcvt.f32.f16 VSRC_4S_U3, VSRC_4H_U1
+    vld1.16 {VSRC_8H_U0}, [UTP]!
+    vmla.f32 VSRC_4S_C2, VSRC_4S_U1, VSRC_4S_V0
+    vcvt.f32.f16 VSRC_4S_U2, VSRC_4H_U0
+    vmla.f32 VSRC_4S_C3, VSRC_4S_U1, VSRC_4S_V1
+    vcvt.f32.f16 VSRC_4S_U3, VSRC_4H_U1
 
-	vmla.f32 VSRC_4S_C4, VSRC_4S_U2, VSRC_4S_V0
-	vmla.f32 VSRC_4S_C5, VSRC_4S_U2, VSRC_4S_V1
+    vmla.f32 VSRC_4S_C4, VSRC_4S_U2, VSRC_4S_V0
+    vmla.f32 VSRC_4S_C5, VSRC_4S_U2, VSRC_4S_V1
 
-	vmla.f32 VSRC_4S_C6, VSRC_4S_U3, VSRC_4S_V0
-	vmla.f32 VSRC_4S_C7, VSRC_4S_U3, VSRC_4S_V1
+    vmla.f32 VSRC_4S_C6, VSRC_4S_U3, VSRC_4S_V0
+    vmla.f32 VSRC_4S_C7, VSRC_4S_U3, VSRC_4S_V1
 
-	cmp L, #0
-	bne __LOOP2
+    cmp L, #0
+    bne __LOOP2
 
-	vst1.32 {VSRC_4S_C0, VSRC_4S_C1}, [WTP], LDC
-	vst1.32 {VSRC_4S_C2, VSRC_4S_C3}, [WTP], LDC
-	vst1.32 {VSRC_4S_C4, VSRC_4S_C5}, [WTP], LDC
-	vst1.32 {VSRC_4S_C6, VSRC_4S_C7}, [WTP]
+    vst1.32 {VSRC_4S_C0, VSRC_4S_C1}, [WTP], LDC
+    vst1.32 {VSRC_4S_C2, VSRC_4S_C3}, [WTP], LDC
+    vst1.32 {VSRC_4S_C4, VSRC_4S_C5}, [WTP], LDC
+    vst1.32 {VSRC_4S_C6, VSRC_4S_C7}, [WTP]
 __END2:
-	sub r4, fp, #140
-	vldm r4, {s0-s31}
-	sub sp, fp, #12
-	pop {r4-r5, fp}
-	bx lr
+    sub r4, fp, #140
+    vldm r4, {s0-s31}
+    sub sp, fp, #12
+    pop {r4-r5, fp}
+    bx lr
 
 /* void TensorGEMMInnerKernel4x1x4_fp16(float* WTp, const int wstride, const fix16_t* UTp, const fix16_t* vp, const int inChannels) */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _TensorGEMMInnerKernel4x1x4_fp16
+    .global _TensorGEMMInnerKernel4x1x4_fp16
 _TensorGEMMInnerKernel4x1x4_fp16:
 #else
-	.global TensorGEMMInnerKernel4x1x4_fp16
+    .global TensorGEMMInnerKernel4x1x4_fp16
 TensorGEMMInnerKernel4x1x4_fp16:
 #endif
-	push {r4, fp}
-	add fp, sp, #8
-	sub sp, sp, #STACK_SIZE
+    push {r4, fp}
+    add fp, sp, #8
+    sub sp, sp, #STACK_SIZE
 
-	sub r4, fp, #140   /* [fp, -140] */
-	vstm r4, {s0-s11}
+    sub r4, fp, #140   /* [fp, -140] */
+    vstm r4, {s0-s11}
 
-	ldr L, ST_L        /* load L param from ST_L */
-	lsl LDC, LDC, #2
-	pld [UTP, #32]
+    ldr L, ST_L        /* load L param from ST_L */
+    lsl LDC, LDC, #2
+    pld [UTP, #32]
 
-	cmp L, #0
-	beq __END1
+    cmp L, #0
+    beq __END1
 
-	veor VSRC_4S_C0, VSRC_4S_C0, VSRC_4S_C0
-	vmov VSRC_4S_C1, VSRC_4S_C0
-	veor VSRC_4S_C2, VSRC_4S_C2, VSRC_4S_C2
-	vmov VSRC_4S_C3, VSRC_4S_C0
+    veor VSRC_4S_C0, VSRC_4S_C0, VSRC_4S_C0
+    vmov VSRC_4S_C1, VSRC_4S_C0
+    veor VSRC_4S_C2, VSRC_4S_C2, VSRC_4S_C2
+    vmov VSRC_4S_C3, VSRC_4S_C0
 
 __LOOP1:
-	vld1.16 {VSRC_4H_V0}, [VP:64]! //q1
-	subs L, L, #1
-	vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_V0 //q2
-	vld1.16 {q0, q1}, [UTP:128]!
+    vld1.16 {VSRC_4H_V0}, [VP:64]! //q1
+    subs L, L, #1
+    vcvt.f32.f16 VSRC_4S_V0, VSRC_4H_V0 //q2
+    vld1.16 {q0, q1}, [UTP:128]!
 
-	vcvt.f32.f16 q12, d0
-	pld [UTP, #32]
-	vcvt.f32.f16 q13, d1
-	vmla.f32 VSRC_4S_C0, q12, VSRC_4S_V0
-	vcvt.f32.f16 q14, d2
-	pld [VP, #8]
-	vmla.f32 VSRC_4S_C1, q13, VSRC_4S_V0
-	vcvt.f32.f16 q15, d3
-	vmla.f32 VSRC_4S_C2, q14, VSRC_4S_V0
-	vmla.f32 VSRC_4S_C3, q15, VSRC_4S_V0
+    vcvt.f32.f16 q12, d0
+    pld [UTP, #32]
+    vcvt.f32.f16 q13, d1
+    vmla.f32 VSRC_4S_C0, q12, VSRC_4S_V0
+    vcvt.f32.f16 q14, d2
+    pld [VP, #8]
+    vmla.f32 VSRC_4S_C1, q13, VSRC_4S_V0
+    vcvt.f32.f16 q15, d3
+    vmla.f32 VSRC_4S_C2, q14, VSRC_4S_V0
+    vmla.f32 VSRC_4S_C3, q15, VSRC_4S_V0
 
-	cmp L, #0
-	bne __LOOP1
+    cmp L, #0
+    bne __LOOP1
 
-	vst1.32 {VSRC_4S_C0}, [WTP], LDC
-	vst1.32 {VSRC_4S_C1}, [WTP], LDC
-	vst1.32 {VSRC_4S_C2}, [WTP], LDC
-	vst1.32 {VSRC_4S_C3}, [WTP]
+    vst1.32 {VSRC_4S_C0}, [WTP], LDC
+    vst1.32 {VSRC_4S_C1}, [WTP], LDC
+    vst1.32 {VSRC_4S_C2}, [WTP], LDC
+    vst1.32 {VSRC_4S_C3}, [WTP]
 __END1:
-	sub r4, fp, #140
-	vldm r4, {s0-s11}
-	sub sp, fp, #8
-	pop {r4, fp}
-	bx lr
+    sub r4, fp, #140
+    vldm r4, {s0-s11}
+    sub sp, fp, #8
+    pop {r4, fp}
+    bx lr
 #endif

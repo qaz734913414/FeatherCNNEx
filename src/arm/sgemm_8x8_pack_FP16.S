@@ -15,8 +15,8 @@ COPYRIGHT_HOLDER:
 #ifdef __aarch64__
 /* RSV X19~X28 */
 /**************in param**************/
-#define L 		 w0
-#define A		 x1
+#define L                w0
+#define A                x1
 #define B                x2
 #define C                x3
 #define LDC              w4
@@ -101,128 +101,126 @@ COPYRIGHT_HOLDER:
 #define VSRC_4S_MUL_0_16B  V28.16B
 #define VSRC_4S_MUL_1_16B  V29.16B
 #define VSRC_16B_ZERO      V28.16B
-
+#define VSRC_4S_ZERO       V28.4S
 /* void sgemm_8x8_pack_fp16( int L, short *a, short *b, float *c, int ldc, int ch, float *slopeDataPrelu, int fuse_relu) */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _sgemm_8x8_pack_fp16
+    .global _sgemm_8x8_pack_fp16
 _sgemm_8x8_pack_fp16:
 #else
-	.global sgemm_8x8_pack_fp16
+    .global sgemm_8x8_pack_fp16
 sgemm_8x8_pack_fp16:
 #endif
-	lsl LDC, LDC, #2
-	sxtw LDCX, LDC
-	sxtw CHANNELX, CHANNEL
+    lsl LDC, LDC, #2
+    sxtw LDCX, LDC
+    sxtw CHANNELX, CHANNEL
 
-	cbz L, __END
-	add sp, sp, #-(1 * 16)
-	str C, [sp, #(0 * 8)]
+    cbz L, __END
+    add sp, sp, #-(1 * 16)
+    str C, [sp, #(0 * 8)]
 
-	ld1 {VSRC_4S_C0, VSRC_4S_C8}, [C], LDCX
-	ld1 {VSRC_4S_C1, VSRC_4S_C9}, [C], LDCX
-	ld1 {VSRC_4S_C2, VSRC_4S_CA}, [C], LDCX
-	ld1 {VSRC_4S_C3, VSRC_4S_CB}, [C], LDCX
-	ld1 {VSRC_4S_C4, VSRC_4S_CC}, [C], LDCX
-	ld1 {VSRC_4S_C5, VSRC_4S_CD}, [C], LDCX
-	ld1 {VSRC_4S_C6, VSRC_4S_CE}, [C], LDCX
-	ld1 {VSRC_4S_C7, VSRC_4S_CF}, [C]
+    ld1 {VSRC_4S_C0, VSRC_4S_C8}, [C], LDCX
+    ld1 {VSRC_4S_C1, VSRC_4S_C9}, [C], LDCX
+    ld1 {VSRC_4S_C2, VSRC_4S_CA}, [C], LDCX
+    ld1 {VSRC_4S_C3, VSRC_4S_CB}, [C], LDCX
+    ld1 {VSRC_4S_C4, VSRC_4S_CC}, [C], LDCX
+    ld1 {VSRC_4S_C5, VSRC_4S_CD}, [C], LDCX
+    ld1 {VSRC_4S_C6, VSRC_4S_CE}, [C], LDCX
+    ld1 {VSRC_4S_C7, VSRC_4S_CF}, [C]
 
-	ldr C, [sp, #(0 * 8)]
-	add sp, sp, #(1 * 16)
+    ldr C, [sp, #(0 * 8)]
+    add sp, sp, #(1 * 16)
 __LOOP:
-	ld1 {VSRC_4H_A0, VSRC_4H_A1}, [A], #16
-	subs L, L, #1
-        fcvtl VSRC_4S_A0, VSRC_4H_A0
-	ld1 {VSRC_4H_B0, VSRC_4H_B1}, [B], #16
-        fcvtl VSRC_4S_B0, VSRC_4H_B0
+    ld1 {VSRC_4H_A0, VSRC_4H_A1}, [A], #16
+    subs L, L, #1
+    fcvtl VSRC_4S_A0, VSRC_4H_A0
+    ld1 {VSRC_4H_B0, VSRC_4H_B1}, [B], #16
+    fcvtl VSRC_4S_B0, VSRC_4H_B0
 
-	fmla VSRC_4S_C0, VSRC_4S_B0, VSRC_4S_A0_0
-	fcvtl VSRC_4S_A1, VSRC_4H_A1
-	fmla VSRC_4S_C1, VSRC_4S_B0, VSRC_4S_A0_1
-	fcvtl VSRC_4S_B1, VSRC_4H_B1
-	fmla VSRC_4S_C2, VSRC_4S_B0, VSRC_4S_A0_2
-	fmla VSRC_4S_C3, VSRC_4S_B0, VSRC_4S_A0_3
+    fmla VSRC_4S_C0, VSRC_4S_B0, VSRC_4S_A0_0
+    fcvtl VSRC_4S_A1, VSRC_4H_A1
+    fmla VSRC_4S_C1, VSRC_4S_B0, VSRC_4S_A0_1
+    fcvtl VSRC_4S_B1, VSRC_4H_B1
+    fmla VSRC_4S_C2, VSRC_4S_B0, VSRC_4S_A0_2
+    fmla VSRC_4S_C3, VSRC_4S_B0, VSRC_4S_A0_3
 
-	prfm PLDL1KEEP, [A, #16]
-	fmla VSRC_4S_C4, VSRC_4S_B0, VSRC_4S_A1_0
-	fmla VSRC_4S_C5, VSRC_4S_B0, VSRC_4S_A1_1
-	fmla VSRC_4S_C6, VSRC_4S_B0, VSRC_4S_A1_2
-	fmla VSRC_4S_C7, VSRC_4S_B0, VSRC_4S_A1_3
+    prfm PLDL1KEEP, [A, #16]
+    fmla VSRC_4S_C4, VSRC_4S_B0, VSRC_4S_A1_0
+    fmla VSRC_4S_C5, VSRC_4S_B0, VSRC_4S_A1_1
+    fmla VSRC_4S_C6, VSRC_4S_B0, VSRC_4S_A1_2
+    fmla VSRC_4S_C7, VSRC_4S_B0, VSRC_4S_A1_3
 
-	prfm PLDL1KEEP, [B, #16]
-	fmla VSRC_4S_C8, VSRC_4S_B1, VSRC_4S_A0_0
-	fmla VSRC_4S_C9, VSRC_4S_B1, VSRC_4S_A0_1
-	fmla VSRC_4S_CA, VSRC_4S_B1, VSRC_4S_A0_2
-	fmla VSRC_4S_CB, VSRC_4S_B1, VSRC_4S_A0_3
+    prfm PLDL1KEEP, [B, #16]
+    fmla VSRC_4S_C8, VSRC_4S_B1, VSRC_4S_A0_0
+    fmla VSRC_4S_C9, VSRC_4S_B1, VSRC_4S_A0_1
+    fmla VSRC_4S_CA, VSRC_4S_B1, VSRC_4S_A0_2
+    fmla VSRC_4S_CB, VSRC_4S_B1, VSRC_4S_A0_3
 
-	fmla VSRC_4S_CC, VSRC_4S_B1, VSRC_4S_A1_0
-	fmla VSRC_4S_CD, VSRC_4S_B1, VSRC_4S_A1_1
-	fmla VSRC_4S_CE, VSRC_4S_B1, VSRC_4S_A1_2
-	fmla VSRC_4S_CF, VSRC_4S_B1, VSRC_4S_A1_3
+    fmla VSRC_4S_CC, VSRC_4S_B1, VSRC_4S_A1_0
+    fmla VSRC_4S_CD, VSRC_4S_B1, VSRC_4S_A1_1
+    fmla VSRC_4S_CE, VSRC_4S_B1, VSRC_4S_A1_2
+    fmla VSRC_4S_CF, VSRC_4S_B1, VSRC_4S_A1_3
 
-	cbnz L, __LOOP
+    cbnz L, __LOOP
 __SLOPE:
 /*
-        vmask = vcleq_f32(vsrc, vzero);
-        vscale = vmulq_n_f32(vsrc, vslope);
-        vsrc = vbslq_f32(vmask, vscale, vsrc);
+    vmask = vcleq_f32(vsrc, vzero);
+    vscale = vmulq_n_f32(vsrc, vslope);
+    vsrc = vbslq_f32(vmask, vscale, vsrc);
 */
-        cbz SLOPEX, __RELU
+    cbz SLOPEX, __RELU
 
-        add SLOPEX, SLOPEX, CHANNELX
-        ld1 {VSRC_4S_SLOPE_0, VSRC_4S_SLOPE_1}, [SLOPEX]
+    add SLOPEX, SLOPEX, CHANNELX
+    ld1 {VSRC_4S_SLOPE_0, VSRC_4S_SLOPE_1}, [SLOPEX]
 .macro SLOPE_STORE_MACRO, src_0:req, src_1:req, src_0_16b:req, src_1_16b:req, slope_0:req
-        fcmle VSRC_4S_MASK_0, \src_0, #0.0
-        fcmle VSRC_4S_MASK_1, \src_1, #0.0
-        fmul VSRC_4S_MUL_0, \src_0, \slope_0
-        fmul VSRC_4S_MUL_1, \src_1, \slope_0
-        bsl VSRC_4S_MASK_0_16B, VSRC_4S_MUL_0_16B, \src_0_16b
-        bsl VSRC_4S_MASK_1_16B, VSRC_4S_MUL_1_16B, \src_1_16b
-        st1 {VSRC_4S_MASK_0, VSRC_4S_MASK_1}, [C], LDCX
+    fcmle VSRC_4S_MASK_0, \src_0, #0.0
+    fcmle VSRC_4S_MASK_1, \src_1, #0.0
+    fmul VSRC_4S_MUL_0, \src_0, \slope_0
+    fmul VSRC_4S_MUL_1, \src_1, \slope_0
+    bsl VSRC_4S_MASK_0_16B, VSRC_4S_MUL_0_16B, \src_0_16b
+    bsl VSRC_4S_MASK_1_16B, VSRC_4S_MUL_1_16B, \src_1_16b
+    st1 {VSRC_4S_MASK_0, VSRC_4S_MASK_1}, [C], LDCX
 .endm
-        SLOPE_STORE_MACRO VSRC_4S_C0, VSRC_4S_C8, VSRC_4S_C0_16B, VSRC_4S_C8_16B, VSRC_4S_SLOPE_0_0
-        SLOPE_STORE_MACRO VSRC_4S_C1, VSRC_4S_C9, VSRC_4S_C1_16B, VSRC_4S_C9_16B, VSRC_4S_SLOPE_0_1
-        SLOPE_STORE_MACRO VSRC_4S_C2, VSRC_4S_CA, VSRC_4S_C2_16B, VSRC_4S_CA_16B, VSRC_4S_SLOPE_0_2
-        SLOPE_STORE_MACRO VSRC_4S_C3, VSRC_4S_CB, VSRC_4S_C3_16B, VSRC_4S_CB_16B, VSRC_4S_SLOPE_0_3
-        SLOPE_STORE_MACRO VSRC_4S_C4, VSRC_4S_CC, VSRC_4S_C4_16B, VSRC_4S_CC_16B, VSRC_4S_SLOPE_1_0
-        SLOPE_STORE_MACRO VSRC_4S_C5, VSRC_4S_CD, VSRC_4S_C5_16B, VSRC_4S_CD_16B, VSRC_4S_SLOPE_1_1
-        SLOPE_STORE_MACRO VSRC_4S_C6, VSRC_4S_CE, VSRC_4S_C6_16B, VSRC_4S_CE_16B, VSRC_4S_SLOPE_1_2
-        SLOPE_STORE_MACRO VSRC_4S_C7, VSRC_4S_CF, VSRC_4S_C7_16B, VSRC_4S_CF_16B, VSRC_4S_SLOPE_1_3
-        b __END
+    SLOPE_STORE_MACRO VSRC_4S_C0, VSRC_4S_C8, VSRC_4S_C0_16B, VSRC_4S_C8_16B, VSRC_4S_SLOPE_0_0
+    SLOPE_STORE_MACRO VSRC_4S_C1, VSRC_4S_C9, VSRC_4S_C1_16B, VSRC_4S_C9_16B, VSRC_4S_SLOPE_0_1
+    SLOPE_STORE_MACRO VSRC_4S_C2, VSRC_4S_CA, VSRC_4S_C2_16B, VSRC_4S_CA_16B, VSRC_4S_SLOPE_0_2
+    SLOPE_STORE_MACRO VSRC_4S_C3, VSRC_4S_CB, VSRC_4S_C3_16B, VSRC_4S_CB_16B, VSRC_4S_SLOPE_0_3
+    SLOPE_STORE_MACRO VSRC_4S_C4, VSRC_4S_CC, VSRC_4S_C4_16B, VSRC_4S_CC_16B, VSRC_4S_SLOPE_1_0
+    SLOPE_STORE_MACRO VSRC_4S_C5, VSRC_4S_CD, VSRC_4S_C5_16B, VSRC_4S_CD_16B, VSRC_4S_SLOPE_1_1
+    SLOPE_STORE_MACRO VSRC_4S_C6, VSRC_4S_CE, VSRC_4S_C6_16B, VSRC_4S_CE_16B, VSRC_4S_SLOPE_1_2
+    SLOPE_STORE_MACRO VSRC_4S_C7, VSRC_4S_CF, VSRC_4S_C7_16B, VSRC_4S_CF_16B, VSRC_4S_SLOPE_1_3
+    b __END
 __RELU:
-        cbz RELU, __NORMAL_CASE
+    cbz RELU, __NORMAL_CASE
 
-        eor VSRC_16B_ZERO, VSRC_16B_ZERO, VSRC_16B_ZERO
-.macro RELU_STORE_MACRO, src_0:req, src_1:req, src_0_16b:req, src_1_16b:req
-        fcmle VSRC_4S_MASK_0, \src_0, #0.0
-        fcmle VSRC_4S_MASK_1, \src_1, #0.0
-        bsl VSRC_4S_MASK_0_16B, VSRC_16B_ZERO, \src_0_16b
-        bsl VSRC_4S_MASK_1_16B, VSRC_16B_ZERO, \src_1_16b
-        st1 {VSRC_4S_MASK_0, VSRC_4S_MASK_1}, [C], LDCX
+    eor VSRC_16B_ZERO, VSRC_16B_ZERO, VSRC_16B_ZERO
+.macro RELU_STORE_MACRO, src_0:req, src_1:req
+    fmax VSRC_4S_MASK_0, \src_0, VSRC_4S_ZERO
+    fmax VSRC_4S_MASK_1, \src_1, VSRC_4S_ZERO
+    st1 {VSRC_4S_MASK_0, VSRC_4S_MASK_1}, [C], LDCX
 .endm
-        RELU_STORE_MACRO VSRC_4S_C0, VSRC_4S_C8, VSRC_4S_C0_16B, VSRC_4S_C8_16B
-        RELU_STORE_MACRO VSRC_4S_C1, VSRC_4S_C9, VSRC_4S_C1_16B, VSRC_4S_C9_16B
-        RELU_STORE_MACRO VSRC_4S_C2, VSRC_4S_CA, VSRC_4S_C2_16B, VSRC_4S_CA_16B
-        RELU_STORE_MACRO VSRC_4S_C3, VSRC_4S_CB, VSRC_4S_C3_16B, VSRC_4S_CB_16B
-        RELU_STORE_MACRO VSRC_4S_C4, VSRC_4S_CC, VSRC_4S_C4_16B, VSRC_4S_CC_16B
-        RELU_STORE_MACRO VSRC_4S_C5, VSRC_4S_CD, VSRC_4S_C5_16B, VSRC_4S_CD_16B
-        RELU_STORE_MACRO VSRC_4S_C6, VSRC_4S_CE, VSRC_4S_C6_16B, VSRC_4S_CE_16B
-        RELU_STORE_MACRO VSRC_4S_C7, VSRC_4S_CF, VSRC_4S_C7_16B, VSRC_4S_CF_16B
-        b __END
+    RELU_STORE_MACRO VSRC_4S_C0, VSRC_4S_C8
+    RELU_STORE_MACRO VSRC_4S_C1, VSRC_4S_C9
+    RELU_STORE_MACRO VSRC_4S_C2, VSRC_4S_CA
+    RELU_STORE_MACRO VSRC_4S_C3, VSRC_4S_CB
+    RELU_STORE_MACRO VSRC_4S_C4, VSRC_4S_CC
+    RELU_STORE_MACRO VSRC_4S_C5, VSRC_4S_CD
+    RELU_STORE_MACRO VSRC_4S_C6, VSRC_4S_CE
+    RELU_STORE_MACRO VSRC_4S_C7, VSRC_4S_CF
+    b __END
 
 __NORMAL_CASE:
-	st1 {VSRC_4S_C0, VSRC_4S_C8}, [C], LDCX
-	st1 {VSRC_4S_C1, VSRC_4S_C9}, [C], LDCX
-	st1 {VSRC_4S_C2, VSRC_4S_CA}, [C], LDCX
-	st1 {VSRC_4S_C3, VSRC_4S_CB}, [C], LDCX
-	st1 {VSRC_4S_C4, VSRC_4S_CC}, [C], LDCX
-	st1 {VSRC_4S_C5, VSRC_4S_CD}, [C], LDCX
-	st1 {VSRC_4S_C6, VSRC_4S_CE}, [C], LDCX
-	st1 {VSRC_4S_C7, VSRC_4S_CF}, [C]
+    st1 {VSRC_4S_C0, VSRC_4S_C8}, [C], LDCX
+    st1 {VSRC_4S_C1, VSRC_4S_C9}, [C], LDCX
+    st1 {VSRC_4S_C2, VSRC_4S_CA}, [C], LDCX
+    st1 {VSRC_4S_C3, VSRC_4S_CB}, [C], LDCX
+    st1 {VSRC_4S_C4, VSRC_4S_CC}, [C], LDCX
+    st1 {VSRC_4S_C5, VSRC_4S_CD}, [C], LDCX
+    st1 {VSRC_4S_C6, VSRC_4S_CE}, [C], LDCX
+    st1 {VSRC_4S_C7, VSRC_4S_CF}, [C]
 __END:
-	ret
+    ret
 
 #else
 
@@ -230,8 +228,8 @@ __END:
 
 /* RSV [r4~r9,fp] */
 /**************in param**************/
-#define L 		 r0
-#define A		 r1
+#define L                r0
+#define A                r1
 #define B                r2
 #define C                r3
 
@@ -305,16 +303,16 @@ __END:
             |                                                           |          ^
             |                                                           |          ^
 NEW_SP(TOP)-|--------------L ADDR----------------|-->[fp - 512 - 24] ---|--------PUSH BASE---
-            |				   	 |                      |
-            |	         (512-128) 	         |                      |
-            |				   	 |                      |
+            |                    |                      |
+            |            (512-128)           |                      |
+            |                    |                      |
 FP - 152----|------------RSV(128)---STACK_END----|    STACK_SIZE(512)   |
-            |	          	 		 |                      |
-            |		 s0~s31    	         |                      |
-            |			 		 |                      |
+            |                        |                      |
+            |        s0~s31              |                      |
+            |                    |                      |
 PUSH_SP-----|------------------------------------|-----------------------
             |                                    |
-            |	     (R4~R8, FP) 24 Bytes        |
+            |        (R4~R8, FP) 24 Bytes        |
             |                                    |
 OLD_SP FP --|------------------------------------|
             |          PARM_0(FP+ 0)             |
@@ -335,125 +333,124 @@ sgemm_8x8_pack_fix(L, a + i * L, packB + j * eL + 4, c + i * ldc + j + 4, ldc);
 
 void sgemm_8x8_pack_fp16( int L, short *a, short *b, float *c, int ldc, int ch, float *slopeDataPrelu, int fuse_relu)
 */
-	.text
-	.align 5
+    .text
+    .align 5
 #ifdef __APPLE__
-	.global _sgemm_8x8_pack_fp16
+    .global _sgemm_8x8_pack_fp16
 _sgemm_8x8_pack_fp16:
 #else
-	.global sgemm_8x8_pack_fp16
+    .global sgemm_8x8_pack_fp16
 sgemm_8x8_pack_fp16:
 #endif
-	push {r4-r8, fp}
-	add fp, sp, #24
-	sub sp, sp, #STACK_SIZE
+    push {r4-r8, fp}
+    add fp, sp, #24
+    sub sp, sp, #STACK_SIZE
 
-	sub r4, fp, #152   /* [fp, -152] */
-	vstm r4, {s0-s15}
+    sub r4, fp, #152   /* [fp, -152] */
+    vstm r4, {s0-s15}
 
-	str C, ST_C        /* backup C into ST_C */
+    str C, ST_C        /* backup C into ST_C */
 
-	ldr LDC, ST_LDC         /* load LDC param from ST_LDC */
-	lsl LDC, LDC, #2
-	ldr CHANNEL, ST_CHANNEL /* load CHANNEL param from ST_CHANNEL */
-	mov CONST_16, #16
-	ldr SLOPE, ST_SLOPE     /* load SLOPE param from ST_SLOPE */
-        ldr RELU, ST_RELU       /* load RELU param from ST_RELU */
+    ldr LDC, ST_LDC         /* load LDC param from ST_LDC */
+    lsl LDC, LDC, #2
+    ldr CHANNEL, ST_CHANNEL /* load CHANNEL param from ST_CHANNEL */
+    mov CONST_16, #16
+    ldr SLOPE, ST_SLOPE     /* load SLOPE param from ST_SLOPE */
+    ldr RELU, ST_RELU       /* load RELU param from ST_RELU */
 
-	cmp L, #0
-	beq __END
+    cmp L, #0
+    beq __END
 
-	vld1.32 {VSRC_4S_C0}, [C], LDC
-	vld1.32 {VSRC_4S_C1}, [C], LDC
-	vld1.32 {VSRC_4S_C2}, [C], LDC
-	vld1.32 {VSRC_4S_C3}, [C], LDC
-	vld1.32 {VSRC_4S_C4}, [C], LDC
-	vld1.32 {VSRC_4S_C5}, [C], LDC
-	vld1.32 {VSRC_4S_C6}, [C], LDC
-	vld1.32 {VSRC_4S_C7}, [C]
+    vld1.32 {VSRC_4S_C0}, [C], LDC
+    vld1.32 {VSRC_4S_C1}, [C], LDC
+    vld1.32 {VSRC_4S_C2}, [C], LDC
+    vld1.32 {VSRC_4S_C3}, [C], LDC
+    vld1.32 {VSRC_4S_C4}, [C], LDC
+    vld1.32 {VSRC_4S_C5}, [C], LDC
+    vld1.32 {VSRC_4S_C6}, [C], LDC
+    vld1.32 {VSRC_4S_C7}, [C]
 
 __LOOP:
-	vld1.16 {VSRC_4H_A0, VSRC_4H_A1}, [A:128]!
-	vcvt.f32.f16 VSRC_4S_A0, VSRC_4H_A0
-	subs L, L, #1
-	vld1.16 {VSRC_4H_B0}, [B], CONST_16
-	vcvt.f32.f16 VSRC_4S_B0, VSRC_4H_B0
+    vld1.16 {VSRC_4H_A0, VSRC_4H_A1}, [A:128]!
+    vcvt.f32.f16 VSRC_4S_A0, VSRC_4H_A0
+    subs L, L, #1
+    vld1.16 {VSRC_4H_B0}, [B], CONST_16
+    vcvt.f32.f16 VSRC_4S_B0, VSRC_4H_B0
 
-	vmla.f32 VSRC_4S_C0, VSRC_4S_B0, VSRC_4S_A0_0
-	pld [B, #8]
-	vmla.f32 VSRC_4S_C1, VSRC_4S_B0, VSRC_4S_A0_1
-	vcvt.f32.f16 VSRC_4S_A1, VSRC_4H_A1
-	vmla.f32 VSRC_4S_C2, VSRC_4S_B0, VSRC_4S_A0_2
-	vmla.f32 VSRC_4S_C3, VSRC_4S_B0, VSRC_4S_A0_3
+    vmla.f32 VSRC_4S_C0, VSRC_4S_B0, VSRC_4S_A0_0
+    pld [B, #8]
+    vmla.f32 VSRC_4S_C1, VSRC_4S_B0, VSRC_4S_A0_1
+    vcvt.f32.f16 VSRC_4S_A1, VSRC_4H_A1
+    vmla.f32 VSRC_4S_C2, VSRC_4S_B0, VSRC_4S_A0_2
+    vmla.f32 VSRC_4S_C3, VSRC_4S_B0, VSRC_4S_A0_3
 
-	pld [A, #16]
-	vmla.f32 VSRC_4S_C4, VSRC_4S_B0, VSRC_4S_A1_0
-	vmla.f32 VSRC_4S_C5, VSRC_4S_B0, VSRC_4S_A1_1
-	vmla.f32 VSRC_4S_C6, VSRC_4S_B0, VSRC_4S_A1_2
-	vmla.f32 VSRC_4S_C7, VSRC_4S_B0, VSRC_4S_A1_3
+    pld [A, #16]
+    vmla.f32 VSRC_4S_C4, VSRC_4S_B0, VSRC_4S_A1_0
+    vmla.f32 VSRC_4S_C5, VSRC_4S_B0, VSRC_4S_A1_1
+    vmla.f32 VSRC_4S_C6, VSRC_4S_B0, VSRC_4S_A1_2
+    vmla.f32 VSRC_4S_C7, VSRC_4S_B0, VSRC_4S_A1_3
 
-	cmp L, #0
-	bne __LOOP
+    cmp L, #0
+    bne __LOOP
 
-	ldr C, ST_C
+    ldr C, ST_C
 
 __SLOPE:
-        cmp SLOPE, #0
-        beq __RELU
+    cmp SLOPE, #0
+    beq __RELU
 
-        add SLOPE, SLOPE, CHANNEL
-        vld1.32 {VSRC_4S_SLOPE}, [SLOPE]!
-        veor VSRC_4S_ZERO, VSRC_4S_ZERO, VSRC_4S_ZERO
+    add SLOPE, SLOPE, CHANNEL
+    vld1.32 {VSRC_4S_SLOPE}, [SLOPE]!
+    veor VSRC_4S_ZERO, VSRC_4S_ZERO, VSRC_4S_ZERO
 .macro SLOPE_STORE_MACRO, src_0:req, slope_0:req
-        vcle.f32 VSRC_4S_MASK, \src_0, VSRC_4S_ZERO
-        vmul.f32 VSRC_4S_MUL, \src_0, \slope_0
-        vbsl VSRC_4S_MASK, VSRC_4S_MUL, \src_0
-        vst1.32 {VSRC_4S_MASK}, [C], LDC
+    vcle.f32 VSRC_4S_MASK, \src_0, VSRC_4S_ZERO
+    vmul.f32 VSRC_4S_MUL, \src_0, \slope_0
+    vbsl VSRC_4S_MASK, VSRC_4S_MUL, \src_0
+    vst1.32 {VSRC_4S_MASK}, [C], LDC
 .endm
-        SLOPE_STORE_MACRO VSRC_4S_C0, VSRC_4S_SLOPE_0
-        SLOPE_STORE_MACRO VSRC_4S_C1, VSRC_4S_SLOPE_1
-        SLOPE_STORE_MACRO VSRC_4S_C2, VSRC_4S_SLOPE_2
-        SLOPE_STORE_MACRO VSRC_4S_C3, VSRC_4S_SLOPE_3
+    SLOPE_STORE_MACRO VSRC_4S_C0, VSRC_4S_SLOPE_0
+    SLOPE_STORE_MACRO VSRC_4S_C1, VSRC_4S_SLOPE_1
+    SLOPE_STORE_MACRO VSRC_4S_C2, VSRC_4S_SLOPE_2
+    SLOPE_STORE_MACRO VSRC_4S_C3, VSRC_4S_SLOPE_3
 
-        vld1.32 {VSRC_4S_SLOPE}, [SLOPE]
-        SLOPE_STORE_MACRO VSRC_4S_C4, VSRC_4S_SLOPE_0
-        SLOPE_STORE_MACRO VSRC_4S_C5, VSRC_4S_SLOPE_1
-        SLOPE_STORE_MACRO VSRC_4S_C6, VSRC_4S_SLOPE_2
-        SLOPE_STORE_MACRO VSRC_4S_C7, VSRC_4S_SLOPE_3
-        b __END
+    vld1.32 {VSRC_4S_SLOPE}, [SLOPE]
+    SLOPE_STORE_MACRO VSRC_4S_C4, VSRC_4S_SLOPE_0
+    SLOPE_STORE_MACRO VSRC_4S_C5, VSRC_4S_SLOPE_1
+    SLOPE_STORE_MACRO VSRC_4S_C6, VSRC_4S_SLOPE_2
+    SLOPE_STORE_MACRO VSRC_4S_C7, VSRC_4S_SLOPE_3
+    b __END
 __RELU:
-        cmp RELU, #0
-        beq __NORMAL_CASE
-        veor VSRC_4S_ZERO, VSRC_4S_ZERO, VSRC_4S_ZERO
+    cmp RELU, #0
+    beq __NORMAL_CASE
+    veor VSRC_4S_ZERO, VSRC_4S_ZERO, VSRC_4S_ZERO
 .macro RELU_STORE_MACRO, src_0:req
-        vcle.f32 VSRC_4S_MASK, \src_0, VSRC_4S_ZERO
-        vbsl VSRC_4S_MASK, VSRC_4S_ZERO, \src_0
-        vst1.32 {VSRC_4S_MASK}, [C], LDC
+    vmax.f32 VSRC_4S_MASK, \src_0, VSRC_4S_ZERO
+    vst1.32 {VSRC_4S_MASK}, [C], LDC
 .endm
-        RELU_STORE_MACRO VSRC_4S_C0
-        RELU_STORE_MACRO VSRC_4S_C1
-        RELU_STORE_MACRO VSRC_4S_C2
-        RELU_STORE_MACRO VSRC_4S_C3
-        RELU_STORE_MACRO VSRC_4S_C4
-        RELU_STORE_MACRO VSRC_4S_C5
-        RELU_STORE_MACRO VSRC_4S_C6
-        RELU_STORE_MACRO VSRC_4S_C7
-        b __END
+    RELU_STORE_MACRO VSRC_4S_C0
+    RELU_STORE_MACRO VSRC_4S_C1
+    RELU_STORE_MACRO VSRC_4S_C2
+    RELU_STORE_MACRO VSRC_4S_C3
+    RELU_STORE_MACRO VSRC_4S_C4
+    RELU_STORE_MACRO VSRC_4S_C5
+    RELU_STORE_MACRO VSRC_4S_C6
+    RELU_STORE_MACRO VSRC_4S_C7
+    b __END
 
 __NORMAL_CASE:
-	vst1.32 {VSRC_4S_C0}, [C], LDC
-	vst1.32 {VSRC_4S_C1}, [C], LDC
-	vst1.32 {VSRC_4S_C2}, [C], LDC
-	vst1.32 {VSRC_4S_C3}, [C], LDC
-	vst1.32 {VSRC_4S_C4}, [C], LDC
-	vst1.32 {VSRC_4S_C5}, [C], LDC
-	vst1.32 {VSRC_4S_C6}, [C], LDC
-	vst1.32 {VSRC_4S_C7}, [C]
+    vst1.32 {VSRC_4S_C0}, [C], LDC
+    vst1.32 {VSRC_4S_C1}, [C], LDC
+    vst1.32 {VSRC_4S_C2}, [C], LDC
+    vst1.32 {VSRC_4S_C3}, [C], LDC
+    vst1.32 {VSRC_4S_C4}, [C], LDC
+    vst1.32 {VSRC_4S_C5}, [C], LDC
+    vst1.32 {VSRC_4S_C6}, [C], LDC
+    vst1.32 {VSRC_4S_C7}, [C]
 
 __END:
-	sub r4, fp, #152
-	vldm r4, {s0-s15}
-	sub sp, fp, #24
-	pop {r4-r8, fp}
-	bx lr
+    sub r4, fp, #152
+    vldm r4, {s0-s15}
+    sub sp, fp, #24
+    pop {r4-r8, fp}
+    bx lr
 #endif
