@@ -18,9 +18,3 @@ Thanks Tencent FeatherCNN & NCNN team.
 ## Contact Info:
 QQ Group: 420089534<br>
 Author Email: tianylijun@163.com<br>
-
-## BenchMark
-<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/squeeze_resnet18.jpeg">
-<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/mobile.jpeg">
-<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/isnet.jpeg">
-<img src="https://raw.githubusercontent.com/tianylijun/FeatherCNNEx/master/benchmark/mtcnn.jpeg">
