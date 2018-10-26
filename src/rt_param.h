@@ -51,6 +51,10 @@ public:
     {
         return _num_threads;
     }
+    void set_num_threads(size_t num_threads)
+    {
+        _num_threads = num_threads;
+    }
 
     CONV_TYPE_E conv1x1Type;
     CONV_TYPE_E conv3x3Type;
@@ -59,6 +63,7 @@ public:
     bool sgemmLowPrecision;
     bool dropoutWork;
     void *pNet;
+    void *pSgemmCtx;
 
 private:
     CommonMemPool<Dtype> *_common_mempool;

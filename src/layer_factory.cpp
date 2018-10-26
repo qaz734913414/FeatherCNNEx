@@ -92,7 +92,7 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
     }
     else if(CONV_TYPE_DIRECT == rt_param->conv1x1Type && group == 1 && kernel_height == 1 && kernel_width == 1 &&
             stride_height == 1 && stride_width == 1
-            && input_channels <= 64 && (output_channels <= 64 || 0 != (output_channels%8)))
+            /*&& input_channels <= 64 && (output_channels <= 64 || 0 != (output_channels%8))*/)
     {
         conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
         conv_layer->_subType = "Direct1x1";
@@ -107,6 +107,7 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
         conv_layer = new ConvDepthwiseLayer(layer_param, rt_param);
         conv_layer->_subType = "depthwise";
     }
+    //printf("conv type: %-15s, group: [%03d] kernel: [%02d %02d] stride: [%02d %02d]\n", conv_layer->_subType.c_str(), group, kernel_height, kernel_width, stride_height, stride_width);
     return (Layer *) conv_layer;
 }
 Layer *GetBatchNormLayer(const LayerParameter *layer_param, const RuntimeParameter<float> * rt_param)

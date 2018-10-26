@@ -52,9 +52,15 @@ if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
 add_executable(feather_test64 test.cpp)
 target_link_libraries(feather_test64 feather ${OpenCV_LIBS})
 
+#add_executable(mtcnn-test-64 mtcnn/inference.cpp  mtcnn/mtcnndetect.cpp)
+#target_link_libraries(mtcnn-test-64 feather ${OpenCV_LIBS})
+
 else("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
 
 add_executable(feather_test32 test.cpp)
 target_link_libraries(feather_test32 feather ${OpenCV_LIBS})
+
+#add_executable(mtcnn-test mtcnn/inference.cpp  mtcnn/mtcnndetect.cpp)
+#target_link_libraries(mtcnn-test feather ${OpenCV_LIBS})
 
 endif ()

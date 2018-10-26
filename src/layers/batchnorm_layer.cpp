@@ -64,13 +64,13 @@ int BatchNormLayer::Init()
 
     float *mean_data  = _weight_blobs[0]->data();
     float *var_data   = _weight_blobs[1]->data();
-    float scale_factor = 1.0f / *(_weight_blobs[2]->data());
-    float eps = 1e-5;
+
+    float eps = 0.f;
     for (int i=0; i<input_channels; i++)
     {
-        float sqrt_var = sqrt(var_data[i]*scale_factor + eps);
-        alpha[i] = -(mean_data[i]*scale_factor) / sqrt_var;
-        beta[i]  = 1 / sqrt_var;
+        float sqrt_var = sqrt(var_data[i] + eps);
+        alpha[i] = 0.f - mean_data[i] / sqrt_var;
+        beta[i] = 1.0 / sqrt_var;
     }
     if(fuse_scale)
     {

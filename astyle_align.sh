@@ -1,1 +1,1 @@
-astyle  --style=allman  --recursive  ./*.cpp,*.h,*.hpp && find . -type f -name "*.orig" | xargs rm
+astyle  --style=allman  --recursive  ./*.cpp,*.h,*.hpp,*.cc && find . -type f -name "*.orig" | xargs rm

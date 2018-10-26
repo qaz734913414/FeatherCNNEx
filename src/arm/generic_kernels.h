@@ -16,7 +16,6 @@
 
 #include <stdio.h>
 
-
 template<bool fuse_relu>
 void add_relu(float* dst, const float* A, const float* B, const size_t len, const size_t num_threads);
 

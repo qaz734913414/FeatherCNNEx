@@ -426,35 +426,68 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 int dim_len = caffe_blob.shape().dim_size();
 
                 PRINTF("	Blob[%02d], dim_len: %02d, data size: %d\n", j, dim_len, caffe_blob.data_size());
-
-                /* push blob data to fbb */
-                for(int k = 0; k != caffe_blob.data_size(); ++k)
+                if(0 == layer_type.compare("BatchNorm"))
                 {
-                    float data = caffe_blob.data(k);
-                    /* only weight blob of Conv layer do fix16 change (bias ignore) */
-                    if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
+                    auto caffe_param = caffe_layer.batch_norm_param();
+                    //printf("---eps: %f---------\n", caffe_param.eps());
+                    float scale_factor = caffe_model_layer.blobs(2).data(0) == 0 ? 0:(1.0f/caffe_model_layer.blobs(2).data(0));
+                    if (0 == j)
                     {
-                        fix16_t fix_data = FLOAT2FIX((fix16_t), fractions, data);
-                        blob_data_vec_fix.push_back(fix_data);
-                        blob_data_vec.push_back(data);
-
-                        if (0 == k)
+                        for(int k = 0; k != caffe_blob.data_size(); ++k)
                         {
-                            minf = maxf = data;
-                            minS = maxS = fix_data;
+                            float data = caffe_blob.data(k);
+                            blob_data_vec.push_back(data*scale_factor);
                         }
-                        minf = MIN(minf, data);
-                        maxf = MAX(maxf, data);
-                        absminf = MIN(fabs(minf), fabs(maxf));
-                        scaleThre = MAX(fabs(minf), fabs(maxf));
-
-                        minS = MIN(minS, fix_data);
-                        maxS = MAX(maxS, fix_data);
-                        absmaxS = MAX(abs(minS), abs(maxS));
-                        absminS = MIN(abs(minS), abs(maxS));
                     }
-                    else
-                        blob_data_vec.push_back(data);
+                    else if (1 == j)
+                    {
+                        for(int k = 0; k != caffe_blob.data_size(); ++k)
+                        {
+                            float data = caffe_blob.data(k);
+                            blob_data_vec.push_back(data*scale_factor+caffe_param.eps());
+                        }
+                    }
+                    else if (2 == j)
+                    {
+                        //printf("%d, %f\n", caffe_blob.data_size(), caffe_blob.data(0));
+                        for(int k = 0; k != caffe_blob.data_size(); ++k)
+                        {
+                            float data = caffe_blob.data(k);
+                            blob_data_vec.push_back(data);
+                        }
+                    }
+                }
+                else
+                {
+                    /* push blob data to fbb */
+                    for(int k = 0; k != caffe_blob.data_size(); ++k)
+                    {
+                        float data = caffe_blob.data(k);
+                        /* only weight blob of Conv layer do fix16 change (bias ignore) */
+                        if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
+                        {
+                            fix16_t fix_data = FLOAT2FIX((fix16_t), fractions, data);
+                            blob_data_vec_fix.push_back(fix_data);
+                            blob_data_vec.push_back(data);
+
+                            if (0 == k)
+                            {
+                                minf = maxf = data;
+                                minS = maxS = fix_data;
+                            }
+                            minf = MIN(minf, data);
+                            maxf = MAX(maxf, data);
+                            absminf = MIN(fabs(minf), fabs(maxf));
+                            scaleThre = MAX(fabs(minf), fabs(maxf));
+
+                            minS = MIN(minS, fix_data);
+                            maxS = MAX(maxS, fix_data);
+                            absmaxS = MAX(abs(minS), abs(maxS));
+                            absminS = MIN(abs(minS), abs(maxS));
+                        }
+                        else
+                            blob_data_vec.push_back(data);
+                    }
                 }
 
                 if ((8 == fractions) && (0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
@@ -707,7 +740,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             Offset<feather::ReshapeParameter> reshape_param_fb;
             Offset<feather::DetectionOutputParameter> detectionoutput_param_fb;
             Offset<feather::ConcatParameter> concat_param_fb;
-			Offset<feather::SoftmaxParameter> softmax_param_fb;
+            Offset<feather::SoftmaxParameter> softmax_param_fb;
 
             PRINTF("Layer param:\n");
             if((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0))
@@ -1010,25 +1043,25 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 std::vector<float> variances;
                 if (prior_box_param.variance_size() == 4)
                 {
-	                variances.push_back(prior_box_param.variance(0));
-	                variances.push_back(prior_box_param.variance(1));
-	                variances.push_back(prior_box_param.variance(2));
-	                variances.push_back(prior_box_param.variance(3));
-					printf("variance size 4: %f %f %f %f\n", variances[0], variances[1], variances[2], variances[3]);
+                    variances.push_back(prior_box_param.variance(0));
+                    variances.push_back(prior_box_param.variance(1));
+                    variances.push_back(prior_box_param.variance(2));
+                    variances.push_back(prior_box_param.variance(3));
+                    printf("variance size 4: %f %f %f %f\n", variances[0], variances[1], variances[2], variances[3]);
                 }
                 else if (prior_box_param.variance_size() == 1)
                 {
-	                variances.push_back(prior_box_param.variance(0));
-	                variances.push_back(prior_box_param.variance(0));
-	                variances.push_back(prior_box_param.variance(0));
-	                variances.push_back(prior_box_param.variance(0));
+                    variances.push_back(prior_box_param.variance(0));
+                    variances.push_back(prior_box_param.variance(0));
+                    variances.push_back(prior_box_param.variance(0));
+                    variances.push_back(prior_box_param.variance(0));
                 }
                 else
                 {
-	                variances.push_back(0.1);
-	                variances.push_back(0.1);
-	                variances.push_back(0.1);
-	                variances.push_back(0.1);
+                    variances.push_back(0.1);
+                    variances.push_back(0.1);
+                    variances.push_back(0.1);
+                    variances.push_back(0.1);
                 }
 
                 param_variances = fbb.CreateVector<float>(variances);
@@ -1091,7 +1124,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
 
                 feather::PriorBoxParameterBuilder priorbox_param_builder(fbb);
                 priorbox_param_builder.add_variance(param_variances);
-				priorbox_param_builder.add_min_size(param_min_size);
+                priorbox_param_builder.add_min_size(param_min_size);
                 priorbox_param_builder.add_max_size(param_max_size);
                 priorbox_param_builder.add_aspect_ratio(param_ar_v);
                 priorbox_param_builder.add_step_w(step_width);
@@ -1244,8 +1277,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 }
                 concat_param_fb = concat_param_builder.Finish();
             }
-			else if (layer_type.compare("Softmax")==0)
-			{
+            else if (layer_type.compare("Softmax")==0)
+            {
                 int axis = 1;
                 feather::SoftmaxParameterBuilder softmax_param_builder(fbb);
                 auto softmax_param = caffe_layer.softmax_param();
@@ -1253,7 +1286,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     axis = softmax_param.axis();
                 softmax_param_builder.add_axis(axis);
                 softmax_param_fb = softmax_param_builder.Finish();
-			}
+            }
             else if((layer_type.compare("BatchNorm")==0) ||
                     (layer_type.compare("Softmax")==0)   ||
                     (layer_type.compare("ReLU")==0)      ||
