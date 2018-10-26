@@ -89,7 +89,7 @@ static void draw_objects(const cv::Mat& bgr, float *pOut)
     pOut++;
     for (int i=0; i < cnt; i++)
     {
-        printf("[%d/%d] %d %f\n", i, cnt, (int)pOut[i*6], pOut[i*6+1]);
+        printf("[%d/%d] %d %f %f %f %f %f\n", i, cnt, (int)pOut[i*6], pOut[i*6+1], pOut[i*6+2], pOut[i*6+3], pOut[i*6+4], pOut[i*6+5]);
         Object object;
         object.label = (int)pOut[i*6];
         object.prob = pOut[i*6+1];
@@ -103,14 +103,14 @@ static void draw_objects(const cv::Mat& bgr, float *pOut)
     for (size_t i = 0; i < objects.size(); i++)
     {
         const Object& obj = objects[i];
-
-        printf("%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.prob,
-               obj.rect.x, obj.rect.y, obj.rect.width, obj.rect.height);
-
-        cv::rectangle(image, obj.rect, cv::Scalar(255, 0, 0));
+        cv::rectangle(image, obj.rect, cv::Scalar(0, 255, 0));
 
         char text[256];
+#if 1
+        sprintf(text, "%s %.1f%%", label_ssd_lite[obj.label], obj.prob * 100);
+#else
         sprintf(text, "%s %.1f%%", class_names[obj.label], obj.prob * 100);
+#endif
 
         int baseLine = 0;
         cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
 
     printf("file: %s model: %s blob: %s loopCnt: %d num_threads: %d bSameMean:%d bGray: %d b1x1Sgemm:%d bLowPrecision: %d viewType: %d SerialFile: %s\n",
            pFname, pModel, pBlob, loopCnt, num_threads, bSameMean, bGray, b1x1Sgemm, bLowPrecision, viewType, pSerialFile);
-#if 1
+#if 0
     cv::Mat img;
     if (bGray)
         img = imread(pFname, 0);
@@ -196,8 +196,25 @@ int main(int argc, char *argv[])
         float *pIn = forward_net->GetInputBuffer();
         float meansDiff[] = {104.0f, 117.0f, 123.0f};
         float meansSame[] = {127.5f, 127.5f, 127.5f};
-        float varSame[]   = {0.0078125f, 0.0078125f, 0.0078125f};
+        //float varSame[]   = {0.0078125f, 0.0078125f, 0.0078125f};
+        float varSame[]   = {0.007843137, 0.007843137, 0.007843137};
 
+        gettimeofday(&beg, NULL);
+
+        if (1 == img.channels())
+            from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
+        else
+        {
+            if (bSameMean)
+                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 1, num_threads);
+            else
+                from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
+        }
+        int ret = forward_net->Forward();
+        pOut = forward_net->ExtractBlob(pBlob);
+        gettimeofday(&end, NULL);
+        printf("\nWarm time: %f ms, threads: %d, out blob size: %u\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000.0, num_threads, (unsigned int)data_size);
+        getchar();
         gettimeofday(&beg, NULL);
         for(int loop = 0; loop < loopCnt; loop++)
         {
@@ -206,7 +223,7 @@ int main(int argc, char *argv[])
             else
             {
                 if (bSameMean)
-                    from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
+                    from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 1, num_threads);
                 else
                     from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
             }
@@ -244,10 +261,29 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    FILE *fpw = NULL;
+    if(NULL == (fpw = fopen("300/feather_result.txt","wb")))
+    {
+        printf("open output error!\n");
+        return -2;
+    }
+
     Net forward_net(num_threads);
+    if (b1x1Sgemm)
+        forward_net.config1x1ConvType(CONV_TYPE_SGEMM);
+    else
+        forward_net.config1x1ConvType(CONV_TYPE_DIRECT);
+    forward_net.config3x3ConvType(CONV_TYPE_DIRECT);
+    forward_net.configDWConvType(CONV_TYPE_DW_DIRECT);
+    forward_net.configWinogradLowPrecision(true);
+    forward_net.configSgemmLowPrecision(bLowPrecision);
+    forward_net.configDropoutWork(true);
+    forward_net.configCrypto(pSerialFile);
+    forward_net.inChannels = 3;
+    forward_net.inWidth = 300;
+    forward_net.inHeight = 300;
     forward_net.InitFromPath(pModel);
-    size_t data_size;
-    forward_net.GetBlobDataSize(&data_size, pBlob);
+
     float *pOut = NULL;
 
     char tmp[1024];
@@ -263,14 +299,7 @@ int main(int argc, char *argv[])
         strLine[strlen(strLine)-1]='\0';
         if (0 == strlen(strLine)) break;
         strcpy(imgFile, strLine);
-        tmp[0] = 0;
-#define OUTPUT_FOLDER "./outFeature"
-        strcpy(tmp, OUTPUT_FOLDER);
-        char *pSplit = strrchr(strLine, '/');
-        strcpy(tmp+strlen(OUTPUT_FOLDER), pSplit);
-        pSplit = strrchr(tmp, '.');
-        strcpy(pSplit, ".feature");
-
+        printf("img: %s\n", imgFile);
         cv::Mat img = imread(imgFile);
         if (img.empty())
         {
@@ -278,56 +307,36 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        Net *forward_net = new Net(num_threads);
-        if (b1x1Sgemm)
-            forward_net->config1x1ConvType(CONV_TYPE_SGEMM);
-        else
-            forward_net->config1x1ConvType(CONV_TYPE_DIRECT);
-        forward_net->config3x3ConvType(CONV_TYPE_DIRECT);
-        forward_net->configDWConvType(CONV_TYPE_DW_DIRECT);
-        forward_net->configWinogradLowPrecision(true);
-        forward_net->configSgemmLowPrecision(bLowPrecision);
-        forward_net->configDropoutWork(true);
-        forward_net->configCrypto(pSerialFile);
-        forward_net->inChannels = img.channels();
-        forward_net->inWidth = img.cols;
-        forward_net->inHeight = img.rows;
-        forward_net->InitFromPath(pModel);
-
-        size_t data_size = 0;
-        forward_net->GetBlobDataSize(&data_size, pBlob);
         float *pOut = NULL;
-        float *pIn = forward_net->GetInputBuffer();
+        float *pIn = forward_net.GetInputBuffer();
         float meansDiff[] = {104.0f, 117.0f, 123.0f};
         float meansSame[] = {127.5f, 127.5f, 127.5f};
-        float varSame[]   = {0.0078125f, 0.0078125f, 0.0078125f};
+        //float varSame[]   = {0.0078125f, 0.0078125f, 0.0078125f};
+        float varSame[]   = {0.007843137, 0.007843137, 0.007843137};
 
         if (1 == img.channels())
             from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
         else
         {
             if (bSameMean)
-                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
+                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 1, num_threads);
             else
                 from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
         }
-        forward_net->Forward();
-        pOut = forward_net->ExtractBlob(pBlob);
+        int ret = forward_net.Forward();
+        pOut = forward_net.ExtractBlob(pBlob);
+
+        int cnt = (int)pOut[0];
+        //printf("SSD objNum: %d\n", cnt);
+        pOut++;
+        for (int i=0; i < cnt; i++)
+            fprintf(fpw, "%s %f %f %f %f %f %f\n", strrchr(imgFile, '/')+1, pOut[i*6], pOut[i*6+1], pOut[i*6+2], pOut[i*6+3], pOut[i*6+4], pOut[i*6+5]);
+
+        printf("[%d] %s\n", ++fileCnt, imgFile);
 
         img.release();
-
-        FILE *fpw = NULL;
-        if(NULL == (fpw = fopen(tmp,"wb")))
-        {
-            printf("open output %s error!\n", tmp);
-            continue;
-        }
-        fwrite(pOut, data_size*sizeof(float), 1, fpw);
-        fclose(fpw);
-        printf("[%d] %s, %s\n", ++fileCnt, imgFile, tmp);
-
-        delete forward_net;
     }
+    fclose(fpw);
     fclose(fp);
 #endif
     return 0;
