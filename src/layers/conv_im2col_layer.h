@@ -392,6 +392,7 @@ public:
         int eM = M + (8 - M % 8) % 8; /* extend M make sure 8 aligned */
         int packBK = std::min(K, kc);
         int packBN = std::min(N, nc);
+        packBK = packBK + (4 - packBK % 4) % 4;
 
         if (num_threads > 4) num_threads = 4;
 
