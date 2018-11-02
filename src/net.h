@@ -51,6 +51,7 @@ public:
     float* ExtractBlob(std::string blob_name);
     int GetBlobShape(unsigned *pChannel, unsigned *pWidth, unsigned *pHeight, std::string name);
     int GetMaxTopBlobSize();
+    int GetNumthreads();
 
     uint8_t key[16];
     struct AES_ctx AESCtx;

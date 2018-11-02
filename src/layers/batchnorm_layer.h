@@ -32,7 +32,7 @@ public:
           scale_bias_data(NULL),
           fuse_scale(false),
           scale_data(NULL),
-          fuse_relu(false),
+          reluType(0),
           Layer(layer_param, rt_param)
     {
         _fusible = true;
@@ -52,9 +52,9 @@ private:
     float* scale_data;
     bool   scale_bias_term;
     float* scale_bias_data;
-    bool fuse_relu;
+    uint32_t reluType;
 private:
     int SetKernel();
-    void (*bn_kernel)(const size_t channels, const size_t stride, const float* alpha, const float* beta, const float* bias_data, const float* scale_data, const float* input, float* output, const size_t num_threads);
+    void (*bn_kernel)(const size_t channels, const size_t stride, const float* alpha, const float* beta, const float* bias_data, const float* scale_data, uint32_t reluType, const float* input, float* output, const uint32_t num_threads);
 };
 };

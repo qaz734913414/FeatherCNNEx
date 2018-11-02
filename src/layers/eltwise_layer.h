@@ -32,10 +32,7 @@ public:
 
     int Forward()
     {
-        if(fuse_relu)
-            add_relu<true>(output, input_alpha, input_beta, data_len, num_threads);
-        else
-            add_relu<false>(output, input_alpha, input_beta, data_len, num_threads);
+        add_relu(output, input_alpha, input_beta, data_len, fuse_relu, num_threads);
 
         Layer::Forward();
         return 0;

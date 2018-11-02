@@ -16,14 +16,13 @@
 
 #include <stdio.h>
 
-template<bool fuse_relu>
-void add_relu(float* dst, const float* A, const float* B, const size_t len, const size_t num_threads);
+void add_relu(float* dst, const float* A, const float* B, const size_t len, bool fuse_relu, const size_t num_threads);
 
 template<bool has_bias>
 void scale(const size_t channels, const size_t stride, const float* bias_data, const float* scale_data, const float* input, float* output, const size_t num_threads);
 
-template<bool has_bias, bool has_scale, bool has_relu>
-void batchnorm(const size_t channels, const size_t stride, const float* alpha, const float* beta, const float* bias_data, const float* scale_data, const float* input, float* output, const size_t num_threads);
+template<bool has_bias, bool has_scale>
+void batchnorm(const size_t channels, const size_t stride, const float* alpha, const float* beta, const float* bias_data, const float* scale_data, uint32_t reluType, const float* input, float* output, const uint32_t num_threads);
 
 //void dwConv(float* output, const float* input, const int inw, const int inh, const int stridew, const int strideh, const float* kernel, const int kw, const int kh, const int group, const int nThreads);
 void softmax(float* input, float n);

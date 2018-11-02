@@ -230,6 +230,11 @@ int Layer::Init()
     return 0;
 }
 
+int Layer::InitLast()
+{
+    return 0;
+}
+
 int Layer::Forward()
 {
 #if 0

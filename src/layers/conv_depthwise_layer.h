@@ -68,8 +68,8 @@ public:
             padded_input = input;
         else
         {
-            if (useDirect && ((1 == stride_width && 1 == stride_height && 3 == kernel_width && 3 == kernel_height) ||
-                              (2 == stride_width && 2 == stride_height && 3 == kernel_width && 3 == kernel_height)))
+            if (useDirect && 3 == kernel_width && 3 == kernel_height &&
+                    ((1 == stride_width && 1 == stride_height) || (2 == stride_width && 2 == stride_height)))
                 makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 16, .0f, num_threads);
             else
                 makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 1, .0f, num_threads);

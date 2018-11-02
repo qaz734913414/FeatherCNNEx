@@ -44,6 +44,7 @@
 #include "layers/reshape_layer.h"
 #include "layers/detectionoutput_layer.h"
 #include "layers/sigmoid_layer.h"
+#include "layers/conv_sgemm_layer.h"
 #include "common.h"
 #include <stdio.h>
 
@@ -66,6 +67,7 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
 
     ConvLayer *conv_layer = NULL;
     //printf("[conv] group:%lu kernel_height: %lu kernel_width: %lu stride %lu, %lu input_channels %lu output_channels %lu\n", group, kernel_height, kernel_width, stride_height, stride_width, input_channels, output_channels);
+#if 0
     if(group == 1 && kernel_height == 3 && kernel_width == 3 && stride_height == 1 && stride_width == 1 &&
             (0 == output_channels % 4))
     {
@@ -102,11 +104,19 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
         conv_layer = (ConvLayer*) new ConvIm2colLayer(layer_param, rt_param);
         conv_layer->_subType = "sgemm";
     }
+#else
+    if (1 == group)
+    {
+        conv_layer = (ConvLayer*) new ConvSgemmLayer(layer_param, rt_param);
+        conv_layer->_subType = "sgemm";
+    }
+#endif
     else
     {
         conv_layer = new ConvDepthwiseLayer(layer_param, rt_param);
         conv_layer->_subType = "depthwise";
     }
+
     //printf("conv type: %-15s, group: [%03d] kernel: [%02d %02d] stride: [%02d %02d]\n", conv_layer->_subType.c_str(), group, kernel_height, kernel_width, stride_height, stride_width);
     return (Layer *) conv_layer;
 }

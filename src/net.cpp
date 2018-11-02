@@ -22,6 +22,7 @@
 #include <cstring>
 #include "arm/helper.h"
 #include "common.h"
+#include "tinySgemmConv.h"
 
 namespace feather
 {
@@ -41,6 +42,107 @@ Net::Net(size_t num_threads)
         branchStatus[i] = 0;
     }
     max_top_blob_size = 0;
+
+#pragma parallel for num_threads(num_threads)
+    for(uint32_t i = 0; i < num_threads ; i++)
+    {
+        int ret = -1;
+        uint32_t availCores = 0, realWorkCores = 0;
+        cpu_set_t mask;
+        CPU_ZERO(&mask);
+        availCores = sysconf(_SC_NPROCESSORS_CONF);
+        realWorkCores = MIN(availCores, 32);
+        ret = sched_getaffinity(0, sizeof(mask), &mask);
+        if (0 != ret)
+        {
+            printf("%s, %d\n", "sched_getaffinity failed", ret);
+            return;
+        }
+        printf("thread omp %d can run at core [", i);
+        for(int i = 0; i < realWorkCores; i++)
+        {
+            if (CPU_ISSET(i, &mask))
+                printf(" %d", i);
+        }
+        printf(" ]\n");
+    }
+
+    uint32_t affinity[MAX_CORE_NUMBER] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+    int32_t ret = tinySgemmConvInit(num_threads, THREAD_STACK_SIZE, &affinity, true, &(rt_param->pSgemmCtx));
+    if (ret < 0)
+        printf("Sgemm init failed, %d\n", ret);
+    else if (ret != num_threads)
+    {
+        printf("num_threads change from %u to %d\n", num_threads, ret);
+        rt_param->set_num_threads(ret);
+    }
+
+#if 0
+    getchar();
+#pragma parallel for num_threads(num_threads)
+    for(uint32_t i = 0; i < 4 ; i++)
+    {
+        pthread_attr_t attr;
+        int rs = pthread_attr_init( &attr );
+        assert( rs == 0 );
+        int policy;
+        int RET = pthread_attr_getschedpolicy( &attr, &policy );
+        assert( RET == 0 );
+        switch ( policy )
+        {
+        case SCHED_FIFO:
+            printf("policy = SCHED_FIFO\n");
+            break;
+
+        case SCHED_RR:
+            printf("policy = SCHED_RR\n");
+            break;
+
+        case SCHED_OTHER:
+            printf("policy = SCHED_OTHER\n");
+            break;
+
+        default:
+            printf("policy = UNKNOWN\n");
+            break;
+        }
+        int priority = sched_get_priority_max( policy );
+        assert( priority != -1 );
+        printf("max_priority = %d", priority);
+
+        priority = sched_get_priority_min( policy );
+        assert( priority != -1 );
+        printf(" min_priority = %d\n", priority);
+
+        struct sched_param param;
+
+        int ret = pthread_attr_getschedparam( &attr, &param );
+        assert( ret == 0 );
+        printf("priority = %d\n", param.sched_priority);
+
+        {
+            int ret = -1;
+            uint32_t availCores = 0, realWorkCores = 0;
+            cpu_set_t mask;
+            CPU_ZERO(&mask);
+            availCores = sysconf(_SC_NPROCESSORS_CONF);
+            realWorkCores = MIN(availCores, 32);
+            ret = sched_getaffinity(0, sizeof(mask), &mask);
+            if (0 != ret)
+            {
+                printf("%s, %d\n", "sched_getaffinity failed", ret);
+                return;
+            }
+            printf("thread omp %d can run at core [", i);
+            for(int i = 0; i < realWorkCores; i++)
+            {
+                if (CPU_ISSET(i, &mask))
+                    printf(" %d", i);
+            }
+            printf(" ]\n");
+        }
+    }
+#endif
 }
 
 int Net::getFreeBranch()
@@ -55,6 +157,14 @@ int Net::getFreeBranch()
     }
     printf("No free branch\n");
     return -1;
+}
+
+int Net::GetNumthreads()
+{
+    if (rt_param)
+        return rt_param->num_threads();
+    else
+        return 0;
 }
 
 int Net::returnBranch(int branchId)
@@ -113,6 +223,8 @@ Net::~Net()
         _mm_free(pingpang[i][1]);
         pingpang[i][1] = NULL;
     }
+
+    tinySgemmConvDeinit(rt_param->pSgemmCtx);
 
     delete rt_param->common_mempool();
     delete rt_param;
@@ -212,6 +324,23 @@ float* Net::GetInputBuffer()
     return ((InputLayer *)layers[0])->getInputBuffer();;
 }
 
+static void showResult(const char *layerName, float *pOut, uint32_t data_size)
+{
+    uint32_t minSize = 8;
+    minSize = MIN(minSize, data_size);
+    printf("%s [", layerName);
+    for(int i = 0 ; i < minSize; i++)
+    {
+        if ((0 != i)&& (0 == i % 16))
+            printf("\n");
+        if(i == (minSize-1))
+            printf("%10.6f", pOut[i]);
+        else
+            printf("%10.6f,", pOut[i]);
+    }
+    printf("]\n");
+}
+
 int Net::Forward()
 {
 //#define TIME_PROFILE_G
@@ -233,8 +362,12 @@ int Net::Forward()
 
 #ifdef TIME_PROFILE
         if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
-            t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
+        {
+            if (NULL == strstr(layers[i]->_subType.c_str(), "depthwise"))
+                t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
+        }
 #endif
+        //showResult("", (float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
     }
 
 #ifdef TIME_PROFILE_G
@@ -554,6 +687,8 @@ int Net::InitFromBuffer(const void *net_buffer)
     }
 
     rt_param->common_mempool()->Alloc();
+    for (int i = 0; i < layers.size(); ++i)
+        layers[i]->InitLast();
     //printf("\nNet init ok\n");
     return 0;
 }

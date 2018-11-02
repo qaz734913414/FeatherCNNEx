@@ -22,7 +22,7 @@ namespace feather
 int BatchNormLayer::Forward()
 {
     size_t stride = input_width * input_height;
-    bn_kernel(input_channels, stride, alpha, beta, scale_bias_data, scale_data, input, output, num_threads);
+    bn_kernel(input_channels, stride, alpha, beta, scale_bias_data, scale_data, reluType, input, output, num_threads);
 
     Layer::Forward();
     return 0;
@@ -45,7 +45,12 @@ int BatchNormLayer::Fuse(Layer *next_layer)
     }
     else if(next_layer->type().compare("ReLU") == 0)
     {
-        fuse_relu = true;
+        reluType = 1;
+        return 1;
+    }
+    else if(next_layer->type().compare("ReLU6") == 0)
+    {
+        reluType = 2;
         return 1;
     }
     else
@@ -93,33 +98,20 @@ int BatchNormLayer::SetKernel()
     unsigned pat_code = 0;
     pat_code |= (scale_bias_term) ? 0x1 : 0;
     pat_code |= (fuse_scale) ? 0x10 : 0;
-    pat_code |= (fuse_relu) ? 0x100 : 0;
     //printf("pat_code %x\n", pat_code);
     switch(pat_code)
     {
     case 0x000:
-        bn_kernel = batchnorm<false, false, false>;
+        bn_kernel = batchnorm<false, false>;
         break;
     case 0x001:
-        bn_kernel = batchnorm<true, false, false>;
+        bn_kernel = batchnorm<true, false>;
         break;
     case 0x010:
-        bn_kernel = batchnorm<false, true, false>;
+        bn_kernel = batchnorm<false, true>;
         break;
     case 0x011:
-        bn_kernel = batchnorm<true, true, false>;
-        break;
-    case 0x100:
-        bn_kernel = batchnorm<false, false, true>;
-        break;
-    case 0x101:
-        bn_kernel = batchnorm<true, false, true>;
-        break;
-    case 0x110:
-        bn_kernel = batchnorm<false, true, true>;
-        break;
-    case 0x111:
-        bn_kernel = batchnorm<true, true, true>;
+        bn_kernel = batchnorm<true, true>;
         break;
     default:
         printf("Invalid pattern code 0x%x for batchnorm kernel\n", pat_code);

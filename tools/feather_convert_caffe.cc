@@ -413,7 +413,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
 
             /* Blobs */
             auto caffe_model_layer = caffe_weight.layer(caffe_model_layer_map[layer_name]);
-            PRINTF("Blob num (%s): %d, fractions: %d\n", layer_type.c_str(), caffe_model_layer.blobs_size(), fractions);
+            //printf("Blob num (%s): %d, fractions: %d\n", layer_type.c_str(), caffe_model_layer.blobs_size(), fractions);
             std::vector<Offset<feather::BlobProto> > blob_vec;
             float scaleThre = .0f;
             for (int j = 0; j != caffe_model_layer.blobs_size(); ++j)
@@ -754,10 +754,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 conv_param_builder.add_bias_term(caffe_conv_param.bias_term());
 
                 if(caffe_conv_param.has_tf_pad())
-                {
                     conv_param_builder.add_tf_pad((feather::ConvolutionParameter_::TFPaddingMethod)caffe_conv_param.tf_pad());
-                    printf("TF pad: %d\n", (feather::ConvolutionParameter_::TFPaddingMethod)caffe_conv_param.tf_pad());
-                }
 
                 if(caffe_conv_param.kernel_size_size() == 1)
                 {
@@ -1047,7 +1044,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     variances.push_back(prior_box_param.variance(1));
                     variances.push_back(prior_box_param.variance(2));
                     variances.push_back(prior_box_param.variance(3));
-                    printf("variance size 4: %f %f %f %f\n", variances[0], variances[1], variances[2], variances[3]);
+                    //printf("variance size 4: %f %f %f %f\n", variances[0], variances[1], variances[2], variances[3]);
                 }
                 else if (prior_box_param.variance_size() == 1)
                 {
@@ -1099,7 +1096,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 for (int j=0; j<prior_box_param.min_size_size(); j++)
                 {
                     min_size.push_back(prior_box_param.min_size(j));
-                    printf("min_size: %f\n", min_size[j]);
+                    //printf("min_size: %f\n", min_size[j]);
                 }
                 param_min_size = fbb.CreateVector<float>(min_size);
 
@@ -1107,7 +1104,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 for (int j=0; j<prior_box_param.max_size_size(); j++)
                 {
                     max_size.push_back(prior_box_param.max_size(j));
-                    printf("max_size: %f\n", max_size[j]);
+                    //printf("max_size: %f\n", max_size[j]);
                 }
                 param_max_size = fbb.CreateVector<float>(max_size);
 

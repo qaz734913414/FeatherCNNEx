@@ -43,6 +43,7 @@ public:
     virtual int GenerateTopBlobs();
     std::string GenerateNewTopBlobs(float *pData);
     virtual int Init();
+    virtual int InitLast();
     virtual int Forward();
 
     std::string name();

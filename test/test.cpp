@@ -54,7 +54,7 @@ static void showResult(float *pOut, uint32_t data_size)
     printf("\n");
 }
 
-static void showImgNetLabel(float *pOut, uint32_t data_size)
+static void showLabel(float *pOut, uint32_t data_size)
 {
     int top_class = 0;
     float max_score = .0f;
@@ -85,11 +85,14 @@ static void draw_objects(const cv::Mat& bgr, float *pOut)
     std::vector<Object> objects;
 
     int cnt = (int)pOut[0];
-    printf("SSD objNum: %d\n", cnt);
+    //printf("SSD objNum: %d\n", cnt);
     pOut++;
     for (int i=0; i < cnt; i++)
     {
-        printf("[%d/%d] %d %f %f %f %f %f\n", i, cnt, (int)pOut[i*6], pOut[i*6+1], pOut[i*6+2], pOut[i*6+3], pOut[i*6+4], pOut[i*6+5]);
+        if (pOut[i*6+1] < 0.95)
+            continue;
+
+        printf("[%03d/%03d] %d %10.6f %10.6f %10.6f %10.6f %10.6f\n", i, cnt, (int)pOut[i*6], pOut[i*6+1], pOut[i*6+2], pOut[i*6+3], pOut[i*6+4], pOut[i*6+5]);
         Object object;
         object.label = (int)pOut[i*6];
         object.prob = pOut[i*6+1];
@@ -130,8 +133,8 @@ static void draw_objects(const cv::Mat& bgr, float *pOut)
                     cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0, 255, 0));
     }
     objects.clear();
-    cv::imwrite("ssd.jpg", image);
-    printf("image ssd.jpg saved\n");
+    cv::imwrite("result.jpg", image);
+    printf("image result.jpg saved\n");
 }
 
 int main(int argc, char *argv[])
@@ -160,7 +163,7 @@ int main(int argc, char *argv[])
 
     printf("file: %s model: %s blob: %s loopCnt: %d num_threads: %d bSameMean:%d bGray: %d b1x1Sgemm:%d bLowPrecision: %d viewType: %d SerialFile: %s\n",
            pFname, pModel, pBlob, loopCnt, num_threads, bSameMean, bGray, b1x1Sgemm, bLowPrecision, viewType, pSerialFile);
-#if 0
+#if 1
     cv::Mat img;
     if (bGray)
         img = imread(pFname, 0);
@@ -198,23 +201,22 @@ int main(int argc, char *argv[])
         float meansSame[] = {127.5f, 127.5f, 127.5f};
         //float varSame[]   = {0.0078125f, 0.0078125f, 0.0078125f};
         float varSame[]   = {0.007843137, 0.007843137, 0.007843137};
-
+#if 0
         gettimeofday(&beg, NULL);
-
         if (1 == img.channels())
             from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
         else
         {
             if (bSameMean)
-                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 1, num_threads);
+                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
             else
                 from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
         }
         int ret = forward_net->Forward();
         pOut = forward_net->ExtractBlob(pBlob);
         gettimeofday(&end, NULL);
-        printf("\nWarm time: %f ms, threads: %d, out blob size: %u\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000.0, num_threads, (unsigned int)data_size);
-        getchar();
+        printf("\nWarm time: %f ms, threads: [%d/%d], out blob size: %u\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000.0, num_threads, forward_net->GetNumthreads(), (unsigned int)data_size);
+#endif
         gettimeofday(&beg, NULL);
         for(int loop = 0; loop < loopCnt; loop++)
         {
@@ -223,7 +225,7 @@ int main(int argc, char *argv[])
             else
             {
                 if (bSameMean)
-                    from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 1, num_threads);
+                    from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
                 else
                     from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
             }
@@ -233,7 +235,7 @@ int main(int argc, char *argv[])
             printf("[%03d/%03d, %03d/%03d] ret: %d\n", outLoop, outLoopCnt, loop, loopCnt, ret);
         }
         gettimeofday(&end, NULL);
-        printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: %d, out blob size: %u\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads, (unsigned int)data_size);
+        printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: [%d/%d], out blob size: %u\n\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads, forward_net->GetNumthreads(), (unsigned int)data_size);
 
         switch(viewType)
         {
@@ -241,7 +243,7 @@ int main(int argc, char *argv[])
             showResult(pOut, data_size);
             break;
         case RESULT_VIEW_TYPE_LABEL:
-            showResult(pOut, data_size);
+            showLabel(pOut, data_size);
             break;
         case RESULT_VIEW_TYPE_DRAW:
             draw_objects(img, pOut);
@@ -254,18 +256,64 @@ int main(int argc, char *argv[])
         delete forward_net;
     }
 #else
+    static const char format_head[]=
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\
+<annotation>\n\
+   <folder>out</folder>\n\
+   <filename>NA</filename>\n\
+   <path>NA</path>\n\
+   <source>\n\
+	  <database>Unknown</database>\n\
+   </source>\n\
+   <size>\n\
+	  <width>%d</width>\n\
+	  <height>%d</height>\n\
+	  <depth>3</depth>\n\
+   </size>\n\
+   <segmented>0</segmented>\n";
+
+    static const char format_box[]=
+        "   <object>\n\
+	  <name>alien</name>\n\
+	  <pose>Unspecified</pose>\n\
+	  <truncated>0</truncated>\n\
+	  <difficult>0</difficult>\n\
+	  <bndbox>\n\
+		 <xmin>%d</xmin>\n\
+		 <ymin>%d</ymin>\n\
+		 <xmax>%d</xmax>\n\
+		 <ymax>%d</ymax>\n\
+	  </bndbox>\n\
+   </object>\n";
+
+    static const char format_end[]="</annotation>";
+
+    char *filelist = NULL;
+    char *sizelist = NULL;
+    filelist = pFname;
+    sizelist = strrchr(filelist, ',')+1;
+    *strrchr(filelist, ',') = 0;
+    printf("Filelist: %s, sizelist: %s\n", filelist, sizelist);
+    getchar();
     FILE *fp = NULL;
-    if(NULL == (fp = fopen(pFname,"r")))
+    if(NULL == (fp = fopen(filelist,"r")))
     {
-        printf("open filelist %s error!\n", pFname);
+        printf("open filelist %s error!\n", filelist);
         return -1;
     }
 
+    FILE *fpSize = NULL;
+    if(NULL == (fpSize = fopen(sizelist,"r")))
+    {
+        printf("open filelist %s error!\n", sizelist);
+        return -2;
+    }
+
     FILE *fpw = NULL;
-    if(NULL == (fpw = fopen("300/feather_result.txt","wb")))
+    if(NULL == (fpw = fopen("yiming/feather_result.txt","wb")))
     {
         printf("open output error!\n");
-        return -2;
+        return -3;
     }
 
     Net forward_net(num_threads);
@@ -289,8 +337,10 @@ int main(int argc, char *argv[])
     char tmp[1024];
     char strLine[1024];
     char imgFile[1024];
+    char sizeBuff[64];
     unsigned fileCnt = 0;
     long total = 0;
+    long error = 0;
     while (!feof(fp))
     {
         strLine[0] = 0;
@@ -299,13 +349,16 @@ int main(int argc, char *argv[])
         strLine[strlen(strLine)-1]='\0';
         if (0 == strlen(strLine)) break;
         strcpy(imgFile, strLine);
-        printf("img: %s\n", imgFile);
+        printf("[%d] img: %s\n", ++fileCnt, imgFile);
         cv::Mat img = imread(imgFile);
         if (img.empty())
         {
             printf("read img failed, %s\n", imgFile);
             continue;
         }
+        uint32_t orgW, orgH;
+        fscanf(fpSize, "%d,%d", &orgW, &orgH);
+        printf("widht: %d, height: %d\n", orgW, orgH);
 
         float *pOut = NULL;
         float *pIn = forward_net.GetInputBuffer();
@@ -329,15 +382,56 @@ int main(int argc, char *argv[])
         int cnt = (int)pOut[0];
         //printf("SSD objNum: %d\n", cnt);
         pOut++;
+        FILE *fpxml = NULL;
+        {
+            char xmlname[1024];
+            char buff[1024];
+            strcpy(xmlname, strrchr(imgFile, '/')+1);
+            *strchr(xmlname, '.') = 0;
+            sprintf(buff, "yiming/feather_result_0_5/%s.xml", xmlname);
+            printf("xml: %s\n", buff);
+            if(NULL == (fpxml = fopen(buff,"wb")))
+            {
+                printf("open xml error!\n");
+                return -4;
+            }
+            fprintf(fpxml, format_head, orgW, orgH);
+        }
+
         for (int i=0; i < cnt; i++)
+        {
+            if (pOut[i*6+1] < 0.95)
+            {
+                //printf("%f\n", pOut[i*6+1]);
+                //getchar();
+                continue;
+            }
+
+            int topx, topy, bottomx,bottomy;
+            topx = MAX(int(orgW*pOut[i*6+2]), 1);
+            topx = MIN(topx, orgW-1);
+            topy = MAX(int(orgH*pOut[i*6+3]), 1);
+            topy = MIN(topy, orgH-1);
+            bottomx = MAX(int(orgW*pOut[i*6+4]), 1);
+            bottomx = MIN(bottomx, orgW-1);
+            bottomy = MAX(int(orgH*pOut[i*6+5]), 1);
+            bottomy = MIN(bottomy, orgH-1);
+
+            printf("%s %f %f %f %f %f %f\n", strrchr(imgFile, '/')+1, pOut[i*6], pOut[i*6+1], pOut[i*6+2], pOut[i*6+3], pOut[i*6+4], pOut[i*6+5]);
             fprintf(fpw, "%s %f %f %f %f %f %f\n", strrchr(imgFile, '/')+1, pOut[i*6], pOut[i*6+1], pOut[i*6+2], pOut[i*6+3], pOut[i*6+4], pOut[i*6+5]);
+            error++;
 
-        printf("[%d] %s\n", ++fileCnt, imgFile);
+            printf("[%d %d %d %d]\n", topx, topy, bottomx, bottomy);
+            fprintf(fpxml, format_box, topx, topy, bottomx, bottomy);
+        }
 
+        fprintf(fpxml, format_end);
+        fclose(fpxml);
         img.release();
     }
     fclose(fpw);
     fclose(fp);
+    printf("error: %ld\n", error);
 #endif
     return 0;
 }

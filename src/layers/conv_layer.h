@@ -105,7 +105,7 @@ public:
             padding_right = pad_all_width - padding_left;
             pad_only_bottom = padding_top == 0?true:false;
             pad_only_right = padding_left == 0?true:false;
-            printf("conv pad: [%d %d %d %d]\n", padding_left, padding_right, padding_top, padding_bottom);
+            //printf("layer: %-30s, conv pad: [%d %d %d %d]\n", name().c_str(), padding_left, padding_right, padding_top, padding_bottom);
         }
         else
         {

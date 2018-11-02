@@ -44,19 +44,6 @@ void add(float *dst, float *A, float *B, size_t len, size_t num_threads)
     }
 }
 
-template <bool fuse_relu>
-void add_relu(float *dst, const float *A, const float *B, const size_t len, const size_t num_threads)
-{
-    #pragma omp parallel for num_threads(num_threads) schedule(static)
-    for (int i = 0; i < len; ++i)
-    {
-        float S = A[i] + B[i];
-        dst[i] = S > 0.0f ? S : 0.0f;
-    }
-}
-template void add_relu<true>(float *dst, const float *A, const float *B, const size_t len, const size_t num_threads);
-template void add_relu<false>(float *dst, const float *A, const float *B, const size_t len, const size_t num_threads);
-
 void vsub(float *dst, float *A, float *B, size_t len, size_t num_threads)
 {
     #pragma omp parallel for num_threads(num_threads) schedule(static)
@@ -93,36 +80,6 @@ void scale(const size_t channels, const size_t stride, const float *bias_data, c
 }
 template void scale<true>(const size_t, const size_t, const float *, const float *, const float *, float *, const size_t);
 template void scale<false>(const size_t, const size_t, const float *, const float *, const float *, float *, const size_t);
-
-template <bool has_bias, bool has_scale, bool has_relu>
-void batchnorm(const size_t channels, const size_t stride, const float *alpha, const float *beta, const float *bias_data, const float *scale_data, const float *input, float *output, const size_t num_threads)
-{
-    #pragma omp parallel for num_threads(num_threads) schedule(static)
-    for (int i = 0; i < channels; i++)
-    {
-        int j = 0;
-        for (; j < stride; j++)
-        {
-            float norm = beta[i] * input[i * stride + j] + alpha[i];
-            if (has_scale)
-                norm = norm * scale_data[i];
-            if (has_bias)
-                norm = norm + bias_data[i];
-            if (has_relu)
-                norm = (norm > 0) ? norm : 0;
-            output[i * stride + j] = norm;
-        }
-    }
-}
-
-template void batchnorm<true, true, true>(const size_t, const size_t, const float *, const float *, const float *, const float *, const float *, float *, const size_t);
-template void batchnorm<false, true, true>(const size_t, const size_t, const float *, const float *, const float *, const float *, const float *, float *, const size_t);
-template void batchnorm<true, false, true>(const size_t, const size_t, const float *, const float *, const float *, const float *, const float *, float *, const size_t);
-template void batchnorm<true, true, false>(const size_t, const size_t, const float *, const float *, const float *, const float *, const float *, float *, const size_t);
-template void batchnorm<true, false, false>(const size_t, const size_t, const float *, const float *, const float *, const float *, const float *, float *, const size_t);
-template void batchnorm<false, true, false>(const size_t, const size_t, const float *, const float *, const float *, const float *, const float *, float *, const size_t);
-template void batchnorm<false, false, true>(const size_t, const size_t, const float *, const float *, const float *, const float *, const float *, float *, const size_t);
-template void batchnorm<false, false, false>(const size_t, const size_t, const float *, const float *, const float *, const float *, const float *, float *, const size_t);
 
 void softmax(float *input, float n)
 {

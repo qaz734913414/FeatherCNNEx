@@ -12,7 +12,9 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -g -std=c++11 -Wall")
 include_directories("${PROJECT_SOURCE_DIR}/src")
 
 add_subdirectory(./arm)
-add_library(feather STATIC ${CRYPTO_SRC} ${CRYPTO_HEADERS} ${LIB_SRC} ${LIB_HEADERS} ${LAYER_SRC} ${LAYER_HEADERS} $<TARGET_OBJECTS:arm_backend_obj>)
+add_subdirectory(./sgemm)
+
+add_library(feather STATIC ${CRYPTO_SRC} ${CRYPTO_HEADERS} ${LIB_SRC} ${LIB_HEADERS} ${LAYER_SRC} ${LAYER_HEADERS} $<TARGET_OBJECTS:arm_backend_obj> $<TARGET_OBJECTS:arm_backend_sgemm_obj>)
 
 set(FEATHER_INSTALL_DIR "${PROJECT_BINARY_DIR}/install/feather")
 
