@@ -582,7 +582,7 @@ int tinySgemmConvProcess(void *pInstance,
         for (i = 0; i < psgemmInstance->inChannels; ++i)
         {
             struct msg *pMsg                  = fetchMsg(pCtxInner);
-            pMsg->pThreadInfo                 = pCtxInner->pThreadInfo + (i%pCtxInner->num_threads);
+            pMsg->pThreadInfo                 = getBigCoreThread(pCtxInner, i%pCtxInner->num_threads);
             pMsg->cmd                         = MSG_CMD_IM2COL;
             pMsg->JobInfo.im2colInfo.kernelH  = psgemmInstance->kernelH;
             pMsg->JobInfo.im2colInfo.kernelW  = psgemmInstance->kernelW;
@@ -632,7 +632,7 @@ int tinySgemmConvProcess(void *pInstance,
     if (num_threads == 1 || N <= TINY_SGEMM_UNIT_N || N - (num_threads - 1) * tN <= 0)
     {
         struct msg *pMsg                      = fetchMsg(pCtxInner);
-        pMsg->pThreadInfo                     = pCtxInner->pThreadInfo;
+        pMsg->pThreadInfo                     = getBigCoreThread(pCtxInner, 0);
         pMsg->cmd                             = MSG_CMD_SGEMM;
         pMsg->JobInfo.sgemmInfo.M             = psgemmInstance->M;
         pMsg->JobInfo.sgemmInfo.N             = psgemmInstance->N;
@@ -667,7 +667,7 @@ int tinySgemmConvProcess(void *pInstance,
             if(i == num_threads - 1)
                 sN = N - i * tN;
             struct msg *pMsg                      = fetchMsg(pCtxInner);
-            pMsg->pThreadInfo                     = pCtxInner->pThreadInfo + i;
+            pMsg->pThreadInfo                     = getBigCoreThread(pCtxInner, i);
             pMsg->cmd                             = MSG_CMD_SGEMM;
             pMsg->JobInfo.sgemmInfo.M             = psgemmInstance->M;
             pMsg->JobInfo.sgemmInfo.N             = psgemmInstance->N;

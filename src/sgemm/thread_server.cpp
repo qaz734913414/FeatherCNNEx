@@ -152,6 +152,44 @@ void wakeUpJobs(struct tinySgemmConvCtx *pCtx)
         pthread_cond_signal(&pCtx->pThreadInfo[i].msgQueueNoEmpty);
 }
 
+struct thread_info* getBigCoreThread(struct tinySgemmConvCtx *pCtxInner, uint32_t index)
+{
+    uint32_t i = 0;
+    struct list_head *pos;
+    uint32_t coreNum = list_number(&pCtxInner->bigCoreThreads);
+
+    if (0 == coreNum)
+        return NULL;
+
+    index = index % coreNum;
+    list_for_each(pos, &pCtxInner->bigCoreThreads)
+    {
+        if (i++ == index)
+            return list_entry(pos, struct thread_info, biglittlecorelist);;
+    }
+
+    return NULL;
+}
+
+struct thread_info* getLittleCoreThread(struct tinySgemmConvCtx *pCtxInner, uint32_t index)
+{
+    uint32_t i = 0;
+    struct list_head *pos;
+    uint32_t coreNum = list_number(&pCtxInner->littleCoreThreads);
+
+    if (0 == coreNum)
+        return NULL;
+
+    index = index % coreNum;
+    list_for_each(pos, &pCtxInner->littleCoreThreads)
+    {
+        if (i++ == index)
+            return list_entry(pos, struct thread_info, biglittlecorelist);;
+    }
+
+    return NULL;
+}
+
 void waitForJobsDone(struct tinySgemmConvCtx *pCtx, struct list_head *jobsQueue)
 {
     assert(NULL != pCtx);
