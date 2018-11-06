@@ -633,10 +633,12 @@ int tinySgemmConvProcess(void *pInstance,
     else
     {
         int numUintPerThread = numUint/num_threads;
+        if ((numUint%num_threads) > (num_threads/2))
+            numUintPerThread++;
         numNPerThread = numUintPerThread*TINY_SGEMM_UNIT_N;
     }
 
-    printf("MNK: [%05d %05d %05d] num_threads:%d numNPerThread: %05d ", psgemmInstance->M, psgemmInstance->N, psgemmInstance->K, num_threads, numNPerThread);
+    //printf("MNK: [%05d %05d %05d] num_threads:%d numNPerThread: %05d ", psgemmInstance->M, psgemmInstance->N, psgemmInstance->K, num_threads, numNPerThread);
 
     if (num_threads == 1)
     {

@@ -1549,12 +1549,11 @@ static void sgemm2xKx1_fp32(float *pA, float *pB, float *pC, uint32_t K, uint32_
         float32x4_t vsrcB32x4;
 
         vsrcB32x4 = vld1q_f32(pB+i*4);
-        vsrcA32x2x4.val[0] = vld1_f32(pCurA);
-        vsrcA32x2x4.val[1] = vld1_f32(pCurA+2);
+        vsrcA32x2x4 = vld1_f32_x4(pCurA);
+
+        ARM_LOAD_PREFETCH_64(pCurA+8);
         vsrcC32x2 = vmla_n_f32(vsrcC32x2, vsrcA32x2x4.val[0], vsrcB32x4[0]);
-        vsrcA32x2x4.val[2] = vld1_f32(pCurA+4);
         vsrcC32x2 = vmla_n_f32(vsrcC32x2, vsrcA32x2x4.val[1], vsrcB32x4[1]);
-        vsrcA32x2x4.val[3] = vld1_f32(pCurA+6);
         vsrcC32x2 = vmla_n_f32(vsrcC32x2, vsrcA32x2x4.val[2], vsrcB32x4[2]);
         vsrcC32x2 = vmla_n_f32(vsrcC32x2, vsrcA32x2x4.val[3], vsrcB32x4[3]);
     }
@@ -1566,8 +1565,7 @@ static void sgemm2xKx1_fp32(float *pA, float *pB, float *pC, uint32_t K, uint32_
         float *pCurB = pB+KDiv4*4;
         float *pCurA = pA+KDiv4*8;
 
-        vsrcA32x2x2.val[0] = vld1_f32(pCurA);
-        vsrcA32x2x2.val[1] = vld1_f32(pCurA+2);
+        vsrcA32x2x2 = vld1_f32_x2(pCurA);
         vsrcC32x2 = vmla_n_f32(vsrcC32x2, vsrcA32x2x2.val[0], pCurB[0]);
         vsrcC32x2 = vmla_n_f32(vsrcC32x2, vsrcA32x2x2.val[1], pCurB[1]);
     }
