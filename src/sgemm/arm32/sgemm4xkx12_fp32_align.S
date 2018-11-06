@@ -504,7 +504,6 @@ __PRELU_BEG:
     PRELU_MACRO VSRC_4S_C3_2 VSCALE_4S_3
 
 __STORE:
-#if 1
     vstm C, {d8-d13}
     add C, C, N
     vstm C, {d14-d19}
@@ -512,17 +511,6 @@ __STORE:
     vstm C, {d20-d25}
     add C, C, N
     vstm C, {d26-d31}
-#else
-    subs N, N, #32
-    vst1.32 {VSRC_4S_C0_0, VSRC_4S_C0_1}, [C:128]!
-    vst1.32 {VSRC_4S_C0_2}, [C:128], N
-    vst1.32 {VSRC_4S_C1_0, VSRC_4S_C1_1}, [C:128]!
-    vst1.32 {VSRC_4S_C1_2}, [C:128], N
-    vst1.32 {VSRC_4S_C2_0, VSRC_4S_C2_1}, [C:128]!
-    vst1.32 {VSRC_4S_C2_2}, [C:128], N
-    vst1.32 {VSRC_4S_C3_0, VSRC_4S_C3_1}, [C:128]!
-    vst1.32 {VSRC_4S_C3_2}, [C:128]
-#endif
 
 __END:
     sub r4, fp, #156

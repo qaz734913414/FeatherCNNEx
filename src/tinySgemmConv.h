@@ -34,7 +34,7 @@
 #endif
 
 #ifndef MAX_MSGPOOL_NUM
-#define MAX_MSGPOOL_NUM (10*1024U)
+#define MAX_MSGPOOL_NUM (1024U)
 #endif
 
 //#define STEP_SGEMM

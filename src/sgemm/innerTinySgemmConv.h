@@ -67,6 +67,7 @@ struct tinySgemmConvCtx
     struct list_head bigCoreThreads;
     struct list_head littleCoreThreads;
     struct list_head instanceList;
+    bool biglittlecore;
 };
 
 struct tinySgemmInstance

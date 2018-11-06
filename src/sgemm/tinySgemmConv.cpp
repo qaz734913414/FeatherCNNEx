@@ -104,8 +104,12 @@ int tinySgemmConvInit
         }
         printf("[%d/%d] max freq: %d [%s]\n", i+1, availCores, coresMaxFreq[i], (maxFreq == coresMaxFreq[i])?"Big Core":"Little Core");
     }
-    printf("num_threads:%d, availCores:%d, maxFreq:%d, biglittlecore:%s, bigCoreMask:%#x, bigCoreNum:%d\n",
-           num_threads, availCores, maxFreq, biglittlecore?"Yes":"No", bigCoreMask, bigCoreNum);
+
+    if ((NULL == affinity) && bindBigCore)
+        num_threads = T_MIN(num_threads, bigCoreNum);
+
+    printf("num_threads:%d, availCores:%d, maxFreq:%d, biglittlecore:%s, bigCoreMask:%#x, bigCoreNum:%d, bindBigCore: %d\n",
+           num_threads, availCores, maxFreq, biglittlecore?"Yes":"No", bigCoreMask, bigCoreNum, bindBigCore);
 
     pThreadInfo = (struct thread_info*)calloc(num_threads, sizeof(struct thread_info));
     if (NULL == pThreadInfo)
@@ -128,6 +132,7 @@ int tinySgemmConvInit
     INIT_LIST_HEAD(&pCtxInner->bigCoreThreads);
     INIT_LIST_HEAD(&pCtxInner->littleCoreThreads);
 
+    pCtxInner->biglittlecore = biglittlecore;
     for (uint32_t i = 0; i < num_threads; i++)
     {
         pThreadInfo[i].index    = i;
@@ -613,24 +618,29 @@ int tinySgemmConvProcess(void *pInstance,
         //TIME_STAMP_END(begIm2col, endIm2col, "im2col");
     }
 
-    //printf("MNK: [%05d %05d %05d]\n", psgemmInstance->M, psgemmInstance->N, psgemmInstance->K);
     //TIME_STAMP_BEG(begSgemm);
 
     N = psgemmInstance->N;
     uint32_t num_threads = pCtxInner->num_threads;
-    int tN = N / num_threads;
-    tN = ((tN + TINY_SGEMM_UNIT_N - 1) / TINY_SGEMM_UNIT_N) * TINY_SGEMM_UNIT_N;
-    int lastSN = N - (num_threads - 1) * tN;
-    while(lastSN <= 0)
+    int numUint = (N - (N % TINY_SGEMM_UNIT_N)) / TINY_SGEMM_UNIT_N;
+    int numNPerThread;
+    if (numUint <= num_threads)
     {
-        --num_threads;
-        lastSN = N - (num_threads - 1) * tN;
+        numNPerThread = TINY_SGEMM_UNIT_N;
+        num_threads = numUint;
+        num_threads = (num_threads <= 0) ? 1 : num_threads;
     }
-    num_threads = (num_threads <= 0) ? 1 : num_threads;
-    //printf("num_threads: %d, tN: %d\n", num_threads, tN);
-
-    if (num_threads == 1 || N <= TINY_SGEMM_UNIT_N || N - (num_threads - 1) * tN <= 0)
+    else
     {
+        int numUintPerThread = numUint/num_threads;
+        numNPerThread = numUintPerThread*TINY_SGEMM_UNIT_N;
+    }
+
+    printf("MNK: [%05d %05d %05d] num_threads:%d numNPerThread: %05d ", psgemmInstance->M, psgemmInstance->N, psgemmInstance->K, num_threads, numNPerThread);
+
+    if (num_threads == 1)
+    {
+        //printf("--thread 1-- ");
         struct msg *pMsg                      = fetchMsg(pCtxInner);
         pMsg->pThreadInfo                     = getBigCoreThread(pCtxInner, 0);
         pMsg->cmd                             = MSG_CMD_SGEMM;
@@ -661,11 +671,13 @@ int tinySgemmConvProcess(void *pInstance,
     {
         uint8_t *pCurInput = (uint8_t *)pInput;
         uint8_t *pCurIm2col = (uint8_t *)psgemmInstance->pBIm2col;
+        //printf("--thread %d-- ", num_threads);
         for (i = 0; i < num_threads; ++i)
         {
-            int sN = tN;
-            if(i == num_threads - 1)
-                sN = N - i * tN;
+            int sN = numNPerThread;
+            if (i == num_threads - 1)
+                sN = N - numNPerThread*i;
+            //printf("%d ", sN);
             struct msg *pMsg                      = fetchMsg(pCtxInner);
             pMsg->pThreadInfo                     = getBigCoreThread(pCtxInner, i);
             pMsg->cmd                             = MSG_CMD_SGEMM;

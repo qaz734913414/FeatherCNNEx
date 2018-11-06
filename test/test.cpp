@@ -139,9 +139,9 @@ static void draw_objects(const cv::Mat& bgr, float *pOut)
 
 int main(int argc, char *argv[])
 {
-    int i = 1, loopCnt = 1, outLoopCnt = 1, num_threads = 4, bSameMean = 1, bLowPrecision = 1, bGray = 0, b1x1Sgemm = 0;
-    char *pFname = (char *)"300.jpg";
-    char *pModel = (char*)"MBSSDV2_detection_out_0.feathermodel";
+    int i = 1, loopCnt = 50, outLoopCnt = 1, num_threads = 4, bSameMean = 1, bLowPrecision = 0, bGray = 0, b1x1Sgemm = 0;
+    char *pFname = (char *)"74.png";
+    char *pModel = (char*)"rokid_detection_out_0.feathermodel";
     char *pBlob = (char *)"detection_out";
     const char * pSerialFile = NULL;
     enum RESULT_VIEW_TYPE viewType = RESULT_VIEW_TYPE_DRAW;
@@ -236,7 +236,9 @@ int main(int argc, char *argv[])
         }
         gettimeofday(&end, NULL);
         printf("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: [%d/%d], out blob size: %u\n\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads, forward_net->GetNumthreads(), (unsigned int)data_size);
-
+        uint32_t outChannel, outWidth, outHeight;
+        forward_net->GetBlobShape(&outChannel, &outWidth, &outHeight, pBlob);
+        printf("out shape: %d %d %d \n", outChannel, outWidth, outHeight);
         switch(viewType)
         {
         case RESULT_VIEW_TYPE_VALUE:

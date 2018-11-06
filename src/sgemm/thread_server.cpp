@@ -401,21 +401,40 @@ void * sgemm_thread_process(void *args)
             for (uint32_t i = 0 ; i < mutiUintN; i++)
             {
 #ifdef __aarch64__
-                tinySgemmConvPackB4x24_fp32_fp32_unit((float *)pMsg->JobInfo.sgemmInfo.pBIm2col + i*TINY_SGEMM_UNIT_N,
-                                                      (float *)pMsg->JobInfo.sgemmInfo.pPackB,
-                                                      pMsg->JobInfo.sgemmInfo.K,
-                                                      pMsg->JobInfo.sgemmInfo.N);
-
-                sgemmMxKx24_fp32 ((float *)pMsg->JobInfo.sgemmInfo.pA,
-                                  (float *)pMsg->JobInfo.sgemmInfo.pPackB,
-                                  pMsg->JobInfo.sgemmInfo.pC + i*TINY_SGEMM_UNIT_N,
-                                  pMsg->JobInfo.sgemmInfo.M,
-                                  pMsg->JobInfo.sgemmInfo.N,
-                                  pMsg->JobInfo.sgemmInfo.K,
-                                  (uint32_t)pMsg->JobInfo.sgemmInfo.reluType,
-                                  pMsg->JobInfo.sgemmInfo.pPrelu,
-                                  pMsg->JobInfo.sgemmInfo.bSharedPrelu,
-                                  pMsg->JobInfo.sgemmInfo.pBasis);
+                if (16 == TINY_SGEMM_UNIT_N)
+                {
+                    tinySgemmConvPackB4x16_fp32_fp32_unit((float *)pMsg->JobInfo.sgemmInfo.pBIm2col + i*TINY_SGEMM_UNIT_N,
+                                                          (float *)pMsg->JobInfo.sgemmInfo.pPackB,
+                                                          pMsg->JobInfo.sgemmInfo.K,
+                                                          pMsg->JobInfo.sgemmInfo.N);
+                    sgemmMxKx16_fp32 ((float *)pMsg->JobInfo.sgemmInfo.pA,
+                                      (float *)pMsg->JobInfo.sgemmInfo.pPackB,
+                                      pMsg->JobInfo.sgemmInfo.pC + i*TINY_SGEMM_UNIT_N,
+                                      pMsg->JobInfo.sgemmInfo.M,
+                                      pMsg->JobInfo.sgemmInfo.N,
+                                      pMsg->JobInfo.sgemmInfo.K,
+                                      (uint32_t)pMsg->JobInfo.sgemmInfo.reluType,
+                                      pMsg->JobInfo.sgemmInfo.pPrelu,
+                                      pMsg->JobInfo.sgemmInfo.bSharedPrelu,
+                                      pMsg->JobInfo.sgemmInfo.pBasis);
+                }
+                else
+                {
+                    tinySgemmConvPackB4x24_fp32_fp32_unit((float *)pMsg->JobInfo.sgemmInfo.pBIm2col + i*TINY_SGEMM_UNIT_N,
+                                                          (float *)pMsg->JobInfo.sgemmInfo.pPackB,
+                                                          pMsg->JobInfo.sgemmInfo.K,
+                                                          pMsg->JobInfo.sgemmInfo.N);
+                    sgemmMxKx24_fp32 ((float *)pMsg->JobInfo.sgemmInfo.pA,
+                                      (float *)pMsg->JobInfo.sgemmInfo.pPackB,
+                                      pMsg->JobInfo.sgemmInfo.pC + i*TINY_SGEMM_UNIT_N,
+                                      pMsg->JobInfo.sgemmInfo.M,
+                                      pMsg->JobInfo.sgemmInfo.N,
+                                      pMsg->JobInfo.sgemmInfo.K,
+                                      (uint32_t)pMsg->JobInfo.sgemmInfo.reluType,
+                                      pMsg->JobInfo.sgemmInfo.pPrelu,
+                                      pMsg->JobInfo.sgemmInfo.bSharedPrelu,
+                                      pMsg->JobInfo.sgemmInfo.pBasis);
+                }
 #else
                 if (0 == (pMsg->JobInfo.sgemmInfo.N%4))
                     tinySgemmConvPackB4x12_fp32_fp32_unit_align((float *)pMsg->JobInfo.sgemmInfo.pBIm2col + i*TINY_SGEMM_UNIT_N,

@@ -67,8 +67,9 @@ Net::Net(size_t num_threads)
         printf(" ]\n");
     }
 
-    uint32_t affinity[MAX_CORE_NUMBER] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
-    int32_t ret = tinySgemmConvInit(num_threads, THREAD_STACK_SIZE, &affinity, true, &(rt_param->pSgemmCtx));
+    //uint32_t affinity[MAX_CORE_NUMBER] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+    //int32_t ret = tinySgemmConvInit(num_threads, THREAD_STACK_SIZE, &affinity, true, &(rt_param->pSgemmCtx));
+    int32_t ret = tinySgemmConvInit(num_threads, THREAD_STACK_SIZE, NULL, true, &(rt_param->pSgemmCtx));
     if (ret < 0)
         printf("Sgemm init failed, %d\n", ret);
     else if (ret != num_threads)

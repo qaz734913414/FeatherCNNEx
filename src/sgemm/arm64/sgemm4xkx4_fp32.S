@@ -117,24 +117,26 @@ sgemm4xKx4_fp32:
 
 __LOOP:
     /* 0 */
-    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [B], #64
+    ld1 {VSRC_4S_B0, VSRC_4S_B1}, [B], #32
     subs KDiv4, KDiv4, #1
     ld1 {VSRC_4S_A0, VSRC_4S_A1, VSRC_4S_A2, VSRC_4S_A3}, [A], #64
 
+    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A0_0
-    prfm PLDL1KEEP, [A, #64]
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A0_1
     fmla VSRC_4S_C2_0, VSRC_4S_B0, VSRC_4S_A0_2
     fmla VSRC_4S_C3_0, VSRC_4S_B0, VSRC_4S_A0_3
 
+    ld1 {VSRC_4S_B2, VSRC_4S_B3}, [B], #32
     /* 1 */
-    prfm PLDL1KEEP, [B, #64]
+    prfm PLDL1KEEP, [A, #64]
     fmla VSRC_4S_C0_0, VSRC_4S_B1, VSRC_4S_A1_0
     fmla VSRC_4S_C1_0, VSRC_4S_B1, VSRC_4S_A1_1
     fmla VSRC_4S_C2_0, VSRC_4S_B1, VSRC_4S_A1_2
     fmla VSRC_4S_C3_0, VSRC_4S_B1, VSRC_4S_A1_3
 
     /* 2 */
+    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C0_0, VSRC_4S_B2, VSRC_4S_A2_0
     fmla VSRC_4S_C1_0, VSRC_4S_B2, VSRC_4S_A2_1
     fmla VSRC_4S_C2_0, VSRC_4S_B2, VSRC_4S_A2_2
@@ -158,10 +160,10 @@ __KHAS2:
     ld1 {VSRC_4S_B0, VSRC_4S_B1}, [B], #32
     ld1 {VSRC_4S_A0, VSRC_4S_A1}, [A], #32
 
-    fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A0_0
     prfm PLDL1KEEP, [A, #16]
-    fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A0_1
+    fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A0_0
     prfm PLDL1KEEP, [B, #16]
+    fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A0_1
     fmla VSRC_4S_C2_0, VSRC_4S_B0, VSRC_4S_A0_2
     fmla VSRC_4S_C3_0, VSRC_4S_B0, VSRC_4S_A0_3
 

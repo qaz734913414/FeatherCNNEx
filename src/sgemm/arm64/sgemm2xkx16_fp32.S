@@ -103,7 +103,7 @@ sgemm2xKx16_fp32:
     lsl N, N, #2
 
     eor VSRC_16B_C0_0, VSRC_16B_C0_0, VSRC_16B_C0_0
-    prfm PLDL1KEEP, [A, #64]
+    prfm PLDL1KEEP, [A, #32]
     lsr KDiv4, K, #2
     eor VSRC_16B_C0_1, VSRC_16B_C0_1, VSRC_16B_C0_1
     mov VSRC_16B_C0_2, VSRC_16B_C0_0
@@ -123,54 +123,48 @@ __LOOP:
     subs KDiv4, KDiv4, #1
     ld1 {VSRC_4S_A0, VSRC_4S_A1}, [A], #32
 
+    prfm PLDL1KEEP, [B, #64]
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A0_0
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A0_0
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A0_1
     fmla VSRC_4S_C1_1, VSRC_4S_B1, VSRC_4S_A0_1
 
     fmla VSRC_4S_C0_2, VSRC_4S_B2, VSRC_4S_A0_0
-    ld1 {VSRC_4S_B0, VSRC_4S_B1}, [B], #32
     fmla VSRC_4S_C0_3, VSRC_4S_B3, VSRC_4S_A0_0
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C1_2, VSRC_4S_B2, VSRC_4S_A0_1
     fmla VSRC_4S_C1_3, VSRC_4S_B3, VSRC_4S_A0_1
 
     /* 1 */
+    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [B], #64
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A0_2
-    ld1 {VSRC_4S_B2, VSRC_4S_B3}, [B], #32
+    prfm PLDL1KEEP, [B, #64]
     fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A0_2
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A0_3
     fmla VSRC_4S_C1_1, VSRC_4S_B1, VSRC_4S_A0_3
 
     fmla VSRC_4S_C0_2, VSRC_4S_B2, VSRC_4S_A0_2
-    ld1 {VSRC_4S_B0, VSRC_4S_B1}, [B], #32
     fmla VSRC_4S_C0_3, VSRC_4S_B3, VSRC_4S_A0_2
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C1_2, VSRC_4S_B2, VSRC_4S_A0_3
     fmla VSRC_4S_C1_3, VSRC_4S_B3, VSRC_4S_A0_3
 
     /* 2 */
+    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [B], #64
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A1_0
-    ld1 {VSRC_4S_B2, VSRC_4S_B3}, [B], #32
+    prfm PLDL1KEEP, [B, #64]
     fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A1_0
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A1_1
     fmla VSRC_4S_C1_1, VSRC_4S_B1, VSRC_4S_A1_1
 
     fmla VSRC_4S_C0_2, VSRC_4S_B2, VSRC_4S_A1_0
-    ld1 {VSRC_4S_B0, VSRC_4S_B1}, [B], #32
     fmla VSRC_4S_C0_3, VSRC_4S_B3, VSRC_4S_A1_0
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C1_2, VSRC_4S_B2, VSRC_4S_A1_1
     fmla VSRC_4S_C1_3, VSRC_4S_B3, VSRC_4S_A1_1
 
     /* 3 */
+    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [B], #64
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A1_2
-    ld1 {VSRC_4S_B2, VSRC_4S_B3}, [B], #32
-    fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A1_2
     prfm PLDL1KEEP, [B, #64]
+    fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A1_2
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A1_3
     prfm PLDL1KEEP, [A, #32]
     fmla VSRC_4S_C1_1, VSRC_4S_B1, VSRC_4S_A1_3
@@ -193,26 +187,24 @@ __KHAS2:
     ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [B], #64
     ld1 {VSRC_4S_A0}, [A], #16
 
+    prfm PLDL1KEEP, [B, #64]
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A0_0
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A0_0
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A0_1
     fmla VSRC_4S_C1_1, VSRC_4S_B1, VSRC_4S_A0_1
 
     fmla VSRC_4S_C0_2, VSRC_4S_B2, VSRC_4S_A0_0
-    ld1 {VSRC_4S_B0, VSRC_4S_B1}, [B], #32
     fmla VSRC_4S_C0_3, VSRC_4S_B3, VSRC_4S_A0_0
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C1_2, VSRC_4S_B2, VSRC_4S_A0_1
     fmla VSRC_4S_C1_3, VSRC_4S_B3, VSRC_4S_A0_1
 
     /* 1 */
+    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [B], #64
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A0_2
-    ld1 {VSRC_4S_B2, VSRC_4S_B3}, [B], #32
-    fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A0_2
     prfm PLDL1KEEP, [B, #64]
+    fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A0_2
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A0_3
-    prfm PLDL1KEEP, [A, #16]
+    prfm PLDL1KEEP, [A, #8]
     fmla VSRC_4S_C1_1, VSRC_4S_B1, VSRC_4S_A0_3
 
     fmla VSRC_4S_C0_2, VSRC_4S_B2, VSRC_4S_A0_2
@@ -226,7 +218,7 @@ __KHAS1:
     beq __BASIS
     
     /* 0 */
-    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [B], #64
+    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [B]
     ld1 {VSRC_2S_A0}, [A]
 
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_2S_A0_0

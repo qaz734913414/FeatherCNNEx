@@ -10,8 +10,6 @@ COPYRIGHT_HOLDER:
     .equ      NE_OK,        0
     .equ      NE_ERR,      -1
 
-/* void tinySgemmConvPackB4x16_fp32_fp32_unit(float *pB, float *pPackB, uint32_t K, uint32_t N) */
-
 /* RSV X19~X28 */
 /**************in param**************/
 #define pB                x0
