@@ -29,6 +29,7 @@
 
 #ifdef __aarch64__
 
+#define TINY_SGEMM_UNIT_N_FP16 (16)
 #define TINY_SGEMM_UNIT_N (24)
 
 #else /* arm32 */

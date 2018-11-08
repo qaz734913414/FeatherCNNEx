@@ -41,6 +41,9 @@ public:
         packB = NULL;
         reluType = TINY_SGEMM_RELU_TYPE_NORELU;
         psgemmInstance = NULL;
+        mode = TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP32;
+        if (sgemmLowPrecision)
+            mode = TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP16;
         assert(NULL != pCtx);
     }
 
@@ -48,7 +51,7 @@ public:
     {
         int32_t ret = tinySgemmConvProcess(psgemmInstance, input, output,
                                            bias_data, reluType, slopeDataPrelu, sharedPrelu, NULL,
-                                           TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP32);
+                                           mode);
         if(ret)
             printf("Sgemm forward failed, ret:%d\n", ret);
 
@@ -91,16 +94,16 @@ public:
     int Init()
     {
         uint32_t packBBufferSizePerThread = tinySgemmGetPackBBufferSizePerThread(input_channels, kernel_height, kernel_width,
-                                            output_channels, TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP32);
+                                            output_channels, mode);
         uint32_t packABufferSize = tinySgemmGetPackABufferSize(input_channels, kernel_height, kernel_width,
-                                   output_channels, TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP32);
+                                   output_channels, mode);
         Im2colBufferSize = tinySgemmGetIm2colBufferSize(input_channels, input_height, input_width,
                            kernel_height, kernel_width,
                            padding_bottom, padding_right,
                            stride_height, stride_width,
                            1, 1,
                            tf_pad,
-                           TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP32);
+                           mode);
 #if 0
         printf("layer: %-30s [%03d %03d] [%02d] packASize: %08d packBSize: %08d (%02d) im2colSize: %d fractions:%02d\n",
                this->name().c_str(), output_width, output_height, tf_pad,
@@ -141,7 +144,7 @@ public:
                          stride_height, stride_width,
                          1, 1,
                          tf_pad,
-                         TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP32,
+                         mode,
                          packed_kernel, packB, pIm2col);
         if (NULL == psgemmInstance)
         {
@@ -181,5 +184,6 @@ private:
     bool sharedPrelu;
     float *slopeDataPrelu;
     bool sgemmLowPrecision;
+    enum TINY_SGEMM_CONV_DATA_MODE mode;
 };
 };

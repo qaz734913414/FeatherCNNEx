@@ -232,9 +232,9 @@ __LOOP:
     vld1.32 {VSRC_4S_A}, [A:128]!
 
     vmla.f32 VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A_0
-    #pld [B, #48]
+    pld [B, #48]
     vmla.f32 VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A_0
-    #pld [A, #16]
+    pld [A, #16]
     vmla.f32 VSRC_4S_C0_2, VSRC_4S_B2, VSRC_4S_A_0
 
     vmla.f32 VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A_1

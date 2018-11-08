@@ -15,8 +15,8 @@
  *     Lee (tianylijun@163.com)
  */
 
-#ifndef __TINYSGEMM_PACK_H
-#define __TINYSGEMM_PACK_H
+#ifndef __TINYSGEMM_PACKFP16_H
+#define __TINYSGEMM_PACKFP16_H
 
 #include <stdint.h>
 
@@ -25,15 +25,14 @@ extern "C" {
 #endif
 
 #ifdef __aarch64__
-extern "C" void tinySgemmConvPackB4x24_fp32_fp32_unit(float *pB, float *pPackB, uint32_t K, uint32_t N);
-extern "C" void tinySgemmConvPackB4x16_fp32_fp32_unit(float *pB, float *pPackB, uint32_t K, uint32_t N);
+extern "C" void tinySgemmConvPackB4x24_fp32_fp16_unit(float *pB, __fp16 *pPackB, uint32_t K, uint32_t N);
+extern "C" void tinySgemmConvPackB4x16_fp32_fp16_unit(float *pB, __fp16 *pPackB, uint32_t K, uint32_t N);
 #else
-extern "C" void tinySgemmConvPackB4x12_fp32_fp32_unit(float *pB, float *pPackB, uint32_t K, uint32_t N);
-extern "C" void tinySgemmConvPackB4x8_fp32_fp32_unit_align(float *pB, float *pPackB, uint32_t K, uint32_t N);
+extern "C" void tinySgemmConvPackB4x12_fp32_fp16_unit(float *pB, __fp16 *pPackB, uint32_t K, uint32_t N);
 #endif
-extern "C" void tinySgemmConvPackB4x8_fp32_fp32_unit(float *pB, float *pPackB, uint32_t K, uint32_t N);
-void tinySgemmConvPackBLeftN_fp32_fp32(float *pB, float *pPackB, uint32_t K, uint32_t N);
-void tinySgemmConvPackA4x4_fp32_fp32(float *pA, float *pPackA, uint32_t M, uint32_t K);
+extern "C" void tinySgemmConvPackB4x8_fp32_fp16_unit(float *pB, __fp16 *pPackB, uint32_t K, uint32_t N);
+void tinySgemmConvPackBLeftN_fp32_fp16(float *pB, __fp16 *pPackB, uint32_t K, uint32_t N);
+void tinySgemmConvPackA4x4_fp32_fp16(float *pA, __fp16 *pPackA, uint32_t M, uint32_t K);
 
 #ifdef __cplusplus
 }

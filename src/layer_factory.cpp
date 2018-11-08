@@ -108,7 +108,7 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
     if (1 == group)
     {
         conv_layer = (ConvLayer*) new ConvSgemmLayer(layer_param, rt_param);
-        conv_layer->_subType = "sgemm";
+        conv_layer->_subType = "new sgemm";
     }
 #endif
     else

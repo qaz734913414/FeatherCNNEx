@@ -22,6 +22,7 @@
 
 #if 0
 
+#define ARM_LOAD_PREFETCH_8(addr)
 #define ARM_LOAD_PREFETCH_16(addr)
 #define ARM_LOAD_PREFETCH_32(addr)
 #define ARM_LOAD_PREFETCH_64(addr)
@@ -38,6 +39,10 @@
 #else
 
 #ifdef __aarch64__
+#define ARM_LOAD_PREFETCH_8(addr) asm volatile(\
+                                "prfm PLDL1KEEP, [%0, #8] \n"\
+                                :\
+                                :"r"(addr));
 #define ARM_LOAD_PREFETCH_16(addr) asm volatile(\
                                 "prfm PLDL1KEEP, [%0, #16] \n"\
                                 :\
@@ -83,6 +88,10 @@
                                 :\
                                 :"r"(addr));
 #else /* __aarch64__ */
+#define ARM_LOAD_PREFETCH_8(addr) asm volatile(\
+                                "pld [%0, #8] \n"\
+                                :\
+                                :"r"(addr));
 #define ARM_LOAD_PREFETCH_16(addr) asm volatile(\
                                 "pld [%0, #16] \n"\
                                 :\
@@ -131,7 +140,50 @@
 #endif /* if 0 */
 
 #ifdef __clang__
-
+static inline float32x2x4_t vld1_f32_f16_x4(const void* address)
+{
+    float32x2x4_t vresult;
+    vresult.val[0] = vget_low_f32 (vcvt_f32_f16(vld1_f16((const __fp16*) address)));
+    vresult.val[1] = vget_high_f32(vcvt_f32_f16(vld1_f16((const __fp16*) address)));
+    vresult.val[2] = vget_low_f32 (vcvt_f32_f16(vld1_f16((const __fp16*) address+4)));
+    vresult.val[3] = vget_high_f32(vcvt_f32_f16(vld1_f16((const __fp16*) address+4)));
+    return vresult;
+}
+static inline float32x2x2_t vld1_f32_f16_x2(const void* address)
+{
+    float32x2x2_t vresult;
+    vresult.val[0] = vget_low_f32 (vcvt_f32_f16(vld1_f16((const __fp16*) address)));
+    vresult.val[1] = vget_high_f32(vcvt_f32_f16(vld1_f16((const __fp16*) address)));
+    return vresult;
+}
+static inline float32x2_t vld1_f32_f16(const void* address)
+{
+    return vget_low_f32 (vcvt_f32_f16(vld1_f16((const __fp16*) address)));;
+}
+static inline float32x4x4_t vld1q_f32_f16_x4(const void* address)
+{
+    float32x4x4_t vresult;
+    vresult.val[0] = vcvt_f32_f16(vld1_f16((const __fp16*) address));
+    vresult.val[1] = vcvt_f32_f16(vld1_f16((const __fp16*) address+4));
+    vresult.val[2] = vcvt_f32_f16(vld1_f16((const __fp16*) address+8));
+    vresult.val[3] = vcvt_f32_f16(vld1_f16((const __fp16*) address+12));
+    return vresult;
+}
+static inline float32x4x3_t vld1q_f32_f16_x3(const void* address)
+{
+    float32x4x3_t vresult;
+    vresult.val[0] = vcvt_f32_f16(vld1_f16((const __fp16*) address));
+    vresult.val[1] = vcvt_f32_f16(vld1_f16((const __fp16*) address+4));
+    vresult.val[2] = vcvt_f32_f16(vld1_f16((const __fp16*) address+8));
+    return vresult;
+}
+static inline float32x4x2_t vld1q_f32_f16_x2(const void* address)
+{
+    float32x4x2_t vresult;
+    vresult.val[0] = vcvt_f32_f16(vld1_f16((const __fp16*) address));
+    vresult.val[1] = vcvt_f32_f16(vld1_f16((const __fp16*) address+4));
+    return vresult;
+}
 static inline float32x4_t vld1q_f32_f16(const void* address)
 {
     return vcvt_f32_f16(vld1_f16((const __fp16*) address));
@@ -141,6 +193,15 @@ static inline float32x4_t vld1q_f32_f16_aligned(const void* address)
 {
     return vcvt_f32_f16(vld1_f16((const __fp16*)
                                  __builtin_assume_aligned(address, sizeof(float16x4_t))));
+}
+static inline void vst1_f16_f32(void* address, float32x2_t vector)
+{
+    float32x4_t vsrc;
+    vsrc[0] = vector[0];
+    vsrc[1] = vector[1];
+    uint16x4_t v16 = vcvt_f16_f32(vsrc);
+    *(uint16_t*) address = v16[0];
+    *(((uint16_t*) address) + 1) = v16[1];
 }
 static inline void vst1q_f16_f32(void* address, float32x4_t vector)
 {
@@ -257,7 +318,7 @@ static inline float16x8x2_t vld1q_f16_x2(const void* address)
 
 #ifdef __aarch64__
 
-typedef void __fp16;
+typedef uint16_t __fp16;
 typedef int16x4_t float16x4_t;
 typedef struct float16x4x2_t
 {
@@ -287,7 +348,15 @@ typedef struct float16x4x2_t
                  : /* No clobbers */);                                   \
         result;                                                          \
       })
-
+static inline void vst1_f16_f32(void* address, float32x2_t vector)
+{
+    float32x4_t vsrc;
+    vsrc[0] = vector[0];
+    vsrc[1] = vector[1];
+    uint16x4_t v16 = vcvt_f16_f32(vsrc);
+    *(uint16_t*) address = v16[0];
+    *(((uint16_t*) address) + 1) = v16[1];
+}
 static inline void vst1q_f16_f32(void* address, float32x4_t vector)
 {
     vst1_u16((uint16_t*) address, (uint16x4_t) vcvt_f16_f32(vector));
@@ -408,9 +477,57 @@ static inline float32x2x2_t vld1_f32_x2(const void* address)
     result.val[1] = vld1_f32((const float32_t*) address + 2);
     return result;
 }
-
+static inline float32x2x4_t vld1_f32_f16_x4(const void* address)
+{
+    float32x2x4_t vresult;
+    vresult.val[0] = vget_low_f32 (vcvt_f32_f16(vld1_u16((const __fp16*) address)));
+    vresult.val[1] = vget_high_f32(vcvt_f32_f16(vld1_u16((const __fp16*) address)));
+    vresult.val[2] = vget_low_f32 (vcvt_f32_f16(vld1_u16((const __fp16*) address+4)));
+    vresult.val[3] = vget_high_f32(vcvt_f32_f16(vld1_u16((const __fp16*) address+4)));
+    return vresult;
+}
+static inline float32x2x2_t vld1_f32_f16_x2(const void* address)
+{
+    float32x2x2_t vresult;
+    vresult.val[0] = vget_low_f32 (vcvt_f32_f16(vld1_u16((const __fp16*) address)));
+    vresult.val[1] = vget_high_f32(vcvt_f32_f16(vld1_u16((const __fp16*) address)));
+    return vresult;
+}
+static inline float32x2_t vld1_f32_f16(const void* address)
+{
+    return vget_low_f32 (vcvt_f32_f16(vld1_u16((const __fp16*) address)));;
+}
+static inline float32x4x4_t vld1q_f32_f16_x4(const void* address)
+{
+    float32x4x4_t vresult;
+    vresult.val[0] = vcvt_f32_f16(vld1_u16((const uint16_t*) address));
+    vresult.val[1] = vcvt_f32_f16(vld1_u16((const uint16_t*) address+4));
+    vresult.val[2] = vcvt_f32_f16(vld1_u16((const uint16_t*) address+8));
+    vresult.val[3] = vcvt_f32_f16(vld1_u16((const uint16_t*) address+12));
+    return vresult;
+}
+static inline float32x4x3_t vld1q_f32_f16_x3(const void* address)
+{
+    float32x4x3_t vresult;
+    vresult.val[0] = vcvt_f32_f16(vld1_u16((const uint16_t*) address));
+    vresult.val[1] = vcvt_f32_f16(vld1_u16((const uint16_t*) address+4));
+    vresult.val[2] = vcvt_f32_f16(vld1_u16((const uint16_t*) address+8));
+    return vresult;
+}
+static inline float32x4x2_t vld1q_f32_f16_x2(const void* address)
+{
+    float32x4x2_t vresult;
+    vresult.val[0] = vcvt_f32_f16(vld1_u16((const uint16_t*) address));
+    vresult.val[1] = vcvt_f32_f16(vld1_u16((const uint16_t*) address+4));
+    return vresult;
+}
+static inline float32x4_t vld1q_f32_f16(const void* address)
+{
+    return vcvt_f32_f16(vld1_u16((const uint16_t*) address));
+}
 #else /* __aarch64__ */
 
+typedef uint16_t __fp16;
 typedef int16x8_t float16x8_t;
 typedef struct float16x8x2_t
 {
@@ -482,6 +599,50 @@ static inline void vst1_f16(const void* address, uint16x4_t vector)
     vst1_u16((uint16_t*) address, vector);
 }
 // GCC 4.x doesn't support vst1_f16/vld1_f16, workaround.
+static inline float32x2x4_t vld1_f32_f16_x4(const void* address)
+{
+    float32x2x4_t vresult;
+    vresult.val[0] = vget_low_f32 (vcvt_f32_f16((float16x4_t) vld1_u16((const __fp16*) address)));
+    vresult.val[1] = vget_high_f32(vcvt_f32_f16((float16x4_t) vld1_u16((const __fp16*) address)));
+    vresult.val[2] = vget_low_f32 (vcvt_f32_f16((float16x4_t) vld1_u16((const __fp16*) address+4)));
+    vresult.val[3] = vget_high_f32(vcvt_f32_f16((float16x4_t) vld1_u16((const __fp16*) address+4)));
+    return vresult;
+}
+static inline float32x2x2_t vld1_f32_f16_x2(const void* address)
+{
+    float32x2x2_t vresult;
+    vresult.val[0] = vget_low_f32 (vcvt_f32_f16((float16x4_t) vld1_u16((const __fp16*) address)));
+    vresult.val[1] = vget_high_f32(vcvt_f32_f16((float16x4_t) vld1_u16((const __fp16*) address)));
+    return vresult;
+}
+static inline float32x2_t vld1_f32_f16(const void* address)
+{
+    return vget_low_f32 (vcvt_f32_f16((float16x4_t) vld1_u16((const __fp16*) address)));;
+}
+static inline float32x4x4_t vld1q_f32_f16_x4(const void* address)
+{
+    float32x4x4_t vresult;
+    vresult.val[0] = vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address));
+    vresult.val[1] = vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address+4));
+    vresult.val[2] = vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address+8));
+    vresult.val[3] = vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address+12));
+    return vresult;
+}
+static inline float32x4x3_t vld1q_f32_f16_x3(const void* address)
+{
+    float32x4x3_t vresult;
+    vresult.val[0] = vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address));
+    vresult.val[1] = vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address+4));
+    vresult.val[2] = vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address+8));
+    return vresult;
+}
+static inline float32x4x2_t vld1q_f32_f16_x2(const void* address)
+{
+    float32x4x2_t vresult;
+    vresult.val[0] = vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address));
+    vresult.val[1] = vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address+4));
+    return vresult;
+}
 static inline float32x4_t vld1q_f32_f16(const void* address)
 {
     return vcvt_f32_f16((float16x4_t) vld1_u16((const uint16_t*) address));
@@ -490,6 +651,15 @@ static inline float32x4_t vld1q_f32_f16_aligned(const void* address)
 {
     return vcvt_f32_f16((float16x4_t)
                         vld1_u16((const uint16_t*) __builtin_assume_aligned(address, sizeof(float16x4_t))));
+}
+static inline void vst1_f16_f32(void* address, float32x2_t vector)
+{
+    float32x4_t vsrc;
+    vsrc[0] = vector[0];
+    vsrc[1] = vector[1];
+    uint16x4_t v16 = (uint16x4_t)vcvt_f16_f32(vsrc);
+    *(uint16_t*) address = v16[0];
+    *(((uint16_t*) address) + 1) = v16[1];
 }
 static inline void vst1q_f16_f32(void* address, float32x4_t vector)
 {
