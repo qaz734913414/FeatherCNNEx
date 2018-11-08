@@ -228,7 +228,11 @@ void tinySgemmConvPackBLeftN_fp32_fp16(float *pB, __fp16 *pPackB, uint32_t K, ui
     POINTER_CHECK_NO_RET(pB);
     POINTER_CHECK_NO_RET(pPackB);
 
+#ifdef __aarch64__
+    leftN      = N%TINY_SGEMM_UNIT_N_FP16;
+#else
     leftN      = N%TINY_SGEMM_UNIT_N;
+#endif
     leftNHas8  = (leftN>>3)&1;
     leftNHas4  = (leftN>>2)&1;
     leftNHas2  = (leftN>>1)&1;
