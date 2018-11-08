@@ -162,20 +162,22 @@ __LOOP:
     /* 1 */
     fmla VSRC_4S_C0_0, VSRC_4S_B2, VSRC_4S_A1_0
     fmla VSRC_4S_C0_1, VSRC_4S_B3, VSRC_4S_A1_0
-    ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32
+
     fmla VSRC_4S_C1_0, VSRC_4S_B2, VSRC_4S_A1_1
     fmla VSRC_4S_C1_1, VSRC_4S_B3, VSRC_4S_A1_1
     fcvtl   VSRC_4S_A2, VSRC_4H_TMP3
     fmla VSRC_4S_C2_0, VSRC_4S_B2, VSRC_4S_A1_2
-    fcvtl   VSRC_4S_B0, VSRC_4H_TMP0
+    ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32
     fmla VSRC_4S_C2_1, VSRC_4S_B3, VSRC_4S_A1_2
-    fcvtl2  VSRC_4S_B1, VSRC_8H_TMP0
+    fcvtl   VSRC_4S_B0, VSRC_4H_TMP0
     fmla VSRC_4S_C3_0, VSRC_4S_B2, VSRC_4S_A1_3
-    prfm PLDL1KEEP, [A, #32]
+    fcvtl2  VSRC_4S_B1, VSRC_8H_TMP0
     fmla VSRC_4S_C3_1, VSRC_4S_B3, VSRC_4S_A1_3
 
     /* 2 */
+    prfm PLDL1KEEP, [A, #32]
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A2_0
+    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A2_0
     fcvtl   VSRC_4S_B2, VSRC_4H_TMP1
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A2_1

@@ -63,13 +63,14 @@ __LOOP:
     /* 1 */
     ld1 {VSRC_4S_B1}, [pB], N
     fcvtn2 VSRC_8H_B0, VSRC_4S_B1
+    st1 {VSRC_8H_B0} ,[pPackB], #16
     /* 2 */
     ld1 {VSRC_4S_B2}, [pB], N
     fcvtn  VSRC_4H_B1, VSRC_4S_B2
     /* 3 */
     ld1 {VSRC_4S_B3}, [pB], N
     fcvtn2 VSRC_8H_B1, VSRC_4S_B3
-    st1 {VSRC_8H_B0, VSRC_8H_B1} ,[pPackB], #32
+    st1 {VSRC_8H_B1} ,[pPackB], #16
 
     cmp KDiv4, #0
     bne __LOOP

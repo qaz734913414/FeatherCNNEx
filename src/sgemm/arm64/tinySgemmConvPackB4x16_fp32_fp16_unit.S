@@ -35,6 +35,16 @@ COPYRIGHT_HOLDER:
 #define VSRC_4H_B1        v5.4H
 #define VSRC_8H_B1        v5.8H
 
+#define VSRC_4H_B2        v6.4H
+#define VSRC_8H_B2        v6.8H
+#define VSRC_4H_B3        v7.4H
+#define VSRC_8H_B3        v7.8H
+
+#define VSRC_4S_B0_BK     v16.4s
+#define VSRC_4S_B1_BK     v17.4s
+#define VSRC_4S_B2_BK     v18.4s
+#define VSRC_4S_B3_BK     v19.4s
+
 /* void tinySgemmConvPackB4x16_fp32_fp16_unit(float *pB, __fp16 *pPackB, uint32_t K, uint32_t N) */
     .text
     .align 5
@@ -45,7 +55,7 @@ _tinySgemmConvPackB4x16_fp32_fp16_unit:
     .global tinySgemmConvPackB4x16_fp32_fp16_unit
 tinySgemmConvPackB4x16_fp32_fp16_unit:
 #endif
-
+    prfm PLDL1KEEP, [pB, #64]
     lsl N, N, #2
     lsr KDiv4, K, #2
 
@@ -58,37 +68,37 @@ __LOOP:
     fcvtn  VSRC_4H_B0, VSRC_4S_B0
     prfm PLDL1KEEP, [pB, #64]
     fcvtn2 VSRC_8H_B0, VSRC_4S_B1
+    ld1 {VSRC_4S_B0_BK, VSRC_4S_B1_BK, VSRC_4S_B2_BK, VSRC_4S_B3_BK}, [pB], N
     fcvtn  VSRC_4H_B1, VSRC_4S_B2
     fcvtn2 VSRC_8H_B1, VSRC_4S_B3
     st1 {VSRC_8H_B0, VSRC_8H_B1} ,[pPackB], #32
 
     /* 1 */
-    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [pB], N
-    fcvtn  VSRC_4H_B0, VSRC_4S_B0
     prfm PLDL1KEEP, [pB, #64]
-    fcvtn2 VSRC_8H_B0, VSRC_4S_B1
-    fcvtn  VSRC_4H_B1, VSRC_4S_B2
-    fcvtn2 VSRC_8H_B1, VSRC_4S_B3
-    st1 {VSRC_8H_B0, VSRC_8H_B1} ,[pPackB], #32
+    fcvtn  VSRC_4H_B2, VSRC_4S_B0_BK
+    fcvtn2 VSRC_8H_B2, VSRC_4S_B1_BK
+    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [pB], N
+    fcvtn  VSRC_4H_B3, VSRC_4S_B2_BK
+    fcvtn2 VSRC_8H_B3, VSRC_4S_B3_BK
+    st1 {VSRC_8H_B2, VSRC_8H_B3} ,[pPackB], #32
 
     /* 2 */
-    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [pB], N
     fcvtn  VSRC_4H_B0, VSRC_4S_B0
     prfm PLDL1KEEP, [pB, #64]
     fcvtn2 VSRC_8H_B0, VSRC_4S_B1
+    subs KDiv4, KDiv4, #1
+    ld1 {VSRC_4S_B0_BK, VSRC_4S_B1_BK, VSRC_4S_B2_BK, VSRC_4S_B3_BK}, [pB], N
     fcvtn  VSRC_4H_B1, VSRC_4S_B2
     fcvtn2 VSRC_8H_B1, VSRC_4S_B3
     st1 {VSRC_8H_B0, VSRC_8H_B1} ,[pPackB], #32
-    subs KDiv4, KDiv4, #1
 
     /* 3 */
-    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [pB], N
-    fcvtn  VSRC_4H_B0, VSRC_4S_B0
     prfm PLDL1KEEP, [pB, #64]
-    fcvtn2 VSRC_8H_B0, VSRC_4S_B1
-    fcvtn  VSRC_4H_B1, VSRC_4S_B2
-    fcvtn2 VSRC_8H_B1, VSRC_4S_B3
-    st1 {VSRC_8H_B0, VSRC_8H_B1} ,[pPackB], #32
+    fcvtn  VSRC_4H_B2, VSRC_4S_B0_BK
+    fcvtn2 VSRC_8H_B2, VSRC_4S_B1_BK
+    fcvtn  VSRC_4H_B3, VSRC_4S_B2_BK
+    fcvtn2 VSRC_8H_B3, VSRC_4S_B3_BK
+    st1 {VSRC_8H_B2, VSRC_8H_B3} ,[pPackB], #32
 
     cmp KDiv4, #0
     bne __LOOP
@@ -103,18 +113,18 @@ __KHAS2:
     fcvtn  VSRC_4H_B0, VSRC_4S_B0
     prfm PLDL1KEEP, [pB, #64]
     fcvtn2 VSRC_8H_B0, VSRC_4S_B1
+    ld1 {VSRC_4S_B0_BK, VSRC_4S_B1_BK, VSRC_4S_B2_BK, VSRC_4S_B3_BK}, [pB], N
     fcvtn  VSRC_4H_B1, VSRC_4S_B2
     fcvtn2 VSRC_8H_B1, VSRC_4S_B3
     st1 {VSRC_8H_B0, VSRC_8H_B1} ,[pPackB], #32
 
     /* 1 */
-    ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [pB], N
-    fcvtn  VSRC_4H_B0, VSRC_4S_B0
     prfm PLDL1KEEP, [pB, #64]
-    fcvtn2 VSRC_8H_B0, VSRC_4S_B1
-    fcvtn  VSRC_4H_B1, VSRC_4S_B2
-    fcvtn2 VSRC_8H_B1, VSRC_4S_B3
-    st1 {VSRC_8H_B0, VSRC_8H_B1} ,[pPackB], #32
+    fcvtn  VSRC_4H_B2, VSRC_4S_B0_BK
+    fcvtn2 VSRC_8H_B2, VSRC_4S_B1_BK
+    fcvtn  VSRC_4H_B3, VSRC_4S_B2_BK
+    fcvtn2 VSRC_8H_B3, VSRC_4S_B3_BK
+    st1 {VSRC_8H_B2, VSRC_8H_B3} ,[pPackB], #32
 
 __KHAS1:
     and KHas1, K, #1
@@ -124,7 +134,6 @@ __KHAS1:
     /* 0 */
     ld1 {VSRC_4S_B0, VSRC_4S_B1, VSRC_4S_B2, VSRC_4S_B3}, [pB]
     fcvtn  VSRC_4H_B0, VSRC_4S_B0
-    prfm PLDL1KEEP, [pB, #64]
     fcvtn2 VSRC_8H_B0, VSRC_4S_B1
     fcvtn  VSRC_4H_B1, VSRC_4S_B2
     fcvtn2 VSRC_8H_B1, VSRC_4S_B3

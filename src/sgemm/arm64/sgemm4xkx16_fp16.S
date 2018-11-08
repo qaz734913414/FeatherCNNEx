@@ -177,14 +177,9 @@ __LOOP:
     /* 0 */
     ld1 {VSRC_8H_TMP2, VSRC_8H_TMP3}, [A], #32
     fcvtl   VSRC_4S_A0, VSRC_4H_TMP2
-    subs KDiv4, KDiv4, #1
-    fcvtl2  VSRC_4S_A1, VSRC_8H_TMP2
     ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32
-    fcvtl   VSRC_4S_A2, VSRC_4H_TMP3
-    fcvtl2  VSRC_4S_A3, VSRC_8H_TMP3
-
-    prfm PLDL1KEEP, [B, #32]
     fcvtl   VSRC_4S_B0, VSRC_4H_TMP0
+    prfm PLDL1KEEP, [B, #32]
     fcvtl2  VSRC_4S_B1, VSRC_8H_TMP0
 
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A0_0
@@ -197,17 +192,17 @@ __LOOP:
     fmla VSRC_4S_C2_1, VSRC_4S_B1, VSRC_4S_A0_2
     fmla VSRC_4S_C3_0, VSRC_4S_B0, VSRC_4S_A0_3
     fmla VSRC_4S_C3_1, VSRC_4S_B1, VSRC_4S_A0_3
-
+    fcvtl2  VSRC_4S_A1, VSRC_8H_TMP2
     fmla VSRC_4S_C0_2, VSRC_4S_B2, VSRC_4S_A0_0
     fmla VSRC_4S_C0_3, VSRC_4S_B3, VSRC_4S_A0_0
 
+    ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32
     fmla VSRC_4S_C1_2, VSRC_4S_B2, VSRC_4S_A0_1
     fmla VSRC_4S_C1_3, VSRC_4S_B3, VSRC_4S_A0_1
-    ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32
+    fcvtl   VSRC_4S_B0, VSRC_4H_TMP0
     fmla VSRC_4S_C2_2, VSRC_4S_B2, VSRC_4S_A0_2
     fmla VSRC_4S_C2_3, VSRC_4S_B3, VSRC_4S_A0_2
     prfm PLDL1KEEP, [B, #32]
-    fcvtl   VSRC_4S_B0, VSRC_4H_TMP0
     fmla VSRC_4S_C3_2, VSRC_4S_B2, VSRC_4S_A0_3
     fcvtl2  VSRC_4S_B1, VSRC_8H_TMP0
     fmla VSRC_4S_C3_3, VSRC_4S_B3, VSRC_4S_A0_3
@@ -215,13 +210,13 @@ __LOOP:
     /* 1 */
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A1_0
     fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A1_0
-
+    fcvtl   VSRC_4S_B2, VSRC_4H_TMP1
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A1_1
     fmla VSRC_4S_C1_1, VSRC_4S_B1, VSRC_4S_A1_1
-    fcvtl   VSRC_4S_B2, VSRC_4H_TMP1
+    fcvtl2  VSRC_4S_B3, VSRC_8H_TMP1
     fmla VSRC_4S_C2_0, VSRC_4S_B0, VSRC_4S_A1_2
     fmla VSRC_4S_C2_1, VSRC_4S_B1, VSRC_4S_A1_2
-    fcvtl2  VSRC_4S_B3, VSRC_8H_TMP1
+    fcvtl   VSRC_4S_A2, VSRC_4H_TMP3
     fmla VSRC_4S_C3_0, VSRC_4S_B0, VSRC_4S_A1_3
     fmla VSRC_4S_C3_1, VSRC_4S_B1, VSRC_4S_A1_3
 
@@ -230,8 +225,8 @@ __LOOP:
     ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32
     fmla VSRC_4S_C1_2, VSRC_4S_B2, VSRC_4S_A1_1
     fmla VSRC_4S_C1_3, VSRC_4S_B3, VSRC_4S_A1_1
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C2_2, VSRC_4S_B2, VSRC_4S_A1_2
+    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C2_3, VSRC_4S_B3, VSRC_4S_A1_2
     fcvtl   VSRC_4S_B0, VSRC_4H_TMP0
     fmla VSRC_4S_C3_2, VSRC_4S_B2, VSRC_4S_A1_3
@@ -241,23 +236,23 @@ __LOOP:
     /* 2 */
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A2_0
     fmla VSRC_4S_C0_1, VSRC_4S_B1, VSRC_4S_A2_0
-
+    fcvtl   VSRC_4S_B2, VSRC_4H_TMP1
     fmla VSRC_4S_C1_0, VSRC_4S_B0, VSRC_4S_A2_1
     fmla VSRC_4S_C1_1, VSRC_4S_B1, VSRC_4S_A2_1
-    fcvtl   VSRC_4S_B2, VSRC_4H_TMP1
+    fcvtl2  VSRC_4S_B3, VSRC_8H_TMP1
     fmla VSRC_4S_C2_0, VSRC_4S_B0, VSRC_4S_A2_2
     fmla VSRC_4S_C2_1, VSRC_4S_B1, VSRC_4S_A2_2
-    fcvtl2  VSRC_4S_B3, VSRC_8H_TMP1
+    fcvtl2  VSRC_4S_A3, VSRC_8H_TMP3
     fmla VSRC_4S_C3_0, VSRC_4S_B0, VSRC_4S_A2_3
     fmla VSRC_4S_C3_1, VSRC_4S_B1, VSRC_4S_A2_3
 
     fmla VSRC_4S_C0_2, VSRC_4S_B2, VSRC_4S_A2_0
     fmla VSRC_4S_C0_3, VSRC_4S_B3, VSRC_4S_A2_0
-    ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32    
+    ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32
     fmla VSRC_4S_C1_2, VSRC_4S_B2, VSRC_4S_A2_1
     fmla VSRC_4S_C1_3, VSRC_4S_B3, VSRC_4S_A2_1
-    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C2_2, VSRC_4S_B2, VSRC_4S_A2_2
+    prfm PLDL1KEEP, [B, #32]
     fmla VSRC_4S_C2_3, VSRC_4S_B3, VSRC_4S_A2_2
     fcvtl   VSRC_4S_B0, VSRC_4H_TMP0
     fmla VSRC_4S_C3_2, VSRC_4S_B2, VSRC_4S_A2_3
@@ -282,7 +277,7 @@ __LOOP:
 
     fmla VSRC_4S_C1_2, VSRC_4S_B2, VSRC_4S_A3_1
     fmla VSRC_4S_C1_3, VSRC_4S_B3, VSRC_4S_A3_1
-
+    subs KDiv4, KDiv4, #1
     fmla VSRC_4S_C2_2, VSRC_4S_B2, VSRC_4S_A3_2
     fmla VSRC_4S_C2_3, VSRC_4S_B3, VSRC_4S_A3_2
 
@@ -301,10 +296,8 @@ __KHAS2:
     ld1 {VSRC_8H_TMP2}, [A], #16
     fcvtl   VSRC_4S_A0, VSRC_4H_TMP2
     ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32
-    fcvtl2  VSRC_4S_A1, VSRC_8H_TMP2
-
-    prfm PLDL1KEEP, [B, #32]
     fcvtl   VSRC_4S_B0, VSRC_4H_TMP0
+    prfm PLDL1KEEP, [B, #32]
     fcvtl2  VSRC_4S_B1, VSRC_8H_TMP0
 
     fmla VSRC_4S_C0_0, VSRC_4S_B0, VSRC_4S_A0_0
@@ -317,7 +310,7 @@ __KHAS2:
     fmla VSRC_4S_C2_1, VSRC_4S_B1, VSRC_4S_A0_2
     fmla VSRC_4S_C3_0, VSRC_4S_B0, VSRC_4S_A0_3
     fmla VSRC_4S_C3_1, VSRC_4S_B1, VSRC_4S_A0_3
-
+    fcvtl2  VSRC_4S_A1, VSRC_8H_TMP2
     fmla VSRC_4S_C0_2, VSRC_4S_B2, VSRC_4S_A0_0
     fmla VSRC_4S_C0_3, VSRC_4S_B3, VSRC_4S_A0_0
     ld1 {VSRC_8H_TMP0, VSRC_8H_TMP1}, [B], #32
