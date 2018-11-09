@@ -43,32 +43,6 @@ Net::Net(size_t num_threads)
     }
     max_top_blob_size = 0;
 
-#pragma parallel for num_threads(num_threads)
-    for(uint32_t i = 0; i < num_threads ; i++)
-    {
-        int ret = -1;
-        uint32_t availCores = 0, realWorkCores = 0;
-        cpu_set_t mask;
-        CPU_ZERO(&mask);
-        availCores = sysconf(_SC_NPROCESSORS_CONF);
-        realWorkCores = MIN(availCores, 32);
-        ret = sched_getaffinity(0, sizeof(mask), &mask);
-        if (0 != ret)
-        {
-            printf("%s, %d\n", "sched_getaffinity failed", ret);
-            return;
-        }
-        printf("thread omp %d can run at core [", i);
-        for(int i = 0; i < realWorkCores; i++)
-        {
-            if (CPU_ISSET(i, &mask))
-                printf(" %d", i);
-        }
-        printf(" ]\n");
-    }
-
-    //uint32_t affinity[MAX_CORE_NUMBER] = {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff};
-    //int32_t ret = tinySgemmConvInit(num_threads, THREAD_STACK_SIZE, &affinity, true, &(rt_param->pSgemmCtx));
     int32_t ret = tinySgemmConvInit(num_threads, THREAD_STACK_SIZE, NULL, true, &(rt_param->pSgemmCtx));
     if (ret < 0)
         printf("Sgemm init failed, %d\n", ret);
@@ -77,73 +51,6 @@ Net::Net(size_t num_threads)
         printf("num_threads change from %u to %d\n", num_threads, ret);
         rt_param->set_num_threads(ret);
     }
-
-#if 0
-    getchar();
-#pragma parallel for num_threads(num_threads)
-    for(uint32_t i = 0; i < 4 ; i++)
-    {
-        pthread_attr_t attr;
-        int rs = pthread_attr_init( &attr );
-        assert( rs == 0 );
-        int policy;
-        int RET = pthread_attr_getschedpolicy( &attr, &policy );
-        assert( RET == 0 );
-        switch ( policy )
-        {
-        case SCHED_FIFO:
-            printf("policy = SCHED_FIFO\n");
-            break;
-
-        case SCHED_RR:
-            printf("policy = SCHED_RR\n");
-            break;
-
-        case SCHED_OTHER:
-            printf("policy = SCHED_OTHER\n");
-            break;
-
-        default:
-            printf("policy = UNKNOWN\n");
-            break;
-        }
-        int priority = sched_get_priority_max( policy );
-        assert( priority != -1 );
-        printf("max_priority = %d", priority);
-
-        priority = sched_get_priority_min( policy );
-        assert( priority != -1 );
-        printf(" min_priority = %d\n", priority);
-
-        struct sched_param param;
-
-        int ret = pthread_attr_getschedparam( &attr, &param );
-        assert( ret == 0 );
-        printf("priority = %d\n", param.sched_priority);
-
-        {
-            int ret = -1;
-            uint32_t availCores = 0, realWorkCores = 0;
-            cpu_set_t mask;
-            CPU_ZERO(&mask);
-            availCores = sysconf(_SC_NPROCESSORS_CONF);
-            realWorkCores = MIN(availCores, 32);
-            ret = sched_getaffinity(0, sizeof(mask), &mask);
-            if (0 != ret)
-            {
-                printf("%s, %d\n", "sched_getaffinity failed", ret);
-                return;
-            }
-            printf("thread omp %d can run at core [", i);
-            for(int i = 0; i < realWorkCores; i++)
-            {
-                if (CPU_ISSET(i, &mask))
-                    printf(" %d", i);
-            }
-            printf(" ]\n");
-        }
-    }
-#endif
 }
 
 int Net::getFreeBranch()

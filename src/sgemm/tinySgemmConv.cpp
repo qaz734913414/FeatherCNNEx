@@ -33,18 +33,7 @@
 #include "thread_server.h"
 #include "messageQueue.h"
 #include "armNeon.h"
-
-static inline uint32_t getMaxFreqAccordToAffinity(uint32_t affinity, uint32_t *coresMaxFreq)
-{
-    uint32_t maxFreq = 0;
-    POINTER_CHECK(coresMaxFreq, 0);
-    for (uint32_t i = 0; i < MAX_CORE_NUMBER; ++i)
-    {
-        if (affinity & (1U<<i))
-            maxFreq = T_MAX(maxFreq, coresMaxFreq[i]);
-    }
-    return maxFreq;
-}
+#include "im2col.h"
 
 int tinySgemmConvInit
 (
@@ -55,190 +44,28 @@ int tinySgemmConvInit
     void **pCtx
 )
 {
-    int32_t ret = 0, threadsStatusCheck = 1;
-    uint32_t availCores = 0;
-    struct thread_info *pThreadInfo = NULL;
-    pthread_attr_t attr;
+    int32_t ret = 0;
+    (void)stack_size;
+    (void)affinity;
+    (void)bindBigCore;
     struct tinySgemmConvCtx *pCtxInner = NULL;
-    uint32_t coresMaxFreq[MAX_CORE_NUMBER] = {0};
-    uint32_t maxFreq = 0, bigCoreMask = 0, bigCoreNum = 0;
-    bool biglittlecore = false;
-    struct msg *pMsgPool = NULL;
     printf("SGEMM CFG:\n\tTINY_SGEMM_UNIT_N: %08d \n\tMAX_MSGPOOL_NUM  : %08d \n\tMAX_CORE_NUMBER  : %08d \n\tTHREAD_STACK_SIZE:%08d \n",
            TINY_SGEMM_UNIT_N, MAX_MSGPOOL_NUM,
            MAX_CORE_NUMBER, THREAD_STACK_SIZE);
     POINTER_CHECK(pCtx, -1);
 
-    if (-1 != stack_size)
-    {
-        stack_size = T_MAX(stack_size, PTHREAD_STACK_MIN);
-        ret = pthread_attr_init(&attr);
-        if (ret != 0)
-        {
-            printf("%s, %d\n", "pthread_attr_init", ret);
-            return -2;
-        }
-        ret = pthread_attr_setstacksize(&attr, stack_size);
-        if (ret != 0)
-        {
-            printf("%s %d %d\n", "pthread_attr_setstacksize", stack_size, ret);
-            pthread_attr_destroy(&attr);
-            return -3;
-        }
-    }
-
     num_threads = T_MIN(num_threads, MAX_CORE_NUMBER);
-    availCores  = getAvaiableCoresMaxFreq(&coresMaxFreq, &maxFreq);
-    if (num_threads > availCores)
-    {
-        printf("Warning: num_threads adjust from %d to %d, as availCores limit\n", num_threads, availCores);
-        num_threads = availCores;
-    }
-
-    for (uint32_t i = 0; i < availCores; ++i)
-    {
-        if (maxFreq != coresMaxFreq[i])
-            biglittlecore = true;
-        else
-        {
-            bigCoreNum++;
-            bigCoreMask |= 1U<<i;
-        }
-        printf("[%d/%d] max freq: %d [%s]\n", i+1, availCores, coresMaxFreq[i], (maxFreq == coresMaxFreq[i])?"Big Core":"Little Core");
-    }
-
-    if ((NULL == affinity) && bindBigCore)
-        num_threads = T_MIN(num_threads, bigCoreNum);
-
-    printf("num_threads:%d, availCores:%d, maxFreq:%d, biglittlecore:%s, bigCoreMask:%#x, bigCoreNum:%d, bindBigCore: %d\n",
-           num_threads, availCores, maxFreq, biglittlecore?"Yes":"No", bigCoreMask, bigCoreNum, bindBigCore);
-
-    pThreadInfo = (struct thread_info*)calloc(num_threads, sizeof(struct thread_info));
-    if (NULL == pThreadInfo)
-    {
-        printf("%s, %d\n", "calloc thread info failed", num_threads);
-        pthread_attr_destroy(&attr);
-        return -4;
-    }
+    printf("num_threads:%d\n", num_threads);
 
     pCtxInner = (struct tinySgemmConvCtx *)calloc(1, sizeof(struct tinySgemmConvCtx));
     if (NULL == pCtxInner)
     {
         printf("%s, %d\n", "pthread_attr_destroy failed", ret);
-        pthread_attr_destroy(&attr);
-        free(pThreadInfo);
         return -5;
     }
 
     INIT_LIST_HEAD(&pCtxInner->instanceList);
-    INIT_LIST_HEAD(&pCtxInner->bigCoreThreads);
-    INIT_LIST_HEAD(&pCtxInner->littleCoreThreads);
-
-    pCtxInner->biglittlecore = biglittlecore;
-    for (uint32_t i = 0; i < num_threads; i++)
-    {
-        pThreadInfo[i].index    = i;
-        pThreadInfo[i].affinity = 0xffffffff;
-
-        if (NULL != affinity) /* user define bind core */
-        {
-            pThreadInfo[i].affinity = affinity[0][i];
-            //printf("[%d/%d] affinity: %#x\n", i,num_threads, affinity[0][i]);
-            pThreadInfo[i].maxFrequence = getMaxFreqAccordToAffinity(pThreadInfo[i].affinity, coresMaxFreq);
-        }
-        else /* bind all */
-        {
-            if (bindBigCore)
-                pThreadInfo[i].affinity = bigCoreMask;
-            pThreadInfo[i].maxFrequence = maxFreq;
-        }
-
-        //printf("max fre: %d, affinity:%#x\n", pThreadInfo[i].maxFrequence, pThreadInfo[i].affinity);
-        if (maxFreq == pThreadInfo[i].maxFrequence)
-        {
-            pThreadInfo[i].bigCore = 1;
-            list_add_tail(&pThreadInfo[i].biglittlecorelist, &pCtxInner->bigCoreThreads);
-        }
-        else
-        {
-            pThreadInfo[i].bigCore = 0;
-            list_add_tail(&pThreadInfo[i].biglittlecorelist, &pCtxInner->littleCoreThreads);
-            //printf("[%d] little core\n", i);
-        }
-        if (-1 != stack_size)
-            ret = pthread_create(&pThreadInfo[i].thread_id, NULL,
-                                 &sgemm_thread_process, &pThreadInfo[i]);
-        else
-            ret = pthread_create(&pThreadInfo[i].thread_id, &attr,
-                                 &sgemm_thread_process, &pThreadInfo[i]);
-        if (0 != ret)
-        {
-            printf("%s, %d, %d\n", "pthread_create failed", ret, i);
-            pthread_attr_destroy(&attr);
-            free(pThreadInfo);
-            free(pCtxInner);
-            return -6;
-        }
-    }
-
-    /* wait all thread init ok */
-    while(threadsStatusCheck)
-    {
-        usleep(2000);
-        uint32_t status = 0;
-        for (uint32_t i = 0; i < num_threads; i++)
-        {
-            if (pThreadInfo[i].status)
-                status++;
-        }
-        if (num_threads == status)
-            threadsStatusCheck = 0;
-    }
-
-    if (-1 != stack_size)
-    {
-        ret = pthread_attr_destroy(&attr);
-        if (ret != 0)
-        {
-            printf("%s, %d\n", "pthread_attr_destroy failed", ret);
-            free(pThreadInfo);
-            free(pCtxInner);
-            return -7;
-        }
-    }
-
-    INIT_LIST_HEAD(&pCtxInner->msgPoolList);
-    ret = pthread_mutex_init(&pCtxInner->msgPoolLock, NULL);
-    if (0 != ret)
-    {
-        printf("%s, %d\n", "pthread_mutex_init(msLock) failed", ret);
-        free(pThreadInfo);
-        free(pCtxInner);
-        return -8;
-    }
-    ret = pthread_mutex_init(&pCtxInner->threadLock, NULL);
-    if (0 != ret)
-    {
-        printf("%s, %d\n", "pthread_mutex_init(msLock) failed", ret);
-        pthread_mutex_destroy(&pCtxInner->msgPoolLock);
-        free(pThreadInfo);
-        free(pCtxInner);
-        return -8;
-    }
-    pMsgPool = msgPoolInit(pCtxInner, MAX_MSGPOOL_NUM);
-    if (NULL == pMsgPool)
-    {
-        printf("%s, %d\n", "msg pool malloc failed", MAX_MSGPOOL_NUM * (uint32_t)sizeof(struct msg));
-        pthread_mutex_destroy(&pCtxInner->threadLock);
-        pthread_mutex_destroy(&pCtxInner->msgPoolLock);
-        free(pThreadInfo);
-        free(pCtxInner);
-        return -9;
-    }
-
     pCtxInner->num_threads = num_threads;
-    pCtxInner->pThreadInfo = pThreadInfo;
-    pCtxInner->pMsgPool    = pMsgPool;
     *pCtx = pCtxInner;
     //printf("%s %d: %d\n", __func__, __LINE__, num_threads);
     return num_threads;
@@ -544,7 +371,6 @@ int tinySgemmConvProcess(void *pInstance,
                          enum TINY_SGEMM_CONV_DATA_MODE mode)
 {
     uint32_t i, N;
-    struct list_head jobsQueue;
     struct tinySgemmConvCtx *pCtxInner;
     struct tinySgemmInstance *psgemmInstance = (struct tinySgemmInstance *)pInstance;
     uint32_t sgemm_uint_n = TINY_SGEMM_UNIT_N;
@@ -561,40 +387,39 @@ int tinySgemmConvProcess(void *pInstance,
         sgemm_uint_n = TINY_SGEMM_UNIT_N_FP16;
 #endif
 
-    INIT_LIST_HEAD(&jobsQueue);
-
     if (NULL != psgemmInstance->pBIm2col)
     {
         //TIME_STAMP_BEG(begIm2col);
         uint32_t inputChannelSize = psgemmInstance->inputH*psgemmInstance->inputW;
         uint32_t im2colChannelSize = psgemmInstance->kernelH*psgemmInstance->kernelW*psgemmInstance->N*sizeof(float);
+        #pragma omp parallel for num_threads(pCtxInner->num_threads)
         for (i = 0; i < psgemmInstance->inChannels; ++i)
         {
-            struct msg *pMsg                  = fetchMsg(pCtxInner);
-            pMsg->pThreadInfo                 = getBigCoreThread(pCtxInner, i%pCtxInner->num_threads);
-            pMsg->cmd                         = MSG_CMD_IM2COL;
-            pMsg->JobInfo.im2colInfo.kernelH  = psgemmInstance->kernelH;
-            pMsg->JobInfo.im2colInfo.kernelW  = psgemmInstance->kernelW;
-            pMsg->JobInfo.im2colInfo.strideH  = psgemmInstance->strideH;
-            pMsg->JobInfo.im2colInfo.strideW  = psgemmInstance->strideW;
-            pMsg->JobInfo.im2colInfo.padH     = psgemmInstance->padH;
-            pMsg->JobInfo.im2colInfo.padW     = psgemmInstance->padW;
-            pMsg->JobInfo.im2colInfo.dilateH  = psgemmInstance->dilateH;
-            pMsg->JobInfo.im2colInfo.dilateW  = psgemmInstance->dilateW;
-            pMsg->JobInfo.im2colInfo.height   = psgemmInstance->inputH;
-            pMsg->JobInfo.im2colInfo.width    = psgemmInstance->inputW;
-            pMsg->JobInfo.im2colInfo.outType  = FLOAT32_TYPE;
-            pMsg->JobInfo.im2colInfo.pB       = pInput + i*inputChannelSize;
-            pMsg->JobInfo.im2colInfo.pad_only_bottom = psgemmInstance->pad_only_bottom;
-            pMsg->JobInfo.im2colInfo.pad_only_right  = psgemmInstance->pad_only_right;
-            pMsg->JobInfo.im2colInfo.pBIm2col = psgemmInstance->pBIm2col + i*im2colChannelSize;
+            struct msg Msg;
+            Msg.JobInfo.im2colInfo.kernelH  = psgemmInstance->kernelH;
+            Msg.JobInfo.im2colInfo.kernelW  = psgemmInstance->kernelW;
+            Msg.JobInfo.im2colInfo.strideH  = psgemmInstance->strideH;
+            Msg.JobInfo.im2colInfo.strideW  = psgemmInstance->strideW;
+            Msg.JobInfo.im2colInfo.padH     = psgemmInstance->padH;
+            Msg.JobInfo.im2colInfo.padW     = psgemmInstance->padW;
+            Msg.JobInfo.im2colInfo.dilateH  = psgemmInstance->dilateH;
+            Msg.JobInfo.im2colInfo.dilateW  = psgemmInstance->dilateW;
+            Msg.JobInfo.im2colInfo.height   = psgemmInstance->inputH;
+            Msg.JobInfo.im2colInfo.width    = psgemmInstance->inputW;
+            Msg.JobInfo.im2colInfo.outType  = FLOAT32_TYPE;
+            Msg.JobInfo.im2colInfo.pB       = pInput + i*inputChannelSize;
+            Msg.JobInfo.im2colInfo.pad_only_bottom = psgemmInstance->pad_only_bottom;
+            Msg.JobInfo.im2colInfo.pad_only_right  = psgemmInstance->pad_only_right;
+            Msg.JobInfo.im2colInfo.pBIm2col = psgemmInstance->pBIm2col + i*im2colChannelSize;
 
-            sendMsgNoSignal(pMsg);
-            list_add_tail(&pMsg->listJobsQueue, &jobsQueue);
+            im2col_channel_fp32_fp32 (Msg.JobInfo.im2colInfo.pB,      (float *)Msg.JobInfo.im2colInfo.pBIm2col,
+                                      Msg.JobInfo.im2colInfo.height,  Msg.JobInfo.im2colInfo.width,
+                                      Msg.JobInfo.im2colInfo.kernelH, Msg.JobInfo.im2colInfo.kernelW,
+                                      Msg.JobInfo.im2colInfo.padH,    Msg.JobInfo.im2colInfo.padW,
+                                      Msg.JobInfo.im2colInfo.strideH, Msg.JobInfo.im2colInfo.strideW,
+                                      Msg.JobInfo.im2colInfo.dilateH, Msg.JobInfo.im2colInfo.dilateW,
+                                      Msg.JobInfo.im2colInfo.pad_only_bottom, Msg.JobInfo.im2colInfo.pad_only_right);
         }
-
-        wakeUpJobs(pCtxInner);
-        waitForJobsDone(pCtxInner, &jobsQueue);
         //TIME_STAMP_END(begIm2col, endIm2col, "im2col");
     }
 
@@ -617,119 +442,98 @@ int tinySgemmConvProcess(void *pInstance,
     }
 
     //printf("MNK: [%05d %05d %05d] num_threads:%d numNPerThread: %05d ", psgemmInstance->M, psgemmInstance->N, psgemmInstance->K, num_threads, numNPerThread);
-
     //TIME_STAMP_BEG(begSgemm);
     if (num_threads == 1)
     {
         //printf("--thread 1-- ");
-        struct msg *pMsg                      = fetchMsg(pCtxInner);
-        pMsg->pThreadInfo                     = getBigCoreThread(pCtxInner, 0);
-        pMsg->cmd                             = MSG_CMD_SGEMM;
-        pMsg->JobInfo.sgemmInfo.M             = psgemmInstance->M;
-        pMsg->JobInfo.sgemmInfo.N             = psgemmInstance->N;
-        pMsg->JobInfo.sgemmInfo.K             = psgemmInstance->K;
-        pMsg->JobInfo.sgemmInfo.n             = N;
-        pMsg->JobInfo.sgemmInfo.pA            = psgemmInstance->pPackA;
+        struct msg Msg;
+        Msg.JobInfo.sgemmInfo.M             = psgemmInstance->M;
+        Msg.JobInfo.sgemmInfo.N             = psgemmInstance->N;
+        Msg.JobInfo.sgemmInfo.K             = psgemmInstance->K;
+        Msg.JobInfo.sgemmInfo.n             = N;
+        Msg.JobInfo.sgemmInfo.pA            = psgemmInstance->pPackA;
         if(psgemmInstance->bNoNeedIm2col)
-            pMsg->JobInfo.sgemmInfo.pBIm2col  = (uint8_t *)pInput;
+            Msg.JobInfo.sgemmInfo.pBIm2col  = (uint8_t *)pInput;
         else
-            pMsg->JobInfo.sgemmInfo.pBIm2col  = (uint8_t *)psgemmInstance->pBIm2col;
-        pMsg->JobInfo.sgemmInfo.pC            = pOutput;
-        pMsg->JobInfo.sgemmInfo.pPackB        = psgemmInstance->pPackB[pMsg->pThreadInfo->index];
-        pMsg->JobInfo.sgemmInfo.pBasis        = pBasis;
-        pMsg->JobInfo.sgemmInfo.reluType      = reluType;
-        pMsg->JobInfo.sgemmInfo.pPrelu        = pPrelu;
-        pMsg->JobInfo.sgemmInfo.bSharedPrelu  = bSharedPrelu;
-        pMsg->JobInfo.sgemmInfo.int8Scale     = int8Scale;
-        pMsg->JobInfo.sgemmInfo.packADataType = psgemmInstance->packADataType;
-        pMsg->JobInfo.sgemmInfo.packBDataType = psgemmInstance->packBDataType;
-
-        sendMsg(pMsg);
-        list_add_tail(&pMsg->listJobsQueue, &jobsQueue);
-        waitForJobsDone(pCtxInner, &jobsQueue);
+            Msg.JobInfo.sgemmInfo.pBIm2col  = (uint8_t *)psgemmInstance->pBIm2col;
+        Msg.JobInfo.sgemmInfo.pC            = pOutput;
+        Msg.JobInfo.sgemmInfo.pPackB        = psgemmInstance->pPackB[0];
+        Msg.JobInfo.sgemmInfo.pBasis        = pBasis;
+        Msg.JobInfo.sgemmInfo.reluType      = reluType;
+        Msg.JobInfo.sgemmInfo.pPrelu        = pPrelu;
+        Msg.JobInfo.sgemmInfo.bSharedPrelu  = bSharedPrelu;
+        Msg.JobInfo.sgemmInfo.int8Scale     = int8Scale;
+        Msg.JobInfo.sgemmInfo.packADataType = psgemmInstance->packADataType;
+        Msg.JobInfo.sgemmInfo.packBDataType = psgemmInstance->packBDataType;
+        sgemm(&Msg);
     }
     else
     {
         uint8_t *pCurInput = (uint8_t *)pInput;
         uint8_t *pCurIm2col = (uint8_t *)psgemmInstance->pBIm2col;
-        //printf("--thread %d-- ", num_threads);
-        for (i = 0; i < num_threads; ++i)
+        uint32_t sNArry[32];
+        uint8_t *pCurInputArry[32];
+        uint8_t *pCurIm2colArry[32];
+        float *pOutputArry[32];
+        assert(num_threads <= 32);
+        for (int j = 0; j < num_threads; ++j)
         {
             int sN = numNPerThread;
-            if (i == num_threads - 1)
-                sN = N - numNPerThread*i;
-            //printf("%d ", sN);
-            struct msg *pMsg                      = fetchMsg(pCtxInner);
-            pMsg->pThreadInfo                     = getBigCoreThread(pCtxInner, i);
-            pMsg->cmd                             = MSG_CMD_SGEMM;
-            pMsg->JobInfo.sgemmInfo.M             = psgemmInstance->M;
-            pMsg->JobInfo.sgemmInfo.N             = psgemmInstance->N;
-            pMsg->JobInfo.sgemmInfo.K             = psgemmInstance->K;
-            pMsg->JobInfo.sgemmInfo.n             = sN;
-            pMsg->JobInfo.sgemmInfo.pA            = psgemmInstance->pPackA;
+            if (j == num_threads - 1)
+                sN = N - numNPerThread*j;
+            sNArry[j] = sN;
             if(psgemmInstance->bNoNeedIm2col)
             {
-                pMsg->JobInfo.sgemmInfo.pBIm2col  = pCurInput;
-                pCurInput  += pMsg->JobInfo.sgemmInfo.n*sizeof(float);
+                pCurInputArry[j] = pCurInput;
+                pCurInput  += sN*sizeof(float);
             }
             else
             {
-                pMsg->JobInfo.sgemmInfo.pBIm2col  = pCurIm2col;
-                pCurIm2col += pMsg->JobInfo.sgemmInfo.n*sizeof(float);
+                pCurIm2colArry[j] = pCurIm2col;
+                pCurIm2col += sN*sizeof(float);
             }
-            pMsg->JobInfo.sgemmInfo.pC            = pOutput;
-            pMsg->JobInfo.sgemmInfo.pPackB        = psgemmInstance->pPackB[pMsg->pThreadInfo->index];
-            pMsg->JobInfo.sgemmInfo.pBasis        = pBasis;
-            pMsg->JobInfo.sgemmInfo.reluType      = reluType;
-            pMsg->JobInfo.sgemmInfo.pPrelu        = pPrelu;
-            pMsg->JobInfo.sgemmInfo.bSharedPrelu  = bSharedPrelu;
-            pMsg->JobInfo.sgemmInfo.int8Scale     = int8Scale;
-            pMsg->JobInfo.sgemmInfo.packADataType = psgemmInstance->packADataType;
-            pMsg->JobInfo.sgemmInfo.packBDataType = psgemmInstance->packBDataType;
-
-            pOutput    += pMsg->JobInfo.sgemmInfo.n;
-
-            sendMsgNoSignal(pMsg);
-            list_add_tail(&pMsg->listJobsQueue, &jobsQueue);
+            pOutputArry[j] = pOutput;
+            pOutput    += sN;
         }
-        wakeUpJobs(pCtxInner);
-        waitForJobsDone(pCtxInner, &jobsQueue);
-    }
 
+        //printf("--thread %d-- ", num_threads);
+        #pragma omp parallel num_threads(num_threads)
+        {
+            int i = omp_get_thread_num();
+            uint32_t offset = 0;
+            for (int j = 0; j < (i - 1); ++j)
+                offset += sNArry[i];
+            //printf("%d ", sN);
+            struct msg Msg;
+            Msg.JobInfo.sgemmInfo.M             = psgemmInstance->M;
+            Msg.JobInfo.sgemmInfo.N             = psgemmInstance->N;
+            Msg.JobInfo.sgemmInfo.K             = psgemmInstance->K;
+            Msg.JobInfo.sgemmInfo.n             = sNArry[i];
+            Msg.JobInfo.sgemmInfo.pA            = psgemmInstance->pPackA;
+            if(psgemmInstance->bNoNeedIm2col)
+                Msg.JobInfo.sgemmInfo.pBIm2col  = pCurInputArry[i];
+            else
+                Msg.JobInfo.sgemmInfo.pBIm2col  = pCurIm2colArry[i];
+            Msg.JobInfo.sgemmInfo.pC            = pOutputArry[i];
+            Msg.JobInfo.sgemmInfo.pPackB        = psgemmInstance->pPackB[i];
+            Msg.JobInfo.sgemmInfo.pBasis        = pBasis;
+            Msg.JobInfo.sgemmInfo.reluType      = reluType;
+            Msg.JobInfo.sgemmInfo.pPrelu        = pPrelu;
+            Msg.JobInfo.sgemmInfo.bSharedPrelu  = bSharedPrelu;
+            Msg.JobInfo.sgemmInfo.int8Scale     = int8Scale;
+            Msg.JobInfo.sgemmInfo.packADataType = psgemmInstance->packADataType;
+            Msg.JobInfo.sgemmInfo.packBDataType = psgemmInstance->packBDataType;
+            sgemm(&Msg);
+        }
+    }
     //TIME_STAMP_END(begSgemm, endSgemm, "SGEMM");
     return 0;
 }
 
 int tinySgemmConvDeinit(void *pCtx)
 {
-    struct list_head jobsQueue;
     struct tinySgemmConvCtx *pCtxInner = (struct tinySgemmConvCtx *)pCtx;
     POINTER_CHECK(pCtxInner, -1);
-
-    /* send exit cmd msg to each thread */
-    INIT_LIST_HEAD(&jobsQueue);
-    for (uint32_t i = 0; i < pCtxInner->num_threads; i++)
-    {
-        struct msg *pMsg = (struct msg *)fetchMsg(pCtxInner);
-        assert(NULL != pMsg);
-        pMsg->cmd         = MSG_CMD_EXIT;
-        pMsg->pThreadInfo = &pCtxInner->pThreadInfo[i];
-        sendMsg(pMsg);
-        list_add_tail(&pMsg->listJobsQueue, &jobsQueue);
-    }
-    waitForJobsDone(pCtxInner, &jobsQueue);
-
-    for (uint32_t i = 0; i < pCtxInner->num_threads; i++)
-    {
-        pthread_join(pCtxInner->pThreadInfo[i].thread_id, NULL);
-        pthread_mutex_destroy(&pCtxInner->pThreadInfo[i].msgQueueLock);
-        pthread_cond_destroy(&pCtxInner->pThreadInfo[i].msgQueueNoEmpty);
-    }
-    pthread_mutex_destroy(&pCtxInner->msgPoolLock);
-    pthread_mutex_destroy(&pCtxInner->threadLock);
-    free(pCtxInner->pThreadInfo);
-    msgPoolDeInit(pCtxInner);
-
     struct list_head *pos;
     list_for_each(pos, &pCtxInner->instanceList)
     {

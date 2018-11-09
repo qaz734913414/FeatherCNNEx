@@ -27,11 +27,6 @@
 #include "innerTinySgemmConv.h"
 #include "messageQueue.h"
 
-struct thread_info* getLittleCoreThread(struct tinySgemmConvCtx *pCtxInner, uint32_t index);
-struct thread_info* getBigCoreThread(struct tinySgemmConvCtx *pCtxInner, uint32_t index);
-uint32_t getAvaiableCoresMaxFreq(uint32_t (*coreMaxFreqs)[MAX_CORE_NUMBER], uint32_t *maxFreq);
-void wakeUpJobs(struct tinySgemmConvCtx *pCtx);
-void waitForJobsDone(struct tinySgemmConvCtx *pCtx, struct list_head *workQueue);
-void *sgemm_thread_process(void *args);
+void sgemm(struct msg *pMsg);
 
 #endif
