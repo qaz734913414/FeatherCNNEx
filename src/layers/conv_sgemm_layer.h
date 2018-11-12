@@ -102,8 +102,7 @@ public:
                            padding_bottom, padding_right,
                            stride_height, stride_width,
                            1, 1,
-                           tf_pad,
-                           mode);
+                           tf_pad);
 #if 0
         printf("layer: %-30s [%03d %03d] [%02d] packASize: %08d packBSize: %08d (%02d) im2colSize: %d fractions:%02d\n",
                this->name().c_str(), output_width, output_height, tf_pad,
@@ -136,25 +135,23 @@ public:
             MEMPOOL_CHECK_RETURN(common_mempool->GetPtr(&pIm2col));
 
         //printf(" pad:[%d %d] stride:[%d %d] tf_pad: %d\n", padding_bottom, padding_right, stride_height, stride_width, tf_pad);
-        psgemmInstance = tinySgemmConvCreateInstance(pCtx,
-                         kernel_data,
-                         input_channels,  input_height, input_width,
-                         output_channels, kernel_height, kernel_width,
-                         padding_bottom, padding_right,
-                         stride_height, stride_width,
-                         1, 1,
-                         tf_pad,
-                         mode,
-                         packed_kernel, packB, pIm2col);
-        if (NULL == psgemmInstance)
-        {
-            printf("Sgemm Instance create failed\n");
-            return -1;
-        }
-
-        /* no need weight as packed into buffer */
         if (0 == this->fractions) /* float32 */
         {
+            psgemmInstance = tinySgemmConvCreateInstance(pCtx,
+                             kernel_data,
+                             input_channels,  input_height, input_width,
+                             output_channels, kernel_height, kernel_width,
+                             padding_bottom, padding_right,
+                             stride_height, stride_width,
+                             1, 1,
+                             tf_pad,
+                             mode,
+                             packed_kernel, packB, pIm2col);
+            if (NULL == psgemmInstance)
+            {
+                printf("Sgemm Instance create failed\n");
+                return -1;
+            }
             delete _weight_blobs[0];
             _weight_blobs.erase(_weight_blobs.begin()+0);
         }

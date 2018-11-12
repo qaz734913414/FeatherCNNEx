@@ -83,45 +83,6 @@ static void im2col_cpu_tf(const float* data_im, float* data_col,
     }
 }
 
-static void im2col_cpu_channel_fp32_fp32(const float* data_im, float* data_col,
-        const int height, const int width,
-        const int kernel_h, const int kernel_w,
-        const int pad_h, const int pad_w,
-        const int stride_h, const int stride_w,
-        const int dilation_h, const int dilation_w)
-{
-    int kernel_row,kernel_col,output_rows,output_col,output_cols;
-    const int output_h = (height + 2 * pad_h - (dilation_h * (kernel_h - 1) + 1)) / stride_h + 1;
-    const int output_w = (width  + 2 * pad_w - (dilation_w * (kernel_w - 1) + 1)) / stride_w + 1;
-
-    for (kernel_row = 0; kernel_row < kernel_h; kernel_row++)
-    {
-        for (kernel_col = 0; kernel_col < kernel_w; kernel_col++)
-        {
-            int input_row = -pad_h + kernel_row * dilation_h;
-            for (output_rows = output_h; output_rows; output_rows--)
-            {
-                if ((input_row < 0) || (input_row >= height))
-                    for (output_cols = output_w; output_cols; output_cols--)
-                        *(data_col++) = 0;
-                else
-                {
-                    int input_col = -pad_w + kernel_col * dilation_w;
-                    for (output_col = output_w; output_col; output_col--)
-                    {
-                        if ((input_row >= 0) && (input_row < height))
-                            *(data_col++) = data_im[input_row * width + input_col];
-                        else
-                            *(data_col++) = 0;
-                        input_col += stride_w;
-                    }
-                }
-                input_row += stride_h;
-            }
-        }
-    }
-}
-
 static void im2col_cpu_reduce_channel_fp32_fp32(const float* data_im, float* data_col,
         const int height, const int width,
         const int kernel_h, const int kernel_w)
@@ -173,12 +134,13 @@ void im2col_channel_fp32_fp32(const float* data_im, float* data_col,
         }
         else
         {
-            im2col_cpu_channel_fp32_fp32(data_im, data_col,
-                                         height, width,
-                                         kernel_h, kernel_w,
-                                         pad_h, pad_w,
-                                         stride_h, stride_w,
-                                         dilation_h, dilation_w);
+            im2col_cpu_tf(data_im, data_col,
+                          height, width,
+                          kernel_h, kernel_w,
+                          pad_h, pad_w,
+                          stride_h, stride_w,
+                          dilation_h, dilation_w,
+                          false, false);
         }
     }
 }

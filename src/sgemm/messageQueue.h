@@ -26,21 +26,6 @@
 #include "common.h"
 #include "innerTinySgemmConv.h"
 
-#define SKIP_PARAM_CHECK
-
-enum MSG_STATUS
-{
-    MSG_STATUS_IDEL,
-    MSG_STATUS_BUSY,
-    MSG_STATUS_DONE
-};
-
-struct MSG_STR
-{
-    enum MSG_CMD cmd;
-    const char *desc;
-};
-
 struct sgemmJobInfo
 {
     uint8_t *pA;
@@ -81,103 +66,17 @@ struct im2colJobInfo
 
 struct msg
 {
-    enum MSG_CMD cmd;
-    uint64_t sequenceId;
-    enum MSG_STATUS status;
-    struct thread_info *pThreadInfo;
     union
     {
         struct sgemmJobInfo sgemmInfo;
         struct im2colJobInfo im2colInfo;
     } JobInfo;
-    pthread_mutex_t lock;
-    pthread_cond_t jobDoneCondition;
-    struct list_head listMsgQueue;
-    struct list_head listJobsQueue;
-    struct list_head listMsgPool;
 };
-
-static uint64_t msgSequence = 0;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-const char *MSG2STR(enum MSG_CMD cmd);
-struct msg *msgPoolInit(struct tinySgemmConvCtx *pCtx, uint32_t maxNumber);
-int msgPoolDeInit(struct tinySgemmConvCtx *pCtx);
-
-static inline struct msg *fetchMsg(struct tinySgemmConvCtx *pCtx)
-{
-    struct msg *pMsg;
-#ifndef SKIP_PARAM_CHECK
-    POINTER_CHECK(pCtx, NULL);
-#endif
-    pthread_mutex_lock(&pCtx->msgPoolLock);
-    if (list_empty(&pCtx->msgPoolList))
-    {
-        pthread_mutex_unlock(&pCtx->msgPoolLock);
-        printf("pls enlarge MAX_MSGPOOL_NUM, current is %u\n", MAX_MSGPOOL_NUM);
-        return NULL;
-    }
-    pMsg = list_first_entry(&pCtx->msgPoolList, struct msg, listMsgPool);
-    list_del(&pMsg->listMsgPool);
-    pthread_mutex_unlock(&pCtx->msgPoolLock);
-    pMsg->sequenceId = ++msgSequence;
-    pMsg->status     = MSG_STATUS_IDEL;
-    pthread_mutex_init(&pMsg->lock, NULL);
-    pthread_cond_init(&pMsg->jobDoneCondition, NULL);
-    return pMsg;
-}
-
-static inline void returnMsg(struct tinySgemmConvCtx *pCtx, struct msg *pMsg)
-{
-#ifndef SKIP_PARAM_CHECK
-    POINTER_CHECK_NO_RET(pCtx);
-    POINTER_CHECK_NO_RET(pMsg);
-#endif
-    pthread_mutex_lock(&pCtx->msgPoolLock);
-    list_add_tail(&pMsg->listMsgPool, &pCtx->msgPoolList);
-    pthread_mutex_unlock(&pCtx->msgPoolLock);
-}
-
-static inline void sendMsg(struct msg *pMsg)
-{
-#ifndef SKIP_PARAM_CHECK
-    POINTER_CHECK_NO_RET(pMsg);
-    POINTER_CHECK_NO_RET(pMsg->pThreadInfo);
-#endif
-    pthread_mutex_lock(&pMsg->pThreadInfo->msgQueueLock);
-    list_add_tail(&pMsg->listMsgQueue, &pMsg->pThreadInfo->msgQueueList);
-    pthread_cond_signal(&pMsg->pThreadInfo->msgQueueNoEmpty);
-    pthread_mutex_unlock(&pMsg->pThreadInfo->msgQueueLock);
-}
-
-static inline void sendMsgNoSignal(struct msg *pMsg)
-{
-#ifndef SKIP_PARAM_CHECK
-    POINTER_CHECK_NO_RET(pMsg);
-    POINTER_CHECK_NO_RET(pMsg->pThreadInfo);
-#endif
-    pthread_mutex_lock(&pMsg->pThreadInfo->msgQueueLock);
-    list_add_tail(&pMsg->listMsgQueue, &pMsg->pThreadInfo->msgQueueList);
-    pthread_mutex_unlock(&pMsg->pThreadInfo->msgQueueLock);
-}
-
-static inline struct msg *rcvMsg(struct thread_info *pThreadInfo)
-{
-    struct msg *pFirstMsg;
-#ifndef SKIP_PARAM_CHECK
-    POINTER_CHECK(pThreadInfo, NULL);
-#endif
-    pthread_mutex_lock(&pThreadInfo->msgQueueLock);
-    while (list_empty(&pThreadInfo->msgQueueList))
-        pthread_cond_wait(&pThreadInfo->msgQueueNoEmpty, &pThreadInfo->msgQueueLock);
-    pFirstMsg = list_first_entry(&pThreadInfo->msgQueueList, struct msg, listMsgQueue);
-    list_del(&pFirstMsg->listMsgQueue);
-    pthread_mutex_unlock(&pThreadInfo->msgQueueLock);
-    return pFirstMsg;
-}
 
 #ifdef __cplusplus
 }

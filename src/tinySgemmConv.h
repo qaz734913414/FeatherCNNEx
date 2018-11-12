@@ -29,17 +29,6 @@
 #define MAX_CORE_NUMBER (32U)
 #endif
 
-#ifndef THREAD_STACK_SIZE
-#define THREAD_STACK_SIZE (16*1024)
-#endif
-
-#ifndef MAX_MSGPOOL_NUM
-#define MAX_MSGPOOL_NUM (1024U)
-#endif
-
-//#define STEP_SGEMM
-#define THREAD_WAKE_UP_ALL
-
 enum TINY_SGEMM_CONV_DATA_MODE
 {
     TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP32,
@@ -59,20 +48,19 @@ enum TINY_SGEMM_RELU_TYPE
 extern "C" {
 #endif
 
-int tinySgemmConvInit(IN uint32_t num_threads, IN int32_t stack_size, IN uint32_t (*affinity)[MAX_CORE_NUMBER], IN bool bindBigCore, OUT void **pCtx);
-uint32_t tinySgemmGetPackBBufferSizePerThread(uint32_t inChannels, uint32_t kernelH, uint32_t kernelW,
-        uint32_t outChannels, enum TINY_SGEMM_CONV_DATA_MODE mode);
-uint32_t tinySgemmGetPackABufferSize(uint32_t inChannels, uint32_t kernelH, uint32_t kernelW,
-                                     uint32_t outChannels, enum TINY_SGEMM_CONV_DATA_MODE mode);
-uint32_t tinySgemmGetIm2colBufferSize(uint32_t inChannels, uint32_t inputH, uint32_t inputW,
-                                      uint32_t kernelH, uint32_t kernelW,
-                                      uint32_t padH, uint32_t padW,
-                                      uint32_t strideH, uint32_t strideW,
-                                      uint32_t dilateH, uint32_t dilateW,
-                                      bool tf_pad,
-                                      enum TINY_SGEMM_CONV_DATA_MODE mode);
+int tinySgemmConvInit(IN uint32_t num_threads, IN bool bindBigCore, OUT void **pCtx);
+uint32_t tinySgemmGetPackBBufferSizePerThread(IN uint32_t inChannels, IN uint32_t kernelH, IN uint32_t kernelW,
+        IN uint32_t outChannels, IN enum TINY_SGEMM_CONV_DATA_MODE mode);
+uint32_t tinySgemmGetPackABufferSize(IN uint32_t inChannels, IN uint32_t kernelH, IN uint32_t kernelW,
+                                     IN uint32_t outChannels, IN enum TINY_SGEMM_CONV_DATA_MODE mode);
+uint32_t tinySgemmGetIm2colBufferSize(IN uint32_t inChannels, IN uint32_t inputH, IN uint32_t inputW,
+                                      IN uint32_t kernelH, IN uint32_t kernelW,
+                                      IN uint32_t padH, IN uint32_t padW,
+                                      IN uint32_t strideH, IN uint32_t strideW,
+                                      IN uint32_t dilateH, IN uint32_t dilateW,
+                                      IN bool tf_pad);
 
-/* pCtx param is return by  tinySgemmConvInit */
+/* pCtx param is return by tinySgemmConvInit, pPackA & pPackB must be all NULL, or must be all not NULL */
 void* tinySgemmConvCreateInstance(IN void *pCtx, IN void *pWeight,
                                   IN uint32_t inChannels, IN uint32_t inputH, IN uint32_t inputW,
                                   IN uint32_t outChannels, IN uint32_t kernelH, IN uint32_t kernelW,

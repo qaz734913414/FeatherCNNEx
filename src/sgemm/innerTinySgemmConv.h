@@ -30,44 +30,10 @@ enum SGEMM_DataType
     INT8_TYPE
 };
 
-enum MSG_CMD
-{
-    MSG_CMD_EXIT,
-    MSG_CMD_SGEMM,
-    MSG_CMD_IM2COL,
-
-    MSG_CMD_END
-};
-
-struct thread_info
-{
-    uint32_t index;
-    uint32_t status;
-    uint32_t maxFrequence;
-    uint32_t bigCore;
-    pthread_t thread_id;
-    pthread_mutex_t msgQueueLock;
-    struct list_head msgQueueList;
-    pthread_cond_t msgQueueNoEmpty;
-    uint32_t affinity;
-    struct list_head biglittlecorelist;
-    uint64_t sgemmJobsDoneNum;
-    uint64_t im2colJobsDoneNum;
-    uint64_t totalMsgTime[MSG_CMD_END];
-};
-
 struct tinySgemmConvCtx
 {
     uint32_t num_threads;
-    struct thread_info *pThreadInfo;
-    pthread_mutex_t msgPoolLock;
-    pthread_mutex_t threadLock;
-    struct msg *pMsgPool;
-    struct list_head msgPoolList;
-    struct list_head bigCoreThreads;
-    struct list_head littleCoreThreads;
     struct list_head instanceList;
-    bool biglittlecore;
 };
 
 struct tinySgemmInstance

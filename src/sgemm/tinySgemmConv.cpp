@@ -38,37 +38,28 @@
 int tinySgemmConvInit
 (
     uint32_t num_threads,
-    int32_t stack_size,
-    uint32_t (*affinity)[MAX_CORE_NUMBER],
     bool bindBigCore,
     void **pCtx
 )
 {
     int32_t ret = 0;
-    (void)stack_size;
-    (void)affinity;
     (void)bindBigCore;
     struct tinySgemmConvCtx *pCtxInner = NULL;
-    printf("SGEMM CFG:\n\tTINY_SGEMM_UNIT_N: %08d \n\tMAX_MSGPOOL_NUM  : %08d \n\tMAX_CORE_NUMBER  : %08d \n\tTHREAD_STACK_SIZE:%08d \n",
-           TINY_SGEMM_UNIT_N, MAX_MSGPOOL_NUM,
-           MAX_CORE_NUMBER, THREAD_STACK_SIZE);
+    printf("SGEMM CFG: [ TINY_SGEMM_UNIT_N: %08d MAX_CORE_NUMBER  : %08d ]\n", TINY_SGEMM_UNIT_N, MAX_CORE_NUMBER);
     POINTER_CHECK(pCtx, -1);
 
     num_threads = T_MIN(num_threads, MAX_CORE_NUMBER);
-    printf("num_threads:%d\n", num_threads);
-
     pCtxInner = (struct tinySgemmConvCtx *)calloc(1, sizeof(struct tinySgemmConvCtx));
     if (NULL == pCtxInner)
     {
         printf("%s, %d\n", "pthread_attr_destroy failed", ret);
-        return -5;
+        return -2;
     }
 
     INIT_LIST_HEAD(&pCtxInner->instanceList);
     pCtxInner->num_threads = num_threads;
     *pCtx = pCtxInner;
-    //printf("%s %d: %d\n", __func__, __LINE__, num_threads);
-    return num_threads;
+    return 0;
 }
 
 uint32_t tinySgemmGetPackBBufferSizePerThread(uint32_t inChannels, uint32_t kernelH, uint32_t kernelW,
@@ -80,13 +71,11 @@ uint32_t tinySgemmGetPackBBufferSizePerThread(uint32_t inChannels, uint32_t kern
     switch(mode)
     {
     case TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP16:
+    case TINY_SGEMM_CONV_DATA_MODE_A_FIX16_FIX16:
         packBTypeSize = sizeof(uint16_t);
 #ifdef __aarch64__
         sgemm_uint_n = TINY_SGEMM_UNIT_N_FP16;
 #endif
-        break;
-    case TINY_SGEMM_CONV_DATA_MODE_A_FIX16_FIX16:
-        packBTypeSize = sizeof(uint16_t);
         break;
     case TINY_SGEMM_CONV_DATA_MODE_A_FIX8_FIX8:
         packBTypeSize = sizeof(uint8_t);
@@ -110,8 +99,6 @@ uint32_t tinySgemmGetPackABufferSize(uint32_t inChannels, uint32_t kernelH, uint
     switch(mode)
     {
     case TINY_SGEMM_CONV_DATA_MODE_A_FP32_FP16:
-        packATypeSize = sizeof(uint16_t);
-        break;
     case TINY_SGEMM_CONV_DATA_MODE_A_FIX16_FIX16:
         packATypeSize = sizeof(uint16_t);
         break;
@@ -131,8 +118,7 @@ uint32_t tinySgemmGetIm2colBufferSize(uint32_t inChannels, uint32_t inputH, uint
                                       uint32_t padH, uint32_t padW,
                                       uint32_t strideH, uint32_t strideW,
                                       uint32_t dilateH, uint32_t dilateW,
-                                      bool tf_pad,
-                                      enum TINY_SGEMM_CONV_DATA_MODE mode)
+                                      bool tf_pad)
 {
     int padding_top = padH, padding_left = padW, padding_bottom = padH, padding_right = padW;
     uint32_t outputW = (inputW + 2*padW - kernelW)/strideW + 1;
@@ -194,18 +180,16 @@ void* tinySgemmConvCreateInstance(void *pCtx, void *pWeight,
 
     psgemmInstance = (struct tinySgemmInstance*)calloc(1, sizeof(struct tinySgemmInstance));
     POINTER_CHECK(psgemmInstance, NULL);
+
+    psgemmInstance->bPackAExt  = false;
+    psgemmInstance->bPackBExt  = false;
+    psgemmInstance->bIm2colExt = false;
     if (NULL != pPackAExt)
-        psgemmInstance->bPackAExt = true;
-    else
-        psgemmInstance->bPackAExt = false;
+        psgemmInstance->bPackAExt  = true;
     if (NULL != pPackBExt)
-        psgemmInstance->bPackBExt = true;
-    else
-        psgemmInstance->bPackBExt = false;
+        psgemmInstance->bPackBExt  = true;
     if (NULL != pBIm2colExt)
         psgemmInstance->bIm2colExt = true;
-    else
-        psgemmInstance->bIm2colExt = false;
 
     if (tf_pad) /* TF SAME */
     {
@@ -267,14 +251,13 @@ void* tinySgemmConvCreateInstance(void *pCtx, void *pWeight,
     }
     else
     {
-        if (pBIm2colExt)
-            pBIm2col = (uint8_t*)pBIm2colExt;
-        else
+        pBIm2col = (uint8_t*)pBIm2colExt;
+        if (false == psgemmInstance->bIm2colExt)
         {
             pBIm2col = (uint8_t *)tinySgemmMalloc(K*N*sizeof(float));
             if (NULL == pBIm2col)
             {
-                printf("im2col B buffer malloc failed\n");
+                printf("im2col B buffer malloc failed, %d %d\n", M, N);
                 free(psgemmInstance);
                 return NULL;
             }
@@ -283,7 +266,7 @@ void* tinySgemmConvCreateInstance(void *pCtx, void *pWeight,
 
     packBSize = alignSize(K*sgemm_uint_n*packBTypeSize, MALLOC_MEM_ALIGN);
 
-    if ((NULL != pPackBExt) || (NULL != pPackAExt))
+    if (NULL != pPackBExt && NULL != pPackAExt)
     {
         pPackB = (uint8_t*)pPackBExt;
         pPackA = (uint8_t*)pPackAExt;
@@ -338,7 +321,6 @@ void* tinySgemmConvCreateInstance(void *pCtx, void *pWeight,
     psgemmInstance->pPackA             = pPackA;
     psgemmInstance->pBIm2col           = pBIm2col;
     psgemmInstance->bNoNeedIm2col      = bNoNeedIm2col;
-    assert(pCtxInner->num_threads <= MAX_CORE_NUMBER);
     for (i = 0; i < pCtxInner->num_threads; ++i)
         psgemmInstance->pPackB[i]      = (uint8_t *)pPackB + i*packBSize;
     psgemmInstance->packATypeSize      = packATypeSize;
@@ -357,10 +339,10 @@ int tinySgemmConvReleaseInstance(void *pInstance)
     POINTER_CHECK(pInnerInstance, -1);
     if (false == pInnerInstance->bIm2colExt)
         tinySgemmFree(pInnerInstance->pBIm2col);
-    if (false == pInnerInstance->bPackAExt || false == pInnerInstance->bPackBExt)
+    if (false == pInnerInstance->bPackAExt && false == pInnerInstance->bPackBExt)
         tinySgemmFree(pInnerInstance->pPackB[0]);
     free(pInnerInstance);
-    //printf("SgemmConvReleaseInstance\n");
+
     return 0;
 }
 
@@ -370,7 +352,7 @@ int tinySgemmConvProcess(void *pInstance,
                          float (*int8Scale)[3],
                          enum TINY_SGEMM_CONV_DATA_MODE mode)
 {
-    uint32_t i, N;
+    uint32_t N;
     struct tinySgemmConvCtx *pCtxInner;
     struct tinySgemmInstance *psgemmInstance = (struct tinySgemmInstance *)pInstance;
     uint32_t sgemm_uint_n = TINY_SGEMM_UNIT_N;
@@ -393,7 +375,7 @@ int tinySgemmConvProcess(void *pInstance,
         uint32_t inputChannelSize = psgemmInstance->inputH*psgemmInstance->inputW;
         uint32_t im2colChannelSize = psgemmInstance->kernelH*psgemmInstance->kernelW*psgemmInstance->N*sizeof(float);
         #pragma omp parallel for num_threads(pCtxInner->num_threads)
-        for (i = 0; i < psgemmInstance->inChannels; ++i)
+        for (uint32_t i = 0; i < psgemmInstance->inChannels; ++i)
         {
             struct msg Msg;
             Msg.JobInfo.im2colInfo.kernelH  = psgemmInstance->kernelH;
@@ -440,8 +422,10 @@ int tinySgemmConvProcess(void *pInstance,
             numUintPerThread++;
         numNPerThread = numUintPerThread*sgemm_uint_n;
     }
-
-    //printf("MNK: [%05d %05d %05d] num_threads:%d numNPerThread: %05d ", psgemmInstance->M, psgemmInstance->N, psgemmInstance->K, num_threads, numNPerThread);
+#if 0
+    printf("MNK: [%05d %05d %05d] num_threads:%d numNPerThread: %05d pBasis:%p pPrelu:%p reluType:%d ",
+           psgemmInstance->M, psgemmInstance->N, psgemmInstance->K, num_threads, numNPerThread, pBasis, pPrelu, reluType);
+#endif
     //TIME_STAMP_BEG(begSgemm);
     if (num_threads == 1)
     {
@@ -471,17 +455,17 @@ int tinySgemmConvProcess(void *pInstance,
     {
         uint8_t *pCurInput = (uint8_t *)pInput;
         uint8_t *pCurIm2col = (uint8_t *)psgemmInstance->pBIm2col;
-        uint32_t sNArry[32];
-        uint8_t *pCurInputArry[32];
-        uint8_t *pCurIm2colArry[32];
-        float *pOutputArry[32];
-        assert(num_threads <= 32);
-        for (int j = 0; j < num_threads; ++j)
+        uint32_t sNArry[MAX_CORE_NUMBER];
+        uint8_t *pCurInputArry[MAX_CORE_NUMBER];
+        uint8_t *pCurIm2colArry[MAX_CORE_NUMBER];
+        float *pOutputArry[MAX_CORE_NUMBER];
+        for (uint32_t j = 0; j < num_threads; ++j)
         {
             int sN = numNPerThread;
             if (j == num_threads - 1)
                 sN = N - numNPerThread*j;
             sNArry[j] = sN;
+            //printf("%d ", sN);
             if(psgemmInstance->bNoNeedIm2col)
             {
                 pCurInputArry[j] = pCurInput;
@@ -499,11 +483,7 @@ int tinySgemmConvProcess(void *pInstance,
         //printf("--thread %d-- ", num_threads);
         #pragma omp parallel num_threads(num_threads)
         {
-            int i = omp_get_thread_num();
-            uint32_t offset = 0;
-            for (int j = 0; j < (i - 1); ++j)
-                offset += sNArry[i];
-            //printf("%d ", sN);
+            uint32_t i = omp_get_thread_num();
             struct msg Msg;
             Msg.JobInfo.sgemmInfo.M             = psgemmInstance->M;
             Msg.JobInfo.sgemmInfo.N             = psgemmInstance->N;

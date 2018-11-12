@@ -43,13 +43,11 @@ Net::Net(size_t num_threads)
     }
     max_top_blob_size = 0;
 
-    int32_t ret = tinySgemmConvInit(num_threads, THREAD_STACK_SIZE, NULL, true, &(rt_param->pSgemmCtx));
+    int32_t ret = tinySgemmConvInit(num_threads, true, &(rt_param->pSgemmCtx));
     if (ret < 0)
-        printf("Sgemm init failed, %d\n", ret);
-    else if (ret != num_threads)
     {
-        printf("num_threads change from %u to %d\n", num_threads, ret);
-        rt_param->set_num_threads(ret);
+        printf("Sgemm init failed, %d\n", ret);
+        exit(-1);
     }
 }
 
