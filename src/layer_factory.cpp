@@ -67,50 +67,18 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
 
     ConvLayer *conv_layer = NULL;
     //printf("[conv] group:%lu kernel_height: %lu kernel_width: %lu stride %lu, %lu input_channels %lu output_channels %lu\n", group, kernel_height, kernel_width, stride_height, stride_width, input_channels, output_channels);
-#if 0
+
     if(group == 1 && kernel_height == 3 && kernel_width == 3 && stride_height == 1 && stride_width == 1 &&
             (0 == output_channels % 4))
     {
         conv_layer = (ConvLayer*) new ConvWinogradF63Layer(layer_param, rt_param);
         conv_layer->_subType = "winogradF63";
     }
-    else if(group == 1 && kernel_height == 5 && kernel_width == 5 &&
-            ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)))
-    {
-        conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
-        conv_layer->_subType = "Direct5x5";
-    }
-    else if(group == 1 && kernel_height == 7 && kernel_width == 7 &&
-            ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)))
-    {
-        conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
-        conv_layer->_subType = "Direct7x7";
-    }
-    else if(CONV_TYPE_DIRECT == rt_param->conv3x3Type && group == 1 && kernel_height == 3 && kernel_width == 3 &&
-            ((stride_height == 1 && stride_width == 1) || (stride_height == 2 && stride_width == 2)))
-    {
-        conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
-        conv_layer->_subType = "Direct3x3";
-    }
-    else if(CONV_TYPE_DIRECT == rt_param->conv1x1Type && group == 1 && kernel_height == 1 && kernel_width == 1 &&
-            stride_height == 1 && stride_width == 1
-            /*&& input_channels <= 64 && (output_channels <= 64 || 0 != (output_channels%8))*/)
-    {
-        conv_layer = (ConvLayer*) new ConvDirectLayer(layer_param, rt_param);
-        conv_layer->_subType = "Direct1x1";
-    }
     else if(group == 1)
-    {
-        conv_layer = (ConvLayer*) new ConvIm2colLayer(layer_param, rt_param);
-        conv_layer->_subType = "sgemm";
-    }
-#else
-    if (1 == group)
     {
         conv_layer = (ConvLayer*) new ConvSgemmLayer(layer_param, rt_param);
         conv_layer->_subType = "new sgemm";
     }
-#endif
     else
     {
         conv_layer = new ConvDepthwiseLayer(layer_param, rt_param);

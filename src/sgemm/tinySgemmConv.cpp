@@ -45,7 +45,7 @@ int tinySgemmConvInit
     int32_t ret = 0;
     (void)bindBigCore;
     struct tinySgemmConvCtx *pCtxInner = NULL;
-    printf("SGEMM CFG: [ TINY_SGEMM_UNIT_N: %08d MAX_CORE_NUMBER  : %08d ]\n", TINY_SGEMM_UNIT_N, MAX_CORE_NUMBER);
+    //printf("SGEMM CFG: [ TINY_SGEMM_UNIT_N: %08d MAX_CORE_NUMBER  : %08d ]\n", TINY_SGEMM_UNIT_N, MAX_CORE_NUMBER);
     POINTER_CHECK(pCtx, -1);
 
     num_threads = T_MIN(num_threads, MAX_CORE_NUMBER);

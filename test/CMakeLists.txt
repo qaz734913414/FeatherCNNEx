@@ -47,20 +47,44 @@ endif()
 
 add_definitions(-std=c++11 -DINFERENCE_FEATHERCNNEX)
 
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+
 if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
 
 add_executable(feather_test64 test.cpp)
 target_link_libraries(feather_test64 feather ${OpenCV_LIBS})
 
-#add_executable(mtcnn-test-64 mtcnn/inference.cpp  mtcnn/mtcnndetect.cpp)
-#target_link_libraries(mtcnn-test-64 feather ${OpenCV_LIBS})
+#add_executable(mtcnn_test64 mtcnn/inference.cpp  mtcnn/mtcnndetect.cpp)
+#target_link_libraries(mtcnn_test64 feather ${OpenCV_LIBS})
 
 else("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
 
 add_executable(feather_test32 test.cpp)
 target_link_libraries(feather_test32 feather ${OpenCV_LIBS})
 
-#add_executable(mtcnn-test mtcnn/inference.cpp  mtcnn/mtcnndetect.cpp)
-#target_link_libraries(mtcnn-test feather ${OpenCV_LIBS})
+#add_executable(mtcnn_test32 mtcnn/inference.cpp  mtcnn/mtcnndetect.cpp)
+#target_link_libraries(mtcnn_test32 feather ${OpenCV_LIBS})
 
 endif ()
+
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+
+if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+
+add_executable(feather_test64gcc test.cpp)
+target_link_libraries(feather_test64gcc feather ${OpenCV_LIBS})
+
+#add_executable(mtcnn_test64gcc mtcnn/inference.cpp  mtcnn/mtcnndetect.cpp)
+#target_link_libraries(mtcnn_test64gcc feather ${OpenCV_LIBS})
+
+else("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
+
+add_executable(feather_test32gcc test.cpp)
+target_link_libraries(feather_test32gcc feather ${OpenCV_LIBS})
+
+#add_executable(mtcnn_test32gcc mtcnn/inference.cpp  mtcnn/mtcnndetect.cpp)
+#target_link_libraries(mtcnn_test32gcc feather ${OpenCV_LIBS})
+
+endif ()
+
+endif()
