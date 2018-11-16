@@ -21,7 +21,7 @@ JNIEXPORT void JNICALL Java_com_example_lee_feathercnnexdemo_JniActivity_getEdge
  * Signature: (Lcom/example/lee/feathercnnexdemo/RuntimeArgs;)I
  */
 JNIEXPORT jint JNICALL Java_com_example_lee_feathercnnexdemo_JniActivity_FeatherCNNExTest
-  (JNIEnv *, jobject, jobject);
+  (JNIEnv *, jobject, jobject, jobject);
 
 #ifdef __cplusplus
 }

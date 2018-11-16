@@ -12,6 +12,7 @@
 #include <string.h>
 #include <iostream>
 #include <fstream>
+#include <android/bitmap.h>
 #include <opencv2/opencv.hpp>
 #include <utils.h>
 #include <arm_neon.h>
@@ -67,7 +68,7 @@ static void showLabel(float *pOut, uint32_t data_size)
     LOGD("\nlabel id: %d, label name: %s, max score: %f\n", top_class, label[top_class], max_score);
 }
 
-static void draw_objects(const cv::Mat& bgr, float *pOut)
+static void draw_objects(const cv::Mat& bgr, float *pOut, Mat *drawMat)
 {
     static const char* class_names[] = {"background",
                                         "aeroplane", "bicycle", "bird", "boat",
@@ -92,18 +93,28 @@ static void draw_objects(const cv::Mat& bgr, float *pOut)
         Object object;
         object.label = (int)pOut[i*6];
         object.prob = pOut[i*6+1];
-        object.rect.x = pOut[i*6+2] * bgr.cols;
-        object.rect.y = pOut[i*6+3] * bgr.rows;
-        object.rect.width = pOut[i*6+4] * bgr.cols - object.rect.x;
-        object.rect.height = pOut[i*6+5] * bgr.rows - object.rect.y;
+        if (drawMat) {
+            object.rect.x = pOut[i*6+2] * drawMat->cols;
+            object.rect.y = pOut[i*6+3] * drawMat->rows;
+            object.rect.width = pOut[i*6+4] * drawMat->cols - object.rect.x;
+            object.rect.height = pOut[i*6+5] * drawMat->rows - object.rect.y;
+        }
+        else {
+            object.rect.x = pOut[i*6+2] * bgr.cols;
+            object.rect.y = pOut[i*6+3] * bgr.rows;
+            object.rect.width = pOut[i*6+4] * bgr.cols - object.rect.x;
+            object.rect.height = pOut[i*6+5] * bgr.rows - object.rect.y;
+        }
         objects.push_back(object);
     }
 
     for (size_t i = 0; i < objects.size(); i++)
     {
         const Object& obj = objects[i];
-        cv::rectangle(image, obj.rect, cv::Scalar(0, 255, 0));
-
+        if (drawMat)
+            cv::rectangle(*drawMat, obj.rect, cv::Scalar(0, 255, 0));
+        else
+            cv::rectangle(image, obj.rect, cv::Scalar(0, 255, 0));
         char text[256];
 #if 1
         sprintf(text, "%s %.1f%%", label_ssd_lite[obj.label], obj.prob * 100);
@@ -112,25 +123,46 @@ static void draw_objects(const cv::Mat& bgr, float *pOut)
 #endif
 
         int baseLine = 0;
-        cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
 
-        int x = obj.rect.x;
-        int y = obj.rect.y - label_size.height - baseLine;
-        if (y < 0)
-            y = 0;
-        if (x + label_size.width > image.cols)
-            x = image.cols - label_size.width;
+        if (NULL == drawMat)
+        {
+            cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+            int x = obj.rect.x;
+            int y = obj.rect.y - label_size.height - baseLine;
+            if (y < 0)
+                y = 0;
+            if (x + label_size.width > image.cols)
+                x = image.cols - label_size.width;
 
-        cv::rectangle(image, cv::Rect(cv::Point(x, y),
-                                      cv::Size(label_size.width, label_size.height + baseLine)),
-                      cv::Scalar(255, 255, 255), CV_FILLED);
+            cv::rectangle(image, cv::Rect(cv::Point(x, y),
+                                          cv::Size(label_size.width, label_size.height + baseLine)),
+                          cv::Scalar(255, 255, 255), CV_FILLED);
 
-        cv::putText(image, text, cv::Point(x, y + label_size.height),
-                    cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0, 255, 0));
+            cv::putText(image, text, cv::Point(x, y + label_size.height),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.25, cv::Scalar(0, 255, 0));
+        }
+        else {
+            cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 1, 1, &baseLine);
+            int x = obj.rect.x;
+            int y = obj.rect.y - label_size.height - baseLine;
+            if (y < 0)
+                y = 0;
+            if (x + label_size.width > drawMat->cols)
+                x = drawMat->cols - label_size.width;
+
+            cv::rectangle(*drawMat, cv::Rect(cv::Point(x, y),
+                                          cv::Size(label_size.width, label_size.height + baseLine)),
+                          cv::Scalar(255, 255, 255), CV_FILLED);
+
+            cv::putText(*drawMat, text, cv::Point(x, y + label_size.height),
+                        cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 0));
+        }
     }
     objects.clear();
-    cv::imwrite("/sdcard/lj/result.jpg", image);
-    LOGD("image /sdcard/lj/result.jpg saved\n");
+    if (NULL == drawMat) {
+        cv::imwrite("/sdcard/lj/result.jpg", image);
+        LOGD("image /sdcard/lj/result.jpg saved\n");
+    }
 }
 
 typedef struct runtime_args
@@ -149,10 +181,13 @@ typedef struct runtime_args
     char pSerialFile[1024];
 }RUNTIME_ARGS_S;
 
+#define RETURN_BITMAP
+
 extern "C" JNIEXPORT jint
 JNICALL Java_com_example_lee_feathercnnexdemo_JniActivity_FeatherCNNExTest(JNIEnv *env,
                                                                             jobject obj,
-                                                                            jobject param)
+                                                                            jobject param,
+                                                                            jobject bitmap)
 {
     int i = 1, loopCnt = 50, outLoopCnt = 1, num_threads = 4, bSameMean = 1, bLowPrecision = 0, bGray = 0, b1x1Sgemm = 0;
     char *pFname = (char *)"74.png";
@@ -160,12 +195,29 @@ JNICALL Java_com_example_lee_feathercnnexdemo_JniActivity_FeatherCNNExTest(JNIEn
     char *pBlob = (char *)"detection_out";
     const char * pSerialFile = NULL;
     int viewType = RESULT_VIEW_TYPE_DRAW;
+    int avgTime = 0;
     struct timeval beg, end;
     LOGD("e.g.: ./demo outLoopCnt loopCnt num_threads pFname pModel pBlob bsameMean bGray b1x1Sgemm bLowPrecision viewType[0:silence 1:value 2:label 3:draw] pSerialFile\n");
 
     RUNTIME_ARGS_S paramArgs;
     memset(&paramArgs, 0, sizeof(RUNTIME_ARGS_S));
+#ifdef RETURN_BITMAP
+    AndroidBitmapInfo info;
+    Mat *drawMat;
+    void *pixels;
 
+    CV_Assert(AndroidBitmap_getInfo(env, bitmap, &info) >= 0);
+    CV_Assert(info.format == ANDROID_BITMAP_FORMAT_RGBA_8888 ||
+              info.format == ANDROID_BITMAP_FORMAT_RGB_565);
+    CV_Assert(AndroidBitmap_lockPixels(env, bitmap, &pixels) >= 0);
+    CV_Assert(pixels);
+    if (info.format == ANDROID_BITMAP_FORMAT_RGBA_8888) {
+        drawMat = new Mat(info.height, info.width, CV_8UC4, pixels);
+    } else {
+        drawMat = new Mat(info.height, info.width, CV_8UC2, pixels);
+    }
+    LOGD("bitmap [%d %d] \n", info.width, info.height);
+#endif
     jclass jcInfo = env->GetObjectClass(param);
     if(jcInfo == NULL)
     {
@@ -317,6 +369,7 @@ JNICALL Java_com_example_lee_feathercnnexdemo_JniActivity_FeatherCNNExTest(JNIEn
             LOGD("[%03d/%03d, %03d/%03d] ret: %d\n", outLoop, outLoopCnt, loop, loopCnt, ret);
         }
         gettimeofday(&end, NULL);
+        avgTime = (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt);
         LOGD("\ntime: %ld ms, avg time : %.3f ms, loop: %d threads: [%d/%d], out blob size: %u\n\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000, (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/(1000.0*loopCnt), loopCnt, num_threads, forward_net->GetNumthreads(), (unsigned int)data_size);
         uint32_t outChannel, outWidth, outHeight;
         forward_net->GetBlobShape(&outChannel, &outWidth, &outHeight, pBlob);
@@ -330,7 +383,7 @@ JNICALL Java_com_example_lee_feathercnnexdemo_JniActivity_FeatherCNNExTest(JNIEn
                 showLabel(pOut, data_size);
                 break;
             case RESULT_VIEW_TYPE_DRAW:
-                draw_objects(img, pOut);
+                draw_objects(img, pOut, drawMat);
                 break;
             case RESULT_VIEW_TYPE_SILENCE:
             default:
@@ -517,6 +570,10 @@ JNICALL Java_com_example_lee_feathercnnexdemo_JniActivity_FeatherCNNExTest(JNIEn
     fclose(fp);
     printf("error: %ld\n", error);
 #endif
-    return 0;
+
+#ifdef RETURN_BITMAP
+    AndroidBitmap_unlockPixels(env, bitmap);
+#endif
+    return avgTime;
 }
 

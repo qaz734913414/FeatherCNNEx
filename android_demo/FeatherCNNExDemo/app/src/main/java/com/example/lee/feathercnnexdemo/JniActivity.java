@@ -1,11 +1,17 @@
 package com.example.lee.feathercnnexdemo;
 
+import android.net.Uri;
+import android.util.Log;
+import java.io.FileNotFoundException;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.content.ContentResolver;
+import android.widget.TextView;
 
 public class JniActivity extends AppCompatActivity implements View.OnClickListener {
     private ImageView imageView;
@@ -22,36 +28,49 @@ public class JniActivity extends AppCompatActivity implements View.OnClickListen
         imageView = findViewById(R.id.imageView);
         findViewById(R.id.show).setOnClickListener(this);
         findViewById(R.id.process).setOnClickListener(this);
-        Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.test);
-        imageView.setImageBitmap(bitmap);
     }
 
     @Override
     public void onClick(View v) {
         if (v.getId() == R.id.show) {
+            EditText imgEdit = (EditText)findViewById(R.id.editImg);
+            String url = "file:///sdcard/lj/"+imgEdit.getText().toString();
+            Log.d("lee-jni-test", url);
+            ContentResolver cr = this.getContentResolver();
+            try {
+                Bitmap bitmap = BitmapFactory.decodeStream(cr.openInputStream(Uri.parse(url)));
+                imageView.setImageBitmap(bitmap);
+            } catch (FileNotFoundException e) {
+                Log.e("Exception", e.getMessage(),e);
+            }
+        } else {
             Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.test);
-            imageView.setImageBitmap(bitmap);
+            //getEdge(bitmap);
+            EditText loopEdit = (EditText)findViewById(R.id.editLoop);
+            EditText threadsEdit = (EditText)findViewById(R.id.editThreads);
+            EditText imgEdit = (EditText)findViewById(R.id.editImg);
+            EditText modelEdit = (EditText)findViewById(R.id.editModel);
+            EditText blobEdit = (EditText)findViewById(R.id.editBlob);
             args.outLoopCnt = 1;
-            args.loopCnt = 50;
-            args.num_threads = 4;
+            args.loopCnt = Integer.parseInt(loopEdit.getText().toString());
+            args.num_threads = Integer.parseInt(threadsEdit.getText().toString());;
             args.bSameMean = 1;
             args.bGray = 0;
             args.b1x1Sgemm = 1;
             args.bLowPrecision = 0;
             args.viewType = 3;
-            args.pFname = "/sdcard/lj/74.png";
-            args.pModel = "/sdcard/lj/rokid_detection_out_0.feathermodel";
-            args.pBlob = "detection_out";
+            args.pFname = "/sdcard/lj/"+imgEdit.getText().toString();
+            args.pModel = "/sdcard/lj/"+modelEdit.getText().toString();
+            args.pBlob = blobEdit.getText().toString();
             args.pSerialFile = "/sdcard/lj/feather.key";
 
-            FeatherCNNExTest(args);
-        } else {
-            Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.test);
-            getEdge(bitmap);
+            int avgTime = FeatherCNNExTest(args, bitmap);
+            TextView avgTimeText = (TextView)findViewById(R.id.textViewAvgTime);
+            avgTimeText.setText("AvgTime: "+avgTime+" ms");
             imageView.setImageBitmap(bitmap);
         }
     }
 
     public native void getEdge(Object bitmap);
-    public native int FeatherCNNExTest(RuntimeArgs obj);
+    public native int FeatherCNNExTest(RuntimeArgs obj, Object bitmap);
 }

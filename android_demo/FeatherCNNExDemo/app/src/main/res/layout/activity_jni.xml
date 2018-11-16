@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -28,5 +29,92 @@
             android:layout_weight="1"
             android:text="process" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/textViewLoop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="12dp"
+        android:text="LOOP:" />
+
+    <EditText
+        android:id="@+id/editLoop"
+        android:layout_width="42dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_toRightOf="@+id/textViewLoop"
+        android:layout_marginStart="44dp"
+        android:layout_marginTop="0dp"
+        android:text="50"
+        android:inputType="number" />
+
+    <TextView
+        android:id="@+id/textViewThread"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@+id/editLoop"
+        android:layout_marginStart="21dp"
+        android:layout_marginBottom="14dp"
+        android:layout_toEndOf="@+id/editLoop"
+        android:text="Cores:" />
+
+    <EditText
+        android:id="@+id/editThreads"
+        android:layout_width="54dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="183dp"
+        android:layout_toRightOf="@id/textViewThread"
+        android:text="4"
+        android:ems="10"
+        android:inputType="number" />
+
+    <EditText
+        android:id="@+id/editImg"
+        android:layout_width="92dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/editLoop"
+        android:layout_alignParentStart="true"
+        android:ems="10"
+        android:inputType="textPersonName"
+        android:text="74.png" />
+
+    <EditText
+        android:id="@+id/editModel"
+        android:layout_width="383dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/editLoop"
+        android:layout_marginStart="-92dp"
+        android:layout_marginTop="46dp"
+        android:layout_toEndOf="@+id/editImg"
+        android:ems="10"
+        android:inputType="textPersonName"
+        android:text="rokid_detection_out_0.feathermodel" />
+
+    <EditText
+        android:id="@+id/editBlob"
+        android:layout_width="231dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/editImg"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="153dp"
+        android:layout_marginTop="-48dp"
+        android:ems="10"
+        android:inputType="textPersonName"
+        android:text="detection_out" />
+
+    <TextView
+        android:id="@+id/textViewAvgTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="67dp"
+        android:text="AvgTime:" />
 
 </RelativeLayout>
