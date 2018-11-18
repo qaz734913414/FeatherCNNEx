@@ -1,5 +1,7 @@
 package com.example.lee.feathercnnexdemo;
 
+import java.util.ArrayList;
+import java.util.List;
 import android.net.Uri;
 import android.util.Log;
 import java.io.FileNotFoundException;
@@ -8,14 +10,25 @@ import android.graphics.BitmapFactory;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.content.ContentResolver;
 import android.widget.TextView;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 
 public class JniActivity extends AppCompatActivity implements View.OnClickListener {
     private ImageView imageView;
     private RuntimeArgs args = new RuntimeArgs();
+    private List<String> getData() {
+        List<String> dataList = new ArrayList<String>();
+        dataList.add("Empty");
+        dataList.add("Raw");
+        dataList.add("Label");
+        dataList.add("Rect");
+        return dataList;
+    }
 
     static {
         System.loadLibrary("native-lib");
@@ -28,6 +41,12 @@ public class JniActivity extends AppCompatActivity implements View.OnClickListen
         imageView = findViewById(R.id.imageView);
         findViewById(R.id.show).setOnClickListener(this);
         findViewById(R.id.process).setOnClickListener(this);
+        Spinner viewType = findViewById(R.id.spinnerViewType);
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(
+                this, android.R.layout.simple_spinner_item,
+                getData());
+        viewType.setAdapter(adapter);
+        viewType.setSelection(3, true);
     }
 
     @Override
@@ -35,7 +54,6 @@ public class JniActivity extends AppCompatActivity implements View.OnClickListen
         if (v.getId() == R.id.show) {
             EditText imgEdit = (EditText)findViewById(R.id.editImg);
             String url = "file:///sdcard/lj/"+imgEdit.getText().toString();
-            Log.d("lee-jni-test", url);
             ContentResolver cr = this.getContentResolver();
             try {
                 Bitmap bitmap = BitmapFactory.decodeStream(cr.openInputStream(Uri.parse(url)));
@@ -46,37 +64,39 @@ public class JniActivity extends AppCompatActivity implements View.OnClickListen
         } else {
             EditText imgEdit = (EditText)findViewById(R.id.editImg);
             String url = "file:///sdcard/lj/"+imgEdit.getText().toString();
-            Log.d("lee-jni-test", url);
             ContentResolver cr = this.getContentResolver();
             try {
                 Bitmap bitmap = BitmapFactory.decodeStream(cr.openInputStream(Uri.parse(url)));
-                EditText loopEdit = (EditText)findViewById(R.id.editLoop);
-                EditText threadsEdit = (EditText)findViewById(R.id.editThreads);
-                EditText modelEdit = (EditText)findViewById(R.id.editModel);
-                EditText blobEdit = (EditText)findViewById(R.id.editBlob);
+                EditText loopEdit = findViewById(R.id.editLoop);
+                EditText threadsEdit = findViewById(R.id.editThreads);
+                EditText modelEdit = findViewById(R.id.editModel);
+                EditText blobEdit = findViewById(R.id.editBlob);
+                CheckBox grayCheckBox = findViewById(R.id.checkBoxGray);
+                CheckBox lowPCheckBox = findViewById(R.id.checkBoxLowP);
+                CheckBox sameMCheckBox = findViewById(R.id.checkBoxSameMean);
+                Spinner viewType = findViewById(R.id.spinnerViewType);
                 args.outLoopCnt = 1;
                 args.loopCnt = Integer.parseInt(loopEdit.getText().toString());
                 args.num_threads = Integer.parseInt(threadsEdit.getText().toString());;
-                args.bSameMean = 1;
-                args.bGray = 0;
+                args.bSameMean = sameMCheckBox.isChecked()?1:0;
+                args.bGray = grayCheckBox.isChecked()?1:0;
                 args.b1x1Sgemm = 1;
-                args.bLowPrecision = 0;
-                args.viewType = 3;
+                args.bLowPrecision = lowPCheckBox.isChecked()?1:0;
+                args.viewType = viewType.getSelectedItemPosition();
                 args.pFname = "/sdcard/lj/"+imgEdit.getText().toString();
                 args.pModel = "/sdcard/lj/"+modelEdit.getText().toString();
                 args.pBlob = blobEdit.getText().toString();
                 args.pSerialFile = "/sdcard/lj/feather.key";
 
                 int avgTime = FeatherCNNExTest(args, bitmap);
-                TextView avgTimeText = (TextView)findViewById(R.id.textViewAvgTime);
-                avgTimeText.setText("AvgTime: "+avgTime+" ms");
                 imageView.setImageBitmap(bitmap);
+                TextView avgTimeText = findViewById(R.id.textViewAvgTime);
+                avgTimeText.setText("AvgTime: "+avgTime+" ms");
             } catch (FileNotFoundException e) {
                 Log.e("Exception", e.getMessage(),e);
             }
         }
     }
 
-    public native void getEdge(Object bitmap);
     public native int FeatherCNNExTest(RuntimeArgs obj, Object bitmap);
 }
