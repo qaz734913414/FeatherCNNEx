@@ -117,7 +117,7 @@ static void draw_objects(const cv::Mat& bgr, float *pOut, Mat *drawMat)
             cv::rectangle(image, obj.rect, cv::Scalar(0, 255, 0));
         char text[256];
 #if 1
-        sprintf(text, "%s %.1f%%", label_ssd_lite[obj.label], obj.prob * 100);
+        sprintf(text, "[%d]: %.1f%%", obj.label, obj.prob * 100);
 #else
         sprintf(text, "%s %.1f%%", class_names[obj.label], obj.prob * 100);
 #endif
@@ -126,7 +126,7 @@ static void draw_objects(const cv::Mat& bgr, float *pOut, Mat *drawMat)
 
         if (NULL == drawMat)
         {
-            cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+            cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.25, 1, &baseLine);
             int x = obj.rect.x;
             int y = obj.rect.y - label_size.height - baseLine;
             if (y < 0)

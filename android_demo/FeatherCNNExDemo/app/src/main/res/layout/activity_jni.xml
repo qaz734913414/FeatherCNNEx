@@ -143,6 +143,7 @@
         android:layout_height="wrap_content"
         android:layout_alignBottom="@+id/checkBoxGray"
         android:layout_toEndOf="@+id/checkBoxLowP"
+        android:checked="true"
         android:text="Same" />
 
     <Spinner
