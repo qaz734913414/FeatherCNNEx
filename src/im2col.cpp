@@ -18,6 +18,7 @@
 #include <string.h>
 #include <arm_neon.h>
 #include <stdio.h>
+#include <sys/time.h>
 #include "im2col.h"
 
 static inline bool is_a_ge_zero_and_a_lt_b(int a, int b)
@@ -128,9 +129,18 @@ void im2col_channel_fp32_fp32(const float* data_im, float* data_col,
                 (1 == stride_h)   && (1 == stride_w) &&
                 (1 == dilation_h) && (1 == dilation_w))
         {
+//#define TIME_PRT_UINT
+#ifdef TIME_PRT_UINT
+            struct timeval beg, end;
+            gettimeofday(&beg, NULL);
+#endif
             im2col_cpu_reduce_channel_fp32_fp32(data_im,  data_col,
                                                 height,   width,
                                                 kernel_h, kernel_w);
+#ifdef TIME_PRT_UINT
+            gettimeofday(&end, NULL);
+            printf(" [%f]", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000.0);
+#endif
         }
         else
         {

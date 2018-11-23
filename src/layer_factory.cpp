@@ -20,6 +20,7 @@
 #include "layers/input_layer.h"
 #include "layers/conv_layer.h"
 #include "layers/conv_depthwise_layer.h"
+#include "layers/conv_newdepthwise_layer.h"
 #include "layers/conv_im2col_layer.h"
 #include "layers/conv_winograd_layer.h"
 #include "layers/conv_winogradF63_layer.h"
@@ -81,8 +82,13 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
     }
     else
     {
+#if 0
         conv_layer = new ConvDepthwiseLayer(layer_param, rt_param);
         conv_layer->_subType = "depthwise";
+#else
+        conv_layer = new ConvNewDepthwiseLayer(layer_param, rt_param);
+        conv_layer->_subType = "newdepthwise";
+#endif
     }
 
     //printf("conv type: %-15s, group: [%03d] kernel: [%02d %02d] stride: [%02d %02d]\n", conv_layer->_subType.c_str(), group, kernel_height, kernel_width, stride_height, stride_width);

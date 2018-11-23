@@ -26,29 +26,6 @@
 #ifndef X86_PC
 #include "utils.h"
 
-void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned h, unsigned padw, unsigned padh, unsigned channelAlignSize, float val, unsigned num_threads)
-{
-    int dstChannelSize = alignSize((w+2*padw)*(h+2*padh), channelAlignSize);
-    #pragma omp parallel for if (channels > 4) num_threads(num_threads)
-    for(int i = 0; i < channels; i++)
-    {
-        float *pDst = dst + i*dstChannelSize;
-        for(int k = 0; k < padh; k++)
-            fill(pDst+k*(w+2*padw), w + 2*padw, val);
-
-        pDst += padh*(w+2*padw);
-        for(int j = 0; j < h; j++)
-        {
-            fill(pDst   + j*(w+2*padw), padw, val);
-            memcpy(pDst + j*(w+2*padw) + padw, src + i*w*h + j*w, w*sizeof(float));
-            fill(pDst   + j*(w+2*padw) + padw + w, padw, val);
-        }
-        pDst = dst + i*dstChannelSize + (padh+h)*(w+2*padw);
-        for(int k = 0; k < padh; k++)
-            fill(pDst+k*(w+2*padw), w + 2*padw, val);
-    }
-}
-
 void makeborder(float *dst, float *src, unsigned channels, unsigned w, unsigned h, unsigned pad_left, unsigned pad_right, unsigned pad_top, unsigned pad_bottom, unsigned channelAlignSize, float val, unsigned num_threads)
 {
     int dstChannelSize = alignSize((w+pad_left+pad_right)*(h+pad_top+pad_bottom), channelAlignSize);

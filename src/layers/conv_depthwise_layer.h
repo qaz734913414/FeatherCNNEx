@@ -61,7 +61,11 @@ public:
         int inputw = input_width + padding_left + padding_right;
         int inputh = input_height + padding_top + padding_bottom;
         bool bNeedComputeBias = true;
-
+//#define TIME_STASTIC
+#ifdef TIME_STASTIC
+        struct timeval beg, end;
+        gettimeofday(&beg, NULL);
+#endif
         if (useDirect && (0 == (padding_left + padding_right + padding_top + padding_bottom)) && (0 == ((inputw*inputh)%16)))
             padded_input = input;
         else if (!useDirect && (0 == (padding_left + padding_right + padding_top + padding_bottom)))
@@ -74,7 +78,15 @@ public:
             else
                 makeborder(padded_input, input, input_channels, input_width, input_height, padding_left, padding_right, padding_top, padding_bottom, 1, .0f, num_threads);
         }
-
+#ifdef TIME_STASTIC
+        gettimeofday(&end, NULL);
+        printf("In [%04d %03d %03d] Pad [%d %d %d %d] kernel [%d %d] stride [%d %d] Out [%04d %03d %03d]\n",
+               input_channels, input_width, input_height,
+               padding_left, padding_right, padding_top, padding_bottom,
+               kernel_width, kernel_height,
+               stride_width, stride_height,
+               output_channels, output_width, output_height);
+#endif
         if (0 == this->fractions)
         {
             if (useDirect && 1 == stride_width && 1 == stride_height && 3 == kernel_width && 3 == kernel_height)

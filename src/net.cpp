@@ -230,11 +230,11 @@ float* Net::GetInputBuffer()
     return ((InputLayer *)layers[0])->getInputBuffer();;
 }
 
-static void showResult(const char *layerName, float *pOut, uint32_t data_size)
+static void showResult(const char *layerName, float *pOut, uint32_t stride, uint32_t data_size)
 {
     uint32_t minSize = 8;
     minSize = MIN(minSize, data_size);
-    printf("%s [", layerName);
+    printf("%s [%03d] [", layerName, stride);
     for(int i = 0 ; i < minSize; i++)
     {
         if ((0 != i)&& (0 == i % 16))
@@ -269,11 +269,28 @@ int Net::Forward()
 #ifdef TIME_PROFILE
         if ((0 == strcmp(layers[i]->type().c_str(), "Convolution")))
         {
-            if (NULL == strstr(layers[i]->_subType.c_str(), "depthwise"))
+            if (NULL != strstr(layers[i]->_subType.c_str(), "depthwise"))
                 t.endBench((layers[i]->name()+"_"+layers[i]->_subType).c_str());
         }
 #endif
-        //showResult("", (float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
+
+#if 0
+        if (NULL != strstr(layers[i]->_subType.c_str(), "depthwise"))
+        {
+            //printf("\n%-60s:", (layers[i]->name()+"_"+layers[i]->type()+"_"+layers[i]->_subType).c_str());
+            showResult("", ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data()), layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
+
+            if (layers[i]->_top_blobs[layers[i]->_top[0]]->height() > 1)
+                showResult("", ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data()) + layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
+
+            if (layers[i]->_top_blobs[layers[i]->_top[0]]->height() > 2)
+                showResult("", ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data()) + 2*layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
+
+            if (layers[i]->_top_blobs[layers[i]->_top[0]]->height() > 3)
+                showResult("", ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data()) + (layers[i]->_top_blobs[layers[i]->_top[0]]->height() - 1)*layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
+            printf("\n");
+        }
+#endif
     }
 
 #ifdef TIME_PROFILE_G
