@@ -588,7 +588,7 @@ __STORE:
     st1 {VSRC_4S_C3_0, VSRC_4S_C3_1, VSRC_4S_C3_2, VSRC_4S_C3_3}, [C]
 
 __END:
-    stp d8,  d9,  [sp, #(0 * 16)]
-    stp d10, d11, [sp, #(1 * 16)]
+    ldp d8,  d9,  [sp, #(0 * 16)]
+    ldp d10, d11, [sp, #(1 * 16)]
     add sp, sp, #(2 * 16)
     ret

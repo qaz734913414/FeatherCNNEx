@@ -129,14 +129,14 @@ sgemm4xKx12_fp32:
 #endif
     push {r4-r9, fp}
     add fp, sp, #28
-    veor VSRC_4S_C0_0, VSRC_4S_C0_0, VSRC_4S_C0_0
     sub sp, sp, #STACK_SIZE
-    veor VSRC_4S_C0_1, VSRC_4S_C0_1, VSRC_4S_C0_1
     sub r4, fp, #156                   /* [fp, -156] */
     vstm r4, {s0-s31}
 
     pld [B, #48]
+    veor VSRC_4S_C0_0, VSRC_4S_C0_0, VSRC_4S_C0_0
     ldr N, ST_N                        /* load param from stack */
+    veor VSRC_4S_C0_1, VSRC_4S_C0_1, VSRC_4S_C0_1
     vmov VSRC_4S_C0_2, VSRC_4S_C0_0
     ldr reluType, ST_bRelu             /* load param from stack */
     veor VSRC_4S_C1_0, VSRC_4S_C1_0, VSRC_4S_C1_0

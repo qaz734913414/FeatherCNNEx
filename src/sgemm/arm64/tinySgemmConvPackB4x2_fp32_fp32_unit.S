@@ -29,8 +29,8 @@ COPYRIGHT_HOLDER:
 /* RSV V8~V15 */
 #define VSRC_2S_B0        v0.2s
 #define VSRC_2S_B1        v1.2s
-#define VSRC_4S_B2        v2.2s
-#define VSRC_4S_B3        v3.2s
+#define VSRC_2S_B2        v2.2s
+#define VSRC_2S_B3        v3.2s
 
 /* void tinySgemmConvPackB4x2_fp32_fp32_unit(float *pB, float *pPackB, uint32_t K, uint32_t N) */
     .text
@@ -58,12 +58,12 @@ __LOOP:
     st1 {VSRC_2S_B0, VSRC_2S_B1} ,[pPackB], #16
 
     /* 2 */
-    ld1 {VSRC_4S_B2}, [pB], N
+    ld1 {VSRC_2S_B2}, [pB], N
     subs KDiv4, KDiv4, #1
 
     /* 3 */
-    ld1 {VSRC_4S_B3}, [pB], N
-    st1 {VSRC_4S_B2, VSRC_4S_B3} ,[pPackB], #16
+    ld1 {VSRC_2S_B3}, [pB], N
+    st1 {VSRC_2S_B2, VSRC_2S_B3} ,[pPackB], #16
 
     cmp KDiv4, #0
     bne __LOOP

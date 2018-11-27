@@ -118,9 +118,7 @@ sgemm1xKx12_fp32:
     sub r4, fp, #156                   /* [fp, -156] */
     vstm r4, {s0-s11}
 
-    #ldr N, ST_N                        /* load param from stack */
     ldr reluType, ST_bRelu             /* load param from stack */
-    #lsl N, N, #2
     ldr pPrelu, ST_pPrelu              /* load param from stack */
     lsr KDiv4, K, #2
     ldr bSharedPrelu, ST_bSharedPrelu  /* load param from stack */
