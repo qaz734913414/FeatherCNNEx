@@ -232,7 +232,7 @@ float* Net::GetInputBuffer()
 
 static void showResult(const char *layerName, float *pOut, uint32_t stride, uint32_t data_size)
 {
-    uint32_t minSize = 8;
+    uint32_t minSize = 14;
     minSize = MIN(minSize, data_size);
     printf("%s [%03d] [", layerName, stride);
     for(int i = 0 ; i < minSize; i++)
@@ -287,6 +287,15 @@ int Net::Forward()
                 showResult("", ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data()) + 2*layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
 
             if (layers[i]->_top_blobs[layers[i]->_top[0]]->height() > 3)
+                showResult("", ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data()) + 3*layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
+
+            if (layers[i]->_top_blobs[layers[i]->_top[0]]->height() > 4)
+                showResult("", ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data()) + 4*layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
+
+            if (layers[i]->_top_blobs[layers[i]->_top[0]]->height() > 4)
+                showResult("", ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data()) + (layers[i]->_top_blobs[layers[i]->_top[0]]->height() - 2)*layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
+
+            if (layers[i]->_top_blobs[layers[i]->_top[0]]->height() > 5)
                 showResult("", ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data()) + (layers[i]->_top_blobs[layers[i]->_top[0]]->height() - 1)*layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->width(), layers[i]->_top_blobs[layers[i]->_top[0]]->data_size());
             printf("\n");
         }

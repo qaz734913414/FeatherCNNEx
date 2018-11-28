@@ -17,7 +17,7 @@
 #include <map>
 #include <common.h>
 
-#define MEMPOOL_CHECK_RETURN(var) {if(!var){fprintf(stderr, "Err in file %s line %d\n", __FILE__, __LINE__);return false;}}
+#define MEMPOOL_CHECK_RETURN(var) {if(!var){printf("Err in file %s line %d\n", __FILE__, __LINE__);return false;}}
 
 template<typename PTR_TYPE>
 class CommonMemPool
