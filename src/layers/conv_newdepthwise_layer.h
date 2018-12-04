@@ -25,7 +25,7 @@
 namespace feather
 {
 
-//#define ENABLE_DW5X5S2
+#define ENABLE_DW5X5S2
 
 class ConvNewDepthwiseLayer : public ConvLayer
 {
@@ -57,7 +57,7 @@ public:
                 ((1 == input_width && 1 == input_height) ||
                  (2 == input_width && 2 == input_height)))
         {
-            printf("%s %d, %d %d, %d %d\n", __func__, __LINE__, input_width,input_height, stride_width, stride_height);
+            //printf("%s %d, %d %d, %d %d\n", __func__, __LINE__, input_width, input_height, stride_width, stride_height);
             if (1 == input_width && 1 == input_height)
             {
                 MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&pWeight, input_channels*sizeof(float)));
@@ -66,18 +66,14 @@ public:
             }
             else /* if (2 == input_width && 2 == input_height) */
             {
+                assert(2 == input_width);
+                assert(2 == input_height);
                 if (0 == padding_left && 1 == padding_right && 0 == padding_top && 1 == padding_bottom)
-                {
                     MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&pWeight, 4*input_channels*sizeof(float)));
-                }
                 else if (1 == padding_left && 0 == padding_right && 1 == padding_top && 0 == padding_bottom)
-                {
                     MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&pWeight, 4*input_channels*sizeof(float)));
-                }
                 else if (1 == padding_left && 1 == padding_right && 1 == padding_top && 1 == padding_bottom)
-                {
                     MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&pWeight, 16*input_channels*sizeof(float)));
-                }
 
                 for (uint32_t i = 0; i < input_channels; ++i)
                 {
@@ -130,9 +126,10 @@ public:
                  ) &&
                  ((1 == input_width && 1 == input_height) ||
                   (2 == input_width && 2 == input_height) ||
-                  (3 == input_width && 3 == input_height)))
+                  (3 == input_width && 3 == input_height) ||
+                  (4 == input_width && 4 == input_height)))
         {
-            printf("%s %d, %d %d\n", __func__, __LINE__, input_width,input_height);
+            //printf("%s %d, %d %d\n", __func__, __LINE__, input_width, input_height);
             if (1 == input_width && 1 == input_height)
             {
                 MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&pWeight, input_channels*sizeof(float)));
@@ -167,142 +164,276 @@ public:
                         pWeight[i*16+15] = kernel_data[i*25+12];
                     }
                 }
-                else
+                else /* (1 == stride_width && 1 == stride_height) */
                 {
-                    printf("%s %d, %s\n",  __func__, __LINE__, "Fix me");
-                    getchar();
+                    assert(2 == stride_width);
+                    assert(2 == stride_height);
+                    MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&pWeight, 4*input_channels*sizeof(float)));
+                    for (uint32_t i = 0; i < input_channels; ++i)
+                    {
+                        pWeight[i*4]   = kernel_data[i*25+12];
+                        pWeight[i*4+1] = kernel_data[i*25+13];
+                        pWeight[i*4+2] = kernel_data[i*25+17];
+                        pWeight[i*4+3] = kernel_data[i*25+18];
+                    }
                 }
             }
-            else /* if (3 == input_width && 3 == input_height) */
+            else if (3 == input_width && 3 == input_height)
             {
                 if (1 == stride_width && 1 == stride_height)
                 {
                     MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&pWeight, 12*9*input_channels*sizeof(float)));
+                    float *pCurWeight = pWeight;
                     for (uint32_t i = 0; i < input_channels; ++i)
                     {
                         /* -0- */
-                        *pWeight++ = kernel_data[i*25+12];
-                        *pWeight++ = kernel_data[i*25+13];
-                        *pWeight++ = kernel_data[i*25+14];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+17];
-                        *pWeight++ = kernel_data[i*25+18];
-                        *pWeight++ = kernel_data[i*25+19];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+22];
-                        *pWeight++ = kernel_data[i*25+23];
-                        *pWeight++ = kernel_data[i*25+24];
-                        *pWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = kernel_data[i*25+13];
+                        *pCurWeight++ = kernel_data[i*25+14];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+17];
+                        *pCurWeight++ = kernel_data[i*25+18];
+                        *pCurWeight++ = kernel_data[i*25+19];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+22];
+                        *pCurWeight++ = kernel_data[i*25+23];
+                        *pCurWeight++ = kernel_data[i*25+24];
+                        *pCurWeight++ = 0.f;
                         /* -1- */
-                        *pWeight++ = kernel_data[i*25+11];
-                        *pWeight++ = kernel_data[i*25+12];
-                        *pWeight++ = kernel_data[i*25+13];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+16];
-                        *pWeight++ = kernel_data[i*25+17];
-                        *pWeight++ = kernel_data[i*25+18];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+21];
-                        *pWeight++ = kernel_data[i*25+22];
-                        *pWeight++ = kernel_data[i*25+23];
-                        *pWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+11];
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = kernel_data[i*25+13];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+16];
+                        *pCurWeight++ = kernel_data[i*25+17];
+                        *pCurWeight++ = kernel_data[i*25+18];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+21];
+                        *pCurWeight++ = kernel_data[i*25+22];
+                        *pCurWeight++ = kernel_data[i*25+23];
+                        *pCurWeight++ = 0.f;
                         /* -2- */
-                        *pWeight++ = kernel_data[i*25+10];
-                        *pWeight++ = kernel_data[i*25+11];
-                        *pWeight++ = kernel_data[i*25+12];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+15];
-                        *pWeight++ = kernel_data[i*25+16];
-                        *pWeight++ = kernel_data[i*25+17];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+20];
-                        *pWeight++ = kernel_data[i*25+21];
-                        *pWeight++ = kernel_data[i*25+22];
-                        *pWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+10];
+                        *pCurWeight++ = kernel_data[i*25+11];
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+15];
+                        *pCurWeight++ = kernel_data[i*25+16];
+                        *pCurWeight++ = kernel_data[i*25+17];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+20];
+                        *pCurWeight++ = kernel_data[i*25+21];
+                        *pCurWeight++ = kernel_data[i*25+22];
+                        *pCurWeight++ = 0.f;
                         /* -3- */
-                        *pWeight++ = kernel_data[i*25+7];
-                        *pWeight++ = kernel_data[i*25+8];
-                        *pWeight++ = kernel_data[i*25+9];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+12];
-                        *pWeight++ = kernel_data[i*25+13];
-                        *pWeight++ = kernel_data[i*25+14];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+17];
-                        *pWeight++ = kernel_data[i*25+18];
-                        *pWeight++ = kernel_data[i*25+19];
-                        *pWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+7];
+                        *pCurWeight++ = kernel_data[i*25+8];
+                        *pCurWeight++ = kernel_data[i*25+9];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = kernel_data[i*25+13];
+                        *pCurWeight++ = kernel_data[i*25+14];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+17];
+                        *pCurWeight++ = kernel_data[i*25+18];
+                        *pCurWeight++ = kernel_data[i*25+19];
+                        *pCurWeight++ = 0.f;
                         /* -4- */
-                        *pWeight++ = kernel_data[i*25+6];
-                        *pWeight++ = kernel_data[i*25+7];
-                        *pWeight++ = kernel_data[i*25+8];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+11];
-                        *pWeight++ = kernel_data[i*25+12];
-                        *pWeight++ = kernel_data[i*25+13];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+16];
-                        *pWeight++ = kernel_data[i*25+17];
-                        *pWeight++ = kernel_data[i*25+18];
-                        *pWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+6];
+                        *pCurWeight++ = kernel_data[i*25+7];
+                        *pCurWeight++ = kernel_data[i*25+8];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+11];
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = kernel_data[i*25+13];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+16];
+                        *pCurWeight++ = kernel_data[i*25+17];
+                        *pCurWeight++ = kernel_data[i*25+18];
+                        *pCurWeight++ = 0.f;
                         /* -5- */
-                        *pWeight++ = kernel_data[i*25+5];
-                        *pWeight++ = kernel_data[i*25+6];
-                        *pWeight++ = kernel_data[i*25+7];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+10];
-                        *pWeight++ = kernel_data[i*25+11];
-                        *pWeight++ = kernel_data[i*25+12];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+15];
-                        *pWeight++ = kernel_data[i*25+16];
-                        *pWeight++ = kernel_data[i*25+17];
-                        *pWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+5];
+                        *pCurWeight++ = kernel_data[i*25+6];
+                        *pCurWeight++ = kernel_data[i*25+7];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+10];
+                        *pCurWeight++ = kernel_data[i*25+11];
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+15];
+                        *pCurWeight++ = kernel_data[i*25+16];
+                        *pCurWeight++ = kernel_data[i*25+17];
+                        *pCurWeight++ = 0.f;
                         /* -6- */
-                        *pWeight++ = kernel_data[i*25+2];
-                        *pWeight++ = kernel_data[i*25+3];
-                        *pWeight++ = kernel_data[i*25+4];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+7];
-                        *pWeight++ = kernel_data[i*25+8];
-                        *pWeight++ = kernel_data[i*25+9];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+12];
-                        *pWeight++ = kernel_data[i*25+13];
-                        *pWeight++ = kernel_data[i*25+14];
-                        *pWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+2];
+                        *pCurWeight++ = kernel_data[i*25+3];
+                        *pCurWeight++ = kernel_data[i*25+4];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+7];
+                        *pCurWeight++ = kernel_data[i*25+8];
+                        *pCurWeight++ = kernel_data[i*25+9];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = kernel_data[i*25+13];
+                        *pCurWeight++ = kernel_data[i*25+14];
+                        *pCurWeight++ = 0.f;
                         /* -7- */
-                        *pWeight++ = kernel_data[i*25+1];
-                        *pWeight++ = kernel_data[i*25+2];
-                        *pWeight++ = kernel_data[i*25+3];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+6];
-                        *pWeight++ = kernel_data[i*25+7];
-                        *pWeight++ = kernel_data[i*25+8];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+11];
-                        *pWeight++ = kernel_data[i*25+12];
-                        *pWeight++ = kernel_data[i*25+13];
-                        *pWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+1];
+                        *pCurWeight++ = kernel_data[i*25+2];
+                        *pCurWeight++ = kernel_data[i*25+3];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+6];
+                        *pCurWeight++ = kernel_data[i*25+7];
+                        *pCurWeight++ = kernel_data[i*25+8];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+11];
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = kernel_data[i*25+13];
+                        *pCurWeight++ = 0.f;
                         /* -8- */
-                        *pWeight++ = kernel_data[i*25+0];
-                        *pWeight++ = kernel_data[i*25+1];
-                        *pWeight++ = kernel_data[i*25+2];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+5];
-                        *pWeight++ = kernel_data[i*25+6];
-                        *pWeight++ = kernel_data[i*25+7];
-                        *pWeight++ = 0.f;
-                        *pWeight++ = kernel_data[i*25+10];
-                        *pWeight++ = kernel_data[i*25+11];
-                        *pWeight++ = kernel_data[i*25+12];
-                        *pWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+0];
+                        *pCurWeight++ = kernel_data[i*25+1];
+                        *pCurWeight++ = kernel_data[i*25+2];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+5];
+                        *pCurWeight++ = kernel_data[i*25+6];
+                        *pCurWeight++ = kernel_data[i*25+7];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+10];
+                        *pCurWeight++ = kernel_data[i*25+11];
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = 0.f;
                     }
                 }
                 else /* (1 == stride_width && 1 == stride_height) */
                 {
-                    printf("%s %d, %s\n",  __func__, __LINE__, "Fix me");
-                    getchar();
+                    assert(2 == stride_width);
+                    assert(2 == stride_height);
+                    MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&pWeight, 12*4*input_channels*sizeof(float)));
+                    float *pCurWeight = pWeight;
+                    for (uint32_t i = 0; i < input_channels; ++i)
+                    {
+                        /* -0- */
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = kernel_data[i*25+13];
+                        *pCurWeight++ = kernel_data[i*25+14];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+17];
+                        *pCurWeight++ = kernel_data[i*25+18];
+                        *pCurWeight++ = kernel_data[i*25+19];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+22];
+                        *pCurWeight++ = kernel_data[i*25+23];
+                        *pCurWeight++ = kernel_data[i*25+24];
+                        *pCurWeight++ = 0.f;
+                        /* -1- */
+                        *pCurWeight++ = kernel_data[i*25+10];
+                        *pCurWeight++ = kernel_data[i*25+11];
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+15];
+                        *pCurWeight++ = kernel_data[i*25+16];
+                        *pCurWeight++ = kernel_data[i*25+17];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+20];
+                        *pCurWeight++ = kernel_data[i*25+21];
+                        *pCurWeight++ = kernel_data[i*25+22];
+                        *pCurWeight++ = 0.f;
+                        /* -2- */
+                        *pCurWeight++ = kernel_data[i*25+2];
+                        *pCurWeight++ = kernel_data[i*25+3];
+                        *pCurWeight++ = kernel_data[i*25+4];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+7];
+                        *pCurWeight++ = kernel_data[i*25+8];
+                        *pCurWeight++ = kernel_data[i*25+9];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = kernel_data[i*25+13];
+                        *pCurWeight++ = kernel_data[i*25+14];
+                        *pCurWeight++ = 0.f;
+                        /* -3- */
+                        *pCurWeight++ = kernel_data[i*25+0];
+                        *pCurWeight++ = kernel_data[i*25+1];
+                        *pCurWeight++ = kernel_data[i*25+2];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+5];
+                        *pCurWeight++ = kernel_data[i*25+6];
+                        *pCurWeight++ = kernel_data[i*25+7];
+                        *pCurWeight++ = 0.f;
+                        *pCurWeight++ = kernel_data[i*25+10];
+                        *pCurWeight++ = kernel_data[i*25+11];
+                        *pCurWeight++ = kernel_data[i*25+12];
+                        *pCurWeight++ = 0.f;
+                    }
+                }
+            }
+            else if (4 == input_width && 4 == input_height)
+            {
+                MEMPOOL_CHECK_RETURN(private_mempool->Alloc((void**)&pWeight, 56*input_channels*sizeof(float)));
+                float *pCurWeight = pWeight;
+                for (uint32_t i = 0; i < input_channels; ++i)
+                {
+                    /* -0- */
+                    *pCurWeight++ = kernel_data[i*25+12];
+                    *pCurWeight++ = kernel_data[i*25+13];
+                    *pCurWeight++ = kernel_data[i*25+14];
+                    *pCurWeight++ = 0.f;
+                    *pCurWeight++ = kernel_data[i*25+17];
+                    *pCurWeight++ = kernel_data[i*25+18];
+                    *pCurWeight++ = kernel_data[i*25+19];
+                    *pCurWeight++ = 0.f;
+                    *pCurWeight++ = kernel_data[i*25+22];
+                    *pCurWeight++ = kernel_data[i*25+23];
+                    *pCurWeight++ = kernel_data[i*25+24];
+                    *pCurWeight++ = 0.f;
+                    /* -1- */
+                    *pCurWeight++ = kernel_data[i*25+10];
+                    *pCurWeight++ = kernel_data[i*25+11];
+                    *pCurWeight++ = kernel_data[i*25+12];
+                    *pCurWeight++ = kernel_data[i*25+13];
+                    *pCurWeight++ = kernel_data[i*25+15];
+                    *pCurWeight++ = kernel_data[i*25+16];
+                    *pCurWeight++ = kernel_data[i*25+17];
+                    *pCurWeight++ = kernel_data[i*25+18];
+                    *pCurWeight++ = kernel_data[i*25+20];
+                    *pCurWeight++ = kernel_data[i*25+21];
+                    *pCurWeight++ = kernel_data[i*25+22];
+                    *pCurWeight++ = kernel_data[i*25+23];
+                    /* -2- */
+                    *pCurWeight++ = kernel_data[i*25+2];
+                    *pCurWeight++ = kernel_data[i*25+3];
+                    *pCurWeight++ = kernel_data[i*25+4];
+                    *pCurWeight++ = 0.f;
+                    *pCurWeight++ = kernel_data[i*25+7];
+                    *pCurWeight++ = kernel_data[i*25+8];
+                    *pCurWeight++ = kernel_data[i*25+9];
+                    *pCurWeight++ = 0.f;
+                    *pCurWeight++ = kernel_data[i*25+12];
+                    *pCurWeight++ = kernel_data[i*25+13];
+                    *pCurWeight++ = kernel_data[i*25+14];
+                    *pCurWeight++ = 0.f;
+                    *pCurWeight++ = kernel_data[i*25+17];
+                    *pCurWeight++ = kernel_data[i*25+18];
+                    *pCurWeight++ = kernel_data[i*25+19];
+                    *pCurWeight++ = 0.f;
+                    /* -3- */
+                    *pCurWeight++ = kernel_data[i*25+0];
+                    *pCurWeight++ = kernel_data[i*25+1];
+                    *pCurWeight++ = kernel_data[i*25+2];
+                    *pCurWeight++ = kernel_data[i*25+3];
+                    *pCurWeight++ = kernel_data[i*25+5];
+                    *pCurWeight++ = kernel_data[i*25+6];
+                    *pCurWeight++ = kernel_data[i*25+7];
+                    *pCurWeight++ = kernel_data[i*25+8];
+                    *pCurWeight++ = kernel_data[i*25+10];
+                    *pCurWeight++ = kernel_data[i*25+11];
+                    *pCurWeight++ = kernel_data[i*25+12];
+                    *pCurWeight++ = kernel_data[i*25+13];
+                    *pCurWeight++ = kernel_data[i*25+15];
+                    *pCurWeight++ = kernel_data[i*25+16];
+                    *pCurWeight++ = kernel_data[i*25+17];
+                    *pCurWeight++ = kernel_data[i*25+18];
                 }
             }
             delete _weight_blobs[0];
@@ -317,6 +448,7 @@ public:
     int Forward()
     {
 #if 0
+        //if (5 == kernel_width && 5 == kernel_height)
         printf("In [%04d %03d %03d] Pad [%d %d %d %d] kernel [%d %d] stride [%d %d] Out [%04d %03d %03d] bias_data [%p]\n",
                input_channels, input_width, input_height,
                padding_left, padding_right, padding_top, padding_bottom,
