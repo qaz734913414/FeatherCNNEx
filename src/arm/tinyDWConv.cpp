@@ -164,77 +164,118 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
 
         float *pCurB = pB;
         float *pCurC = pC;
-
+        float sum = 0.f;
+        float32x4_t vbias;
+        float32x4_t vsrcA0 = vld1q_f32(pA);
+        float32x4_t vsrcA1 = vld1q_f32(pA+3);
+        float32x4_t vsrcA2 = vld1q_f32(pA+6);
+        vsrcA0[3] = 0.f; /* 012X */
+        vsrcA1[3] = 0.f; /* 345X */
+        vsrcA2[3] = 0.f; /* 678X */
+        if (pBias)
+        {
+            sum = pBias[g];
+            vbias = vmovq_n_f32(pBias[g]);
+        }
+        else
+        {
+            uint32x4_t vzero32x4  = veorq_u32(vzero32x4, vzero32x4);
+            vbias = vreinterpretq_f32_u32(vzero32x4);
+        }
         /* ----------------------first rows-------------------- */
         if (1 == padding_top)
         {
             /* first elemt */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[4]*pCurB[0];
-                sum += pA[5]*pCurB[1];
-                sum += pA[7]*pCurB[0+input_width];
-                sum += pA[8]*pCurB[1+input_width];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[4]*pCurB[0];
+                sum0 += pA[5]*pCurB[1];
+                sum0 += pA[7]*pCurB[0+input_width];
+                sum0 += pA[8]*pCurB[1+input_width];
+                *pCurC++ = sum0;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[3]*pCurB[0];
-                sum += pA[4]*pCurB[1];
-                sum += pA[5]*pCurB[2];
-                sum += pA[6]*pCurB[0+input_width];
-                sum += pA[7]*pCurB[1+input_width];
-                sum += pA[8]*pCurB[2+input_width];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[3]*pCurB[0];
+                sum0 += pA[4]*pCurB[1];
+                sum0 += pA[5]*pCurB[2];
+                sum0 += pA[6]*pCurB[0+input_width];
+                sum0 += pA[7]*pCurB[1+input_width];
+                sum0 += pA[8]*pCurB[2+input_width];
+                *pCurC++ = sum0;
                 pCurB++;
             }
 
             /* middle elemts */
             for (uint32_t m = 1; m < output_width - 1; ++m, pCurB++)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[3]*pCurB[0];
-                sum += pA[4]*pCurB[1];
-                sum += pA[5]*pCurB[2];
-                sum += pA[6]*pCurB[0+input_width];
-                sum += pA[7]*pCurB[1+input_width];
-                sum += pA[8]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA1, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[3]*pCurB[0];
+                sum0 += pA[4]*pCurB[1];
+                sum0 += pA[5]*pCurB[2];
+                sum0 += pA[6]*pCurB[0+input_width];
+                sum0 += pA[7]*pCurB[1+input_width];
+                sum0 += pA[8]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
             }
 
             /* last elemt */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[3]*pCurB[0];
-                sum += pA[4]*pCurB[1];
-                sum += pA[6]*pCurB[0+input_width];
-                sum += pA[7]*pCurB[1+input_width];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[3]*pCurB[0];
+                sum0 += pA[4]*pCurB[1];
+                sum0 += pA[6]*pCurB[0+input_width];
+                sum0 += pA[7]*pCurB[1+input_width];
+                *pCurC++ = sum0;
                 pCurB += 2;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[3]*pCurB[0];
-                sum += pA[4]*pCurB[1];
-                sum += pA[5]*pCurB[2];
-                sum += pA[6]*pCurB[0+input_width];
-                sum += pA[7]*pCurB[1+input_width];
-                sum += pA[8]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA1, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[3]*pCurB[0];
+                sum0 += pA[4]*pCurB[1];
+                sum0 += pA[5]*pCurB[2];
+                sum0 += pA[6]*pCurB[0+input_width];
+                sum0 += pA[7]*pCurB[1+input_width];
+                sum0 += pA[8]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 3;
             }
             pCurB -= input_width;
@@ -244,100 +285,135 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* first elemt */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0];
-                sum += pA[2]*pCurB[1];
-                sum += pA[4]*pCurB[0+input_width];
-                sum += pA[5]*pCurB[1+input_width];
-                sum += pA[7]*pCurB[0+input_width*2];
-                sum += pA[8]*pCurB[1+input_width*2];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[1]*pCurB[0];
+                sum0 += pA[2]*pCurB[1];
+                sum0 += pA[4]*pCurB[0+input_width];
+                sum0 += pA[5]*pCurB[1+input_width];
+                sum0 += pA[7]*pCurB[0+input_width*2];
+                sum0 += pA[8]*pCurB[1+input_width*2];
+                *pCurC++ = sum0;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB++;
             }
 
             /* middle elemts */
             for (uint32_t m = 1; m < output_width - 1; ++m, pCurB++, pCurC++)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC = sum0;
+#endif
             }
 
             /* last elemt */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                *pCurC++ = sum0;
                 pCurB += 2;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 3;
             }
         } /* 1 == padding_top */
 
         /* ------------------------middle rows ---------------------- */
-        float32x4_t vbias;
-        float32x4_t vsrcA0 = vld1q_f32(pA);
-        float32x4_t vsrcA1 = vld1q_f32(pA+3);
-        float32x4_t vsrcA2 = vld1q_f32(pA+6);
-        if (pBias)
-            vbias = vmovq_n_f32(pBias[g]);
-        else
-        {
-            uint32x4_t vzero32x4  = veorq_u32(vzero32x4, vzero32x4);
-            vbias = vreinterpretq_f32_u32(vzero32x4);
-        }
-
         int32_t leftrows = output_height - 2;
 #if 1
         /* ------------- process every 2 rows once ------------------- */
@@ -348,59 +424,83 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* first element */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0];
-                sum += pA[2]*pCurB[1];
-                sum += pA[4]*pCurB[0+input_width];
-                sum += pA[5]*pCurB[1+input_width];
-                sum += pA[7]*pCurB[0+input_width*2];
-                sum += pA[8]*pCurB[1+input_width*2];
-                *pCurC = sum;
+                float sum0 = sum;
+                sum0 += pA[1]*pCurB[0];
+                sum0 += pA[2]*pCurB[1];
+                sum0 += pA[4]*pCurB[0+input_width];
+                sum0 += pA[5]*pCurB[1+input_width];
+                sum0 += pA[7]*pCurB[0+input_width*2];
+                sum0 += pA[8]*pCurB[1+input_width*2];
+                *pCurC = sum0;
 
-                sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0+input_width];
-                sum += pA[2]*pCurB[1+input_width];
-                sum += pA[4]*pCurB[0+input_width*2];
-                sum += pA[5]*pCurB[1+input_width*2];
-                sum += pA[7]*pCurB[0+input_width*3];
-                sum += pA[8]*pCurB[1+input_width*3];
-                pCurC[output_width] = sum;
+                sum0 = sum;
+                sum0 += pA[1]*pCurB[0+input_width];
+                sum0 += pA[2]*pCurB[1+input_width];
+                sum0 += pA[4]*pCurB[0+input_width*2];
+                sum0 += pA[5]*pCurB[1+input_width*2];
+                sum0 += pA[7]*pCurB[0+input_width*3];
+                sum0 += pA[8]*pCurB[1+input_width*3];
+                pCurC[output_width] = sum0;
 
                 pCurC++;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+                float32x4_t vsrcB3 = vld1q_f32(pCurB+input_width*3);
 
-                sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0+input_width];
-                sum += pA[1]*pCurB[1+input_width];
-                sum += pA[2]*pCurB[2+input_width];
-                sum += pA[3]*pCurB[0+input_width*2];
-                sum += pA[4]*pCurB[1+input_width*2];
-                sum += pA[5]*pCurB[2+input_width*2];
-                sum += pA[6]*pCurB[0+input_width*3];
-                sum += pA[7]*pCurB[1+input_width*3];
-                sum += pA[8]*pCurB[2+input_width*3];
-                pCurC[output_width] = sum;
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC = vsum[0] + sum;
+#endif
+
+                vsum = vmulq_f32(vsrcA0, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB2);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB3);
+#ifdef __aarch64__
+                pCurC[output_width] = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                pCurC[output_width] = vsum[0] + sum;
+#endif
+
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC = sum0;
+
+                sum0 = sum;
+                sum0 += pA[0]*pCurB[0+input_width];
+                sum0 += pA[1]*pCurB[1+input_width];
+                sum0 += pA[2]*pCurB[2+input_width];
+                sum0 += pA[3]*pCurB[0+input_width*2];
+                sum0 += pA[4]*pCurB[1+input_width*2];
+                sum0 += pA[5]*pCurB[2+input_width*2];
+                sum0 += pA[6]*pCurB[0+input_width*3];
+                sum0 += pA[7]*pCurB[1+input_width*3];
+                sum0 += pA[8]*pCurB[2+input_width*3];
+                pCurC[output_width] = sum0;
+#endif
                 pCurB++;
                 pCurC++;
             }
@@ -513,33 +613,61 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
 
             for (int32_t k = 0; k < left; ++k)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+                float32x4_t vsrcB3 = vld1q_f32(pCurB+input_width*3);
 
-                sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0+input_width];
-                sum += pA[1]*pCurB[1+input_width];
-                sum += pA[2]*pCurB[2+input_width];
-                sum += pA[3]*pCurB[0+input_width*2];
-                sum += pA[4]*pCurB[1+input_width*2];
-                sum += pA[5]*pCurB[2+input_width*2];
-                sum += pA[6]*pCurB[0+input_width*3];
-                sum += pA[7]*pCurB[1+input_width*3];
-                sum += pA[8]*pCurB[2+input_width*3];
-                pCurC[output_width] = sum;
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC = vsum[0] + sum;
+#endif
+
+                vsum = vmulq_f32(vsrcA0, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB2);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB3);
+#ifdef __aarch64__
+                pCurC[output_width] = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                pCurC[output_width] = vsum[0] + sum;
+#endif
+
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC = sum0;
+
+                sum0 = sum;
+                sum0 += pA[0]*pCurB[0+input_width];
+                sum0 += pA[1]*pCurB[1+input_width];
+                sum0 += pA[2]*pCurB[2+input_width];
+                sum0 += pA[3]*pCurB[0+input_width*2];
+                sum0 += pA[4]*pCurB[1+input_width*2];
+                sum0 += pA[5]*pCurB[2+input_width*2];
+                sum0 += pA[6]*pCurB[0+input_width*3];
+                sum0 += pA[7]*pCurB[1+input_width*3];
+                sum0 += pA[8]*pCurB[2+input_width*3];
+                pCurC[output_width] = sum0;
+#endif
                 pCurB++;
                 pCurC++;
             }
@@ -547,60 +675,83 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* last element */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                *pCurC = sum;
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                *pCurC = sum0;
 
-                sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0+input_width];
-                sum += pA[1]*pCurB[1+input_width];
-                sum += pA[3]*pCurB[0+input_width*2];
-                sum += pA[4]*pCurB[1+input_width*2];
-                sum += pA[6]*pCurB[0+input_width*3];
-                sum += pA[7]*pCurB[1+input_width*3];
-                pCurC[output_width] = sum;
+                sum0 = sum;
+                sum0 += pA[0]*pCurB[0+input_width];
+                sum0 += pA[1]*pCurB[1+input_width];
+                sum0 += pA[3]*pCurB[0+input_width*2];
+                sum0 += pA[4]*pCurB[1+input_width*2];
+                sum0 += pA[6]*pCurB[0+input_width*3];
+                sum0 += pA[7]*pCurB[1+input_width*3];
+                pCurC[output_width] = sum0;
                 pCurC++;
                 pCurB += 2;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+                float32x4_t vsrcB3 = vld1q_f32(pCurB+input_width*3);
 
-                sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0+input_width];
-                sum += pA[1]*pCurB[1+input_width];
-                sum += pA[2]*pCurB[2+input_width];
-                sum += pA[3]*pCurB[0+input_width*2];
-                sum += pA[4]*pCurB[1+input_width*2];
-                sum += pA[5]*pCurB[2+input_width*2];
-                sum += pA[6]*pCurB[0+input_width*3];
-                sum += pA[7]*pCurB[1+input_width*3];
-                sum += pA[8]*pCurB[2+input_width*3];
-                pCurC[output_width] = sum;
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC = vsum[0] + sum;
+#endif
 
+                vsum = vmulq_f32(vsrcA0, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB2);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB3);
+#ifdef __aarch64__
+                pCurC[output_width] = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                pCurC[output_width] = vsum[0] + sum;
+#endif
+
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC = sum0;
+
+                sum0 = sum;
+                sum0 += pA[0]*pCurB[0+input_width];
+                sum0 += pA[1]*pCurB[1+input_width];
+                sum0 += pA[2]*pCurB[2+input_width];
+                sum0 += pA[3]*pCurB[0+input_width*2];
+                sum0 += pA[4]*pCurB[1+input_width*2];
+                sum0 += pA[5]*pCurB[2+input_width*2];
+                sum0 += pA[6]*pCurB[0+input_width*3];
+                sum0 += pA[7]*pCurB[1+input_width*3];
+                sum0 += pA[8]*pCurB[2+input_width*3];
+                pCurC[output_width] = sum0;
+#endif
                 pCurB += 3;
                 pCurC++;
             }
@@ -616,32 +767,47 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* first element */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0];
-                sum += pA[2]*pCurB[1];
-                sum += pA[4]*pCurB[0+input_width];
-                sum += pA[5]*pCurB[1+input_width];
-                sum += pA[7]*pCurB[0+input_width*2];
-                sum += pA[8]*pCurB[1+input_width*2];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[1]*pCurB[0];
+                sum0 += pA[2]*pCurB[1];
+                sum0 += pA[4]*pCurB[0+input_width];
+                sum0 += pA[5]*pCurB[1+input_width];
+                sum0 += pA[7]*pCurB[0+input_width*2];
+                sum0 += pA[8]*pCurB[1+input_width*2];
+                *pCurC++ = sum0;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB++;
             }
 
@@ -715,52 +881,84 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
 
             for (int32_t k = 0; k < left; ++k)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB++;
             }
 
             /* last element */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                *pCurC++ = sum0;
                 pCurB += 2;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 3;
             }
         }
@@ -771,70 +969,111 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* first element */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0];
-                sum += pA[2]*pCurB[1];
-                sum += pA[4]*pCurB[0+input_width];
-                sum += pA[5]*pCurB[1+input_width];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[1]*pCurB[0];
+                sum0 += pA[2]*pCurB[1];
+                sum0 += pA[4]*pCurB[0+input_width];
+                sum0 += pA[5]*pCurB[1+input_width];
+                *pCurC++ = sum0;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
                 pCurB++;
             }
 
             /* middle elements */
             for (uint32_t m = 1; m < output_width - 1; ++m)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
                 pCurB++;
             }
 
             /* last element */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                *pCurC++ = sum0;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
             }
         }
         else /* (1 == padding_bottom) */
@@ -842,83 +1081,130 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* first element */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0];
-                sum += pA[2]*pCurB[1];
-                sum += pA[4]*pCurB[0+input_width];
-                sum += pA[5]*pCurB[1+input_width];
-                sum += pA[7]*pCurB[0+input_width*2];
-                sum += pA[8]*pCurB[1+input_width]*2;
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[1]*pCurB[0];
+                sum0 += pA[2]*pCurB[1];
+                sum0 += pA[4]*pCurB[0+input_width];
+                sum0 += pA[5]*pCurB[1+input_width];
+                sum0 += pA[7]*pCurB[0+input_width*2];
+                sum0 += pA[8]*pCurB[1+input_width]*2;
+                *pCurC++ = sum0;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB++;
             }
 
             /* middle elements */
             for (uint32_t m = 1; m < output_width - 1; ++m)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB++;
             }
 
             /* last element */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                *pCurC = sum;
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                *pCurC = sum0;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC = sum0;
+#endif
             }
         }
     }
@@ -963,78 +1249,137 @@ void tinyDWConv3x3s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
         float *pCurC = pOutput + g*output_width*output_height;
 
         float *pCurB = pB;
+        float sum = 0.f;
+        float32x4_t vbias;
+        float32x4_t vsrcA0 = vld1q_f32(pA);
+        float32x4_t vsrcA1 = vld1q_f32(pA+3);
+        float32x4_t vsrcA2 = vld1q_f32(pA+6);
+        vsrcA0[3] = 0.f; /* 012X */
+        vsrcA1[3] = 0.f; /* 345X */
+        vsrcA2[3] = 0.f; /* 678X */
+        if (pBias)
+        {
+            sum = pBias[g];
+            vbias = vmovq_n_f32(sum);
+        }
+        else
+        {
+            uint32x4_t vzero32x4  = veorq_u32(vzero32x4, vzero32x4);
+            vbias = vreinterpretq_f32_u32(vzero32x4);
+        }
         /* ----------------------first rows-------------------- */
         if (1 == padding_top)
         {
             /* first elemt */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[4]*pCurB[0];
-                sum += pA[5]*pCurB[1];
-                sum += pA[7]*pCurB[0+input_width];
-                sum += pA[8]*pCurB[1+input_width];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[4]*pCurB[0];
+                sum0 += pA[5]*pCurB[1];
+                sum0 += pA[7]*pCurB[0+input_width];
+                sum0 += pA[8]*pCurB[1+input_width];
+                *pCurC++ = sum0;
                 pCurB++;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[3]*pCurB[0];
-                sum += pA[4]*pCurB[1];
-                sum += pA[5]*pCurB[2];
-                sum += pA[6]*pCurB[0+input_width];
-                sum += pA[7]*pCurB[1+input_width];
-                sum += pA[8]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA1, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[3]*pCurB[0];
+                sum0 += pA[4]*pCurB[1];
+                sum0 += pA[5]*pCurB[2];
+                sum0 += pA[6]*pCurB[0+input_width];
+                sum0 += pA[7]*pCurB[1+input_width];
+                sum0 += pA[8]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
             /* middle elemts */
             for (uint32_t m = 1; m < output_width - 1; ++m)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[3]*pCurB[0];
-                sum += pA[4]*pCurB[1];
-                sum += pA[5]*pCurB[2];
-                sum += pA[6]*pCurB[0+input_width];
-                sum += pA[7]*pCurB[1+input_width];
-                sum += pA[8]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA1, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[3]*pCurB[0];
+                sum0 += pA[4]*pCurB[1];
+                sum0 += pA[5]*pCurB[2];
+                sum0 += pA[6]*pCurB[0+input_width];
+                sum0 += pA[7]*pCurB[1+input_width];
+                sum0 += pA[8]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
             /* last elemt */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[3]*pCurB[0];
-                sum += pA[4]*pCurB[1];
-                sum += pA[6]*pCurB[0+input_width];
-                sum += pA[7]*pCurB[1+input_width];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[3]*pCurB[0];
+                sum0 += pA[4]*pCurB[1];
+                sum0 += pA[6]*pCurB[0+input_width];
+                sum0 += pA[7]*pCurB[1+input_width];
+                *pCurC++ = sum0;
                 pCurB += 2;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[3]*pCurB[0];
-                sum += pA[4]*pCurB[1];
-                sum += pA[5]*pCurB[2];
-                sum += pA[6]*pCurB[0+input_width];
-                sum += pA[7]*pCurB[1+input_width];
-                sum += pA[8]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA1, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[3]*pCurB[0];
+                sum0 += pA[4]*pCurB[1];
+                sum0 += pA[5]*pCurB[2];
+                sum0 += pA[6]*pCurB[0+input_width];
+                sum0 += pA[7]*pCurB[1+input_width];
+                sum0 += pA[8]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 3;
             }
             assert(input_width == uint32_t(pCurB - pB));
@@ -1044,85 +1389,132 @@ void tinyDWConv3x3s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* first elemt */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0];
-                sum += pA[2]*pCurB[1];
-                sum += pA[4]*pCurB[0+input_width];
-                sum += pA[5]*pCurB[1+input_width];
-                sum += pA[7]*pCurB[0+input_width*2];
-                sum += pA[8]*pCurB[1+input_width*2];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[1]*pCurB[0];
+                sum0 += pA[2]*pCurB[1];
+                sum0 += pA[4]*pCurB[0+input_width];
+                sum0 += pA[5]*pCurB[1+input_width];
+                sum0 += pA[7]*pCurB[0+input_width*2];
+                sum0 += pA[8]*pCurB[1+input_width*2];
+                *pCurC++ = sum0;
                 pCurB++;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
             /* middle elemts */
             for (uint32_t m = 1; m < output_width - 1; ++m)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
             /* last elemt */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                *pCurC++ = sum0;
                 pCurB += 2;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 3;
             }
             assert(input_width == uint32_t(pCurB - pB));
@@ -1130,18 +1522,6 @@ void tinyDWConv3x3s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
         } /* 1 == padding_top */
 
         /* ------------------------middle rows (process every 2 rows once) ---------------------- */
-        float32x4_t vbias;
-        float32x4_t vsrcA0 = vld1q_f32(pA);
-        float32x4_t vsrcA1 = vld1q_f32(pA+3);
-        float32x4_t vsrcA2 = vld1q_f32(pA+6);
-        if (pBias)
-            vbias = vmovq_n_f32(pBias[g]);
-        else
-        {
-            uint32x4_t vzero32x4  = veorq_u32(vzero32x4, vzero32x4);
-            vbias = vreinterpretq_f32_u32(vzero32x4);
-        }
-
         int32_t leftrows = output_height - 2;
         for (int j = 0; j < leftrows; ++j)
         {
@@ -1150,33 +1530,48 @@ void tinyDWConv3x3s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* first element */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0];
-                sum += pA[2]*pCurB[1];
-                sum += pA[4]*pCurB[0+input_width];
-                sum += pA[5]*pCurB[1+input_width];
-                sum += pA[7]*pCurB[0+input_width*2];
-                sum += pA[8]*pCurB[1+input_width*2];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[1]*pCurB[0];
+                sum0 += pA[2]*pCurB[1];
+                sum0 += pA[4]*pCurB[0+input_width];
+                sum0 += pA[5]*pCurB[1+input_width];
+                sum0 += pA[7]*pCurB[0+input_width*2];
+                sum0 += pA[8]*pCurB[1+input_width*2];
+                *pCurC++ = sum0;
                 pCurB++;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
@@ -1239,52 +1634,84 @@ void tinyDWConv3x3s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
 
             for (int32_t k = 0; k < left; ++k)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
             /* last element */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                *pCurC++ = sum0;
                 pCurB += 2;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 3;
             }
             assert(input_width == uint32_t(pCurB - pPreB));
@@ -1297,71 +1724,112 @@ void tinyDWConv3x3s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* first element */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0];
-                sum += pA[2]*pCurB[1];
-                sum += pA[4]*pCurB[0+input_width];
-                sum += pA[5]*pCurB[1+input_width];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[1]*pCurB[0];
+                sum0 += pA[2]*pCurB[1];
+                sum0 += pA[4]*pCurB[0+input_width];
+                sum0 += pA[5]*pCurB[1+input_width];
+                *pCurC++ = sum0;
                 pCurB++;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
             /* middle elements */
             for (uint32_t m = 1; m < output_width - 1; ++m)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
             /* last element */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                *pCurC = sum;
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                *pCurC = sum0;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                *pCurC = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+#ifdef __aarch64__
+                *pCurC = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                *pCurC = sum0;
+#endif
             }
         }
         else /* (1 == padding_bottom) */
@@ -1369,84 +1837,131 @@ void tinyDWConv3x3s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
             /* first element */
             if (1 == padding_left)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[1]*pCurB[0];
-                sum += pA[2]*pCurB[1];
-                sum += pA[4]*pCurB[0+input_width];
-                sum += pA[5]*pCurB[1+input_width];
-                sum += pA[7]*pCurB[0+input_width*2];
-                sum += pA[8]*pCurB[1+input_width*2];
-                *pCurC++ = sum;
+                float sum0 = sum;
+                sum0 += pA[1]*pCurB[0];
+                sum0 += pA[2]*pCurB[1];
+                sum0 += pA[4]*pCurB[0+input_width];
+                sum0 += pA[5]*pCurB[1+input_width];
+                sum0 += pA[7]*pCurB[0+input_width*2];
+                sum0 += pA[8]*pCurB[1+input_width*2];
+                *pCurC++ = sum0;
                 pCurB++;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
             /* middle elements */
             for (uint32_t m = 1; m < output_width - 1; ++m)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC++ = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC++ = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC++ = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC++ = sum0;
+#endif
                 pCurB += 2;
             }
 
             /* last element */
             if (1 == padding_right)
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                *pCurC = sum;
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                *pCurC = sum0;
             }
             else
             {
-                float sum = 0.f;
-                if (pBias)
-                    sum = pBias[g];
-                sum += pA[0]*pCurB[0];
-                sum += pA[1]*pCurB[1];
-                sum += pA[2]*pCurB[2];
-                sum += pA[3]*pCurB[0+input_width];
-                sum += pA[4]*pCurB[1+input_width];
-                sum += pA[5]*pCurB[2+input_width];
-                sum += pA[6]*pCurB[0+input_width*2];
-                sum += pA[7]*pCurB[1+input_width*2];
-                sum += pA[8]*pCurB[2+input_width*2];
-                *pCurC = sum;
+#if 1
+                float32x4_t vsum;
+                float32x4_t vsrcB0 = vld1q_f32(pCurB);
+                float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
+                float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
+
+                vsum = vmulq_f32(vsrcA0, vsrcB0);
+                vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
+                vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
+#ifdef __aarch64__
+                *pCurC = vaddvq_f32(vsum) + sum;
+#else
+                vsum = vpaddq_f32(vsum, vsum);
+                vsum = vpaddq_f32(vsum, vsum);
+                *pCurC = vsum[0] + sum;
+#endif
+
+#else
+                float sum0 = sum;
+                sum0 += pA[0]*pCurB[0];
+                sum0 += pA[1]*pCurB[1];
+                sum0 += pA[2]*pCurB[2];
+                sum0 += pA[3]*pCurB[0+input_width];
+                sum0 += pA[4]*pCurB[1+input_width];
+                sum0 += pA[5]*pCurB[2+input_width];
+                sum0 += pA[6]*pCurB[0+input_width*2];
+                sum0 += pA[7]*pCurB[1+input_width*2];
+                sum0 += pA[8]*pCurB[2+input_width*2];
+                *pCurC = sum0;
+#endif
             }
         }
     }

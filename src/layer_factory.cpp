@@ -20,7 +20,6 @@
 #include "layers/input_layer.h"
 #include "layers/conv_layer.h"
 #include "layers/conv_newdepthwise_layer.h"
-#include "layers/conv_winograd_layer.h"
 #include "layers/conv_winogradF63_layer.h"
 #include "layers/dropout_layer.h"
 #include "layers/batchnorm_layer.h"
