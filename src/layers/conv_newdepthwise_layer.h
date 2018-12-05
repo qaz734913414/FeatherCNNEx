@@ -17,7 +17,6 @@
 #include "../feather_simple_generated.h"
 #include "../layer.h"
 #include "arm/generic_kernels.h"
-#include "arm/depthwise.h"
 #include "tinyDWConv.h"
 #include <assert.h>
 #include <stdio.h>

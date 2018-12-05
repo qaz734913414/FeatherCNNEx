@@ -5,7 +5,6 @@
 #include "blob.h"
 
 #include "arm/generic_kernels.h"
-#include "arm/convdirect.h"
 #include <assert.h>
 #include <stdio.h>
 #include <sys/time.h>
