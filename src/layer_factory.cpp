@@ -82,7 +82,7 @@ Layer *GetConvolutionLayer(const LayerParameter *layer_param, const RuntimeParam
         conv_layer->_subType = "depthwise";
 #else
         conv_layer = new ConvNewDepthwiseLayer(layer_param, rt_param);
-        conv_layer->_subType = "newdepthwise";
+        conv_layer->_subType = "new depthwise";
 #endif
     }
 

@@ -269,6 +269,7 @@ static void sgemm_fp32(struct msg *pMsg)
 {
     uint32_t mutiUintN = pMsg->JobInfo.sgemmInfo.n / TINY_SGEMM_UNIT_N;
     uint32_t leftN = pMsg->JobInfo.sgemmInfo.n % TINY_SGEMM_UNIT_N;
+    //printf("[mutiUintN: %d leftN:%d]", mutiUintN, leftN);
     for (uint32_t i = 0 ; i < mutiUintN; i++)
     {
 #ifdef __aarch64__

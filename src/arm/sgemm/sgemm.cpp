@@ -1405,7 +1405,6 @@ static void sgemm4xKx1_fp32(float *pA, float *pB, float *pC, uint32_t K, uint32_
         vsrcC32x4 = vmlaq_lane_f32(vsrcC32x4, vsrcA32x4x4.val[1], vget_low_f32(vsrcB32x4), 1);
         vsrcC32x4 = vmlaq_lane_f32(vsrcC32x4, vsrcA32x4x4.val[2], vget_high_f32(vsrcB32x4), 0);
         vsrcC32x4 = vmlaq_lane_f32(vsrcC32x4, vsrcA32x4x4.val[3], vget_high_f32(vsrcB32x4), 1);
-
 #endif
     }
 
@@ -1445,7 +1444,6 @@ static void sgemm4xKx1_fp32(float *pA, float *pB, float *pC, uint32_t K, uint32_
     case TINY_SGEMM_RELU_TYPE_RELU:
     {
         float32x4_t vzerof = vreinterpretq_f32_u32(vzero);
-
         vsrcC32x4 = vmaxq_f32(vsrcC32x4, vzerof);
         break;
     }

@@ -29,7 +29,7 @@ COPYRIGHT_HOLDER:
 #define KHas1            x9
 
 /************ Stack Param ***********/
-#define ST_pBasis         [sp, #0]
+#define ST_pBasis        [sp, #0]
 
 /************ Vector Regs ***********/
 /* RSV V8~V15 */

@@ -72,19 +72,16 @@ public:
             /* add weight blobs */
             sharedPrelu = _weight_blobs[fusedWeightBlobId]->data_size() > 1 ? false : true;
             slopeDataPrelu = _weight_blobs[fusedWeightBlobId]->data();
-            //printf("sgemm fuse prelu\n");
             return 1;
         }
         else if(next_layer->type().compare("ReLU") == 0)
         {
             reluType = TINY_SGEMM_RELU_TYPE_RELU;
-            //printf("sgemm fuse relu\n");
             return 1;
         }
         else if(next_layer->type().compare("ReLU6") == 0)
         {
             reluType = TINY_SGEMM_RELU_TYPE_RELU6;
-            //printf("sgemm fuse relu6\n");
             return 1;
         }
         else

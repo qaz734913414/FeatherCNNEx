@@ -231,7 +231,7 @@ void tinySgemmConvPackBLeftN_fp32_fp16(float *pB, __fp16 *pPackB, uint32_t K, ui
 #ifdef __aarch64__
     leftN      = N%TINY_SGEMM_UNIT_N_FP16;
 #else
-    leftN      = N%TINY_SGEMM_UNIT_N;
+    leftN	   = N%TINY_SGEMM_UNIT_N;
 #endif
     leftNHas8  = (leftN>>3)&1;
     leftNHas4  = (leftN>>2)&1;

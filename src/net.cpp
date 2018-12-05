@@ -148,19 +148,16 @@ Net::~Net()
 
 int Net::config1x1ConvType(CONV_TYPE_E conv1x1Type)
 {
-    this->rt_param->conv1x1Type = conv1x1Type;
     return 0;
 }
 
 int Net::config3x3ConvType(CONV_TYPE_E conv3x3Type)
 {
-    this->rt_param->conv3x3Type = conv3x3Type;
     return 0;
 }
 
 int Net::configDWConvType(CONV_TYPE_E convdwType)
 {
-    this->rt_param->convdwType = convdwType;
     return 0;
 }
 
