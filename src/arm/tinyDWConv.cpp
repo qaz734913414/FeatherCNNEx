@@ -1053,7 +1053,8 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
                 float32x4_t vsum;
                 float32x4_t vsrcB0 = vld1q_f32(pCurB);
                 float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
-
+                vsrcB0[3] = 0.f;
+                vsrcB1[3] = 0.f;
                 vsum = vmulq_f32(vsrcA0, vsrcB0);
                 vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
 #ifdef __aarch64__
@@ -1180,7 +1181,9 @@ void tinyDWConv3x3s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
                 float32x4_t vsrcB0 = vld1q_f32(pCurB);
                 float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
                 float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
-
+                vsrcB0[3] = 0.f;
+                vsrcB1[3] = 0.f;
+                vsrcB2[3] = 0.f;
                 vsum = vmulq_f32(vsrcA0, vsrcB0);
                 vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
                 vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
@@ -1809,7 +1812,8 @@ void tinyDWConv3x3s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
                 float32x4_t vsum;
                 float32x4_t vsrcB0 = vld1q_f32(pCurB);
                 float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
-
+                vsrcB0[3] = 0.f;
+                vsrcB1[3] = 0.f;
                 vsum = vmulq_f32(vsrcA0, vsrcB0);
                 vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
 #ifdef __aarch64__
@@ -1937,7 +1941,9 @@ void tinyDWConv3x3s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
                 float32x4_t vsrcB0 = vld1q_f32(pCurB);
                 float32x4_t vsrcB1 = vld1q_f32(pCurB+input_width);
                 float32x4_t vsrcB2 = vld1q_f32(pCurB+input_width*2);
-
+                vsrcB0[3] = 0.f;
+                vsrcB1[3] = 0.f;
+                vsrcB2[3] = 0.f;
                 vsum = vmulq_f32(vsrcA0, vsrcB0);
                 vsum = vmlaq_f32(vsum, vsrcA1, vsrcB1);
                 vsum = vmlaq_f32(vsum, vsrcA2, vsrcB2);
@@ -2215,6 +2221,7 @@ void tinyDWConv5x5s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
                 vTmp[1] = pCurB[4+input_width];
                 vsrcB2  = vld1q_f32(pCurB+input_width*2);
                 vTmp[2] = pCurB[4+input_width*2];
+                vTmp[3] = 0.f;
 
                 vsum = vmlaq_f32(vsum, vsrcA2_10111213, vsrcB0);
                 vsum = vmlaq_f32(vsum, vsrcA3_15161718, vsrcB1);
@@ -3039,6 +3046,10 @@ void tinyDWConv5x5s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
         vsrcB1 = vld1q_f32(pCurB+input_width);
         vsrcB2 = vld1q_f32(pCurB+input_width*2);
         vsrcB3 = vld1q_f32(pCurB+input_width*3);
+        vsrcB0[3] = 0.f;
+        vsrcB1[3] = 0.f;
+        vsrcB2[3] = 0.f;
+        vsrcB3[3] = 0.f;
         vsum   = vmlaq_f32(vsum, vsrcA0_012X,     vsrcB0);
         vsum   = vmlaq_f32(vsum, vsrcA1_567X,     vsrcB1);
         vsum   = vmlaq_f32(vsum, vsrcA2_101112XX, vsrcB2);
@@ -3133,6 +3144,9 @@ void tinyDWConv5x5s1_fp32(float *pWeight, float *pInput, float *pOutput, float *
         vsrcB0 = vld1q_f32(pCurB);
         vsrcB1 = vld1q_f32(pCurB+input_width);
         vsrcB2 = vld1q_f32(pCurB+input_width*2);
+        vsrcB0[3] = 0.f;
+        vsrcB1[3] = 0.f;
+        vsrcB2[3] = 0.f;
         vsum   = vmlaq_f32(vsum, vsrcA0_012X,     vsrcB0);
         vsum   = vmlaq_f32(vsum, vsrcA1_567X,     vsrcB1);
         vsum   = vmlaq_f32(vsum, vsrcA2_101112XX, vsrcB2);
@@ -3436,6 +3450,7 @@ void tinyDWConv5x5s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
                 vTmp[1] = pCurB[4+input_width];
                 vsrcB2  = vld1q_f32(pCurB+input_width*2);
                 vTmp[2] = pCurB[4+input_width*2];
+                vTmp[3] = 0.f;
 
                 vsum = vmlaq_f32(vsum, vsrcA2_10111213, vsrcB0);
                 vsum = vmlaq_f32(vsum, vsrcA3_15161718, vsrcB1);
@@ -3837,6 +3852,9 @@ void tinyDWConv5x5s2_fp32(float *pWeight, float *pInput, float *pOutput, float *
             vsrcB0 = vld1q_f32(pCurB);
             vsrcB1 = vld1q_f32(pCurB+input_width);
             vsrcB2 = vld1q_f32(pCurB+input_width*2);
+            vsrcB0[3] = 0.f;
+            vsrcB1[3] = 0.f;
+            vsrcB2[3] = 0.f;
             vsum   = vmlaq_f32(vsum, vsrcA0_012X,     vsrcB0);
             vsum   = vmlaq_f32(vsum, vsrcA1_567X,     vsrcB1);
             vsum   = vmlaq_f32(vsum, vsrcA2_101112XX, vsrcB2);
