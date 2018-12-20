@@ -14,6 +14,7 @@
 #include <net.h>
 #include <math.h>
 #include <stdio.h>
+#include <sys/time.h>
 #include <stdlib.h>
 #include <string>
 #include <string.h>
@@ -163,7 +164,9 @@ int main(int argc, char *argv[])
 
     printf("file: %s model: %s blob: %s loopCnt: %d num_threads: %d bSameMean:%d bGray: %d b1x1Sgemm:%d bLowPrecision: %d viewType: %d SerialFile: %s\n",
            pFname, pModel, pBlob, loopCnt, num_threads, bSameMean, bGray, b1x1Sgemm, bLowPrecision, viewType, pSerialFile);
-#if 1
+//#define FILE_LIST_NOSSD
+//#define FILE_LIST_SSD
+#if !defined FILE_LIST_NOSSD && !defined FILE_LIST_SSD
     cv::Mat img;
     if (bGray)
         img = imread(pFname, 0);
@@ -174,6 +177,7 @@ int main(int argc, char *argv[])
         printf("read img failed, %s\n", pFname);
         return -1;
     }
+    //resize(img, img, Size(40,40));
     printf("img c: %d, w: %d, h : %d\n", img.channels(), img.cols, img.rows);
     for(int outLoop = 0; outLoop < outLoopCnt; outLoop++)
     {
@@ -194,28 +198,33 @@ int main(int argc, char *argv[])
         forward_net->InitFromPath(pModel);
 
         size_t data_size = 0;
-        forward_net->GetBlobDataSize(&data_size, pBlob);
+        if (0 != forward_net->GetBlobDataSize(&data_size, pBlob))
+        {
+            printf("Wrong blob name, %s\n", pBlob);
+            exit(-1);
+        }
         float *pOut = NULL;
         float *pIn = forward_net->GetInputBuffer();
         float meansDiff[] = {104.0f, 117.0f, 123.0f};
         float meansSame[] = {127.5f, 127.5f, 127.5f};
-        //float varSame[]   = {0.0078125f, 0.0078125f, 0.0078125f};
-        float varSame[]   = {0.007843137, 0.007843137, 0.007843137};
-#if 0
-        gettimeofday(&beg, NULL);
-        if (1 == img.channels())
-            from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
-        else
+        float varSame[]   = {0.0078125f, 0.0078125f, 0.0078125f};
+        //float varSame[]   = {0.007843137, 0.007843137, 0.007843137};
+//#define WARM_UP_ENABLE
+#ifdef WARM_UP_ENABLE
+        for(int loop = 0; loop < 5; loop++)
         {
-            if (bSameMean)
-                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
+            if (1 == img.channels())
+                from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
             else
-                from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
+            {
+                if (bSameMean)
+                    from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 0, num_threads);
+                else
+                    from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
+            }
+            int ret = forward_net->Forward();
+            pOut = forward_net->ExtractBlob(pBlob);
         }
-        int ret = forward_net->Forward();
-        pOut = forward_net->ExtractBlob(pBlob);
-        gettimeofday(&end, NULL);
-        printf("\nWarm time: %f ms, threads: [%d/%d], out blob size: %u\n", (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000.0, num_threads, forward_net->GetNumthreads(), (unsigned int)data_size);
 #endif
         gettimeofday(&beg, NULL);
         for(int loop = 0; loop < loopCnt; loop++)
@@ -254,10 +263,121 @@ int main(int argc, char *argv[])
         default:
             break;
         }
-
+        if(isnan(pOut[0]))
+        {
+            printf("error\n");
+            getchar();
+        }
         delete forward_net;
     }
-#else
+#elif defined FILE_LIST_NOSSD
+    char *filelist = pFname;
+    printf("Filelist: %s\n", filelist);
+    FILE *fp = NULL;
+    if(NULL == (fp = fopen(filelist,"r")))
+    {
+        printf("open filelist %s error!\n", filelist);
+        return -1;
+    }
+#if 0
+    FILE *fpw = NULL;
+    if(NULL == (fpw = fopen("feather_result.txt","wb")))
+    {
+        printf("open output error!\n");
+        return -2;
+    }
+#endif
+    Net forward_net(num_threads);
+    forward_net.configWinogradLowPrecision(true);
+    forward_net.configSgemmLowPrecision(bLowPrecision);
+    forward_net.configDropoutWork(true);
+    forward_net.configCrypto(pSerialFile);
+    forward_net.inChannels = 1;
+    forward_net.inWidth = 28;
+    forward_net.inHeight = 28;
+    forward_net.InitFromPath(pModel);
+
+    float *pOut = NULL;
+    size_t data_size = 0;
+    if (0 != forward_net.GetBlobDataSize(&data_size, pBlob))
+    {
+        printf("Wrong blob name, %s\n", pBlob);
+        exit(-1);
+    }
+    char tmp[1024], strLine[1024], imgFile[1024], sizeBuff[64];
+    unsigned fileCnt = 0;
+    float meansDiff[] = {104.0f, 117.0f, 123.0f};
+    float meansSame[] = {0.f, 127.5f, 127.5f};
+    float varSame[]   = {0.00390625, 0.007843137, 0.007843137};
+    float totalTime = 0.f;
+    float minTime = 0.f, maxTime = 1000000.f;
+    uint32_t resultOk = 0;
+    while (!feof(fp))
+    {
+        strLine[0] = 0;
+        fgets(strLine,1024,fp);
+        if (0 == strlen(strLine)) break;
+        strLine[strlen(strLine)-1]='\0';
+        if (0 == strlen(strLine)) break;
+        strcpy(imgFile, strLine);
+        ++fileCnt;
+        //printf("[%d] img: %s\n", fileCnt, imgFile);
+        cv::Mat img;
+        if (bGray)
+            img = imread(imgFile, 0);
+        else
+            img = imread(imgFile);
+        if (img.empty())
+        {
+            printf("read img failed, %s\n", imgFile);
+            continue;
+        }
+
+        float *pOut = forward_net.ExtractBlob(pBlob);
+        float *pIn = forward_net.GetInputBuffer();
+        if (1 == img.channels())
+            from_y_normal(img.data, img.cols, img.rows, pIn, meansSame[0], varSame[0], num_threads);
+        else
+        {
+            if (bSameMean)
+                from_rgb_normal_separate(img.data, img.cols, img.rows, pIn, meansSame, varSame, 1, num_threads);
+            else
+                from_rgb_submeans(img.data, img.cols, img.rows, pIn, meansDiff, 0, num_threads);
+        }
+        gettimeofday(&beg, NULL);
+        int ret = forward_net.Forward();
+        gettimeofday(&end, NULL);
+        float curTime = (end.tv_sec*1000000 + end.tv_usec - beg.tv_sec*1000000 - beg.tv_usec)/1000.f;
+        minTime = std::max(minTime, curTime);
+        maxTime = std::min(maxTime, curTime);
+        totalTime += curTime;
+        float max = 0;
+        int index = -1;
+        for (int i = 0; i < data_size; ++i)
+        {
+            if (pOut[i] > max)
+            {
+                max = pOut[i];
+                index = i;
+            }
+        }
+        if (outLoopCnt == index)
+            resultOk++;
+        else
+        {
+            printf("%s not correct, expect %d but %d\n", imgFile, outLoopCnt, index);
+            //getchar();
+        }
+        //printf("%d: %f, %lu, time: %f\n", index, max, data_size, curTime);
+        //fwrite(pOut, data_size, 1, fpw);
+        //fflush(fpw);
+        img.release();
+    }
+    //fclose(fpw);
+    fclose(fp);
+    printf("total time: %f ms, total file: %d, avg time: %f ms (minTime: %f ms, maxTime: %f ms), acc: %f %%\n",
+           totalTime, fileCnt, totalTime/fileCnt, minTime, maxTime, resultOk*1.0/fileCnt);
+#elif defined FILE_LIST_SSD
     static const char format_head[]=
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\
 <annotation>\n\

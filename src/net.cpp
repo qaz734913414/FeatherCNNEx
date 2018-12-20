@@ -272,6 +272,22 @@ int Net::Forward()
 #endif
 
 #if 0
+        {
+            float *pData = ((float *)layers[i]->_top_blobs[layers[i]->_top[0]]->data());
+            char tmp[64];
+            for (int k = 0; k < layers[i]->_top_blobs[layers[i]->_top[0]]->data_size(); ++k)
+            {
+                tmp[0]=0;
+                sprintf(tmp, "%f", pData[k]);
+                if (0 == strcmp("nan", tmp))
+                {
+                    printf("nan %d, at layer:%s\n", k, (layers[i]->name()+"_"+layers[i]->type()+"_"+layers[i]->_subType).c_str());
+                    getchar();
+                }
+            }
+        }
+#endif
+#if 0
         if (NULL != strstr(layers[i]->_subType.c_str(), "depthwise"))
         {
             //printf("\n%-60s:", (layers[i]->name()+"_"+layers[i]->type()+"_"+layers[i]->_subType).c_str());
@@ -477,7 +493,7 @@ int Net::InitFromBuffer(const void *net_buffer)
             }
         }
     }
-    //printf("Blobs fuse ok\n");
+    //printf("layer fuse ok\n");
     /************************** layer fuse ok*************************/
 
     /************* build consumer product relationship ***************/

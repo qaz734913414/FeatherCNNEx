@@ -82,5 +82,3 @@ void writeFileFloat(const char *pFname, float *pData, unsigned size);
 void writeFileFloat16(const char *pFname, fix16_t *pData, unsigned size);
 unsigned char* readFile(const char *pFileName);
 float distanceCos(float *a, float *b, unsigned size);
-int conv3x3s1_pc(float *in, int inch, int w, int h, float *out, int outch, int outw, int outh, float* kernel);
-int conv1x1s1_pc(float *in, int inch, int w, int h, float *out, int outch, int outw, int outh, float* kernel);

@@ -23,9 +23,12 @@
 #include <arm_neon.h>
 #endif
 #include <common.h>
+#include <float.h>
+#include "../utils.h"
 
 namespace feather
 {
+//#define POOL_PLD_ENABLE 1
 void ave_pool_inner_kernel(float* out, const float* in, const size_t ldin, const size_t kernel_h, const size_t kernel_w)
 {
     float total = 0.0;
@@ -92,9 +95,13 @@ static void pooling2x2s2_max_neon(float *input, int w, int h, int inch, float *o
                     "ld1        {v0.4s, v1.4s}, [%1], #32 \n"
                     "ld1        {v2.4s, v3.4s}, [%2], #32 \n"
                     "fmax       v0.4s, v0.4s, v2.4s       \n"
+#ifdef POOL_PLD_ENABLE
                     "prfm       pldl1keep, [%1, #32]      \n"
+#endif
                     "fmax       v1.4s, v1.4s, v3.4s       \n"
+#ifdef POOL_PLD_ENABLE
                     "prfm       pldl1keep, [%2, #32]      \n"
+#endif
                     "fmaxp      v2.4s, v0.4s, v1.4s       \n"
                     "subs       %w0, %w0, #1              \n"
                     "st1        {v2.4s}, [%3], #16        \n"
@@ -118,9 +125,13 @@ static void pooling2x2s2_max_neon(float *input, int w, int h, int inch, float *o
                     "vld1.f32   {d0-d3}, [%1]!      \n"
                     "vld1.f32   {d4-d7}, [%2]!      \n"
                     "vmax.f32   q0, q0, q2          \n"
+#ifdef POOL_PLD_ENABLE
                     "pld        [%1, #32]           \n"
+#endif
                     "vmax.f32   q1, q1, q3          \n"
+#ifdef POOL_PLD_ENABLE
                     "pld        [%2, #32]           \n"
+#endif
                     "vpmax.f32  d4, d0, d1          \n"
                     "subs       %0, #1              \n"
                     "vpmax.f32  d5, d2, d3          \n"
@@ -151,58 +162,52 @@ static void pooling2x2s2_max_neon(float *input, int w, int h, int inch, float *o
 
                 if (r0 > r0_end)
                 {
-                    r0_0 = -1*std::numeric_limits<float>::max();
+                    r0_0 = -1*FLT_MAX;
                     r0_1 = r0_0;
                     r1_0 = r1_1 = r0_0;
                 }
                 else if ((r0+1) > r0_end)
                 {
-                    r0_1 = -1*std::numeric_limits<float>::max();
+                    r0_1 = -1*FLT_MAX;
                     r1_1 = r0_1;
                 }
 
                 float max0 = std::max(r0_0, r0_1);
                 float max1 = std::max(r1_0, r1_1);
-
                 *outptr = std::max(max0, max1);
-
                 r0 += 2;
                 r1 += 2;
                 outptr++;
             }
         }
-#if 1
-        for (int j = outh - 1; j <= (outh - 1); j++)
-        {
-            float *p = output + q*outh*outw + j*outw;
-            for(int l=0; l<outw; l++)
-                p[l] = -1*std::numeric_limits<float>::max();
 
-            int tmp_pos = j*2;
+        {
+            /* last row */
+            float *p = output + q*outh*outw + (outh - 1)*outw;
+            int tmp_pos =(outh - 1)*2;
             int x_min = MAX(tmp_pos, 0);
             int x_max = MIN((int)(tmp_pos+2), (int) h);
+            fill(p, outw, -1*FLT_MAX);
 
-            for(int x=x_min; x<x_max; ++x)
+            for(int x = x_min; x < x_max; ++x)
             {
                 int xpos = q * h * w + x*w;
-
-                for (int k = 0; k<outw; k ++)
+                for (int k = 0; k < outw; k ++)
                 {
-                    float total = -1*std::numeric_limits<float>::max();
+                    float total   = -1*FLT_MAX;
                     int local_pos = k*2;
                     int y_min     = MAX(local_pos, 0);
                     int y_max     = MIN((int)(local_pos + 2), (int) w);
 
-                    for (int y=y_min; y < y_max; ++y)
+                    for (int y = y_min; y < y_max; ++y)
                     {
                         float value = input[xpos + y];
                         total = total>value?total:value;
                     }
-                    p[k]  = (p[k]>total) ? p[k]:total;
+                    p[k] = (p[k]>total) ? p[k]:total;
                 }
             }
         }
-#endif
     }
 }
 
@@ -378,20 +383,20 @@ static void pooling3x3s2_max_neon(float *input, int w, int h, int inch, float *o
 
                 if (r0 > r0_end)
                 {
-                    r0_0 = -1*std::numeric_limits<float>::max();
+                    r0_0 = -1*FLT_MAX;
                     r0_2 = r0_1 = r0_0;
                     r1_0 = r1_1 = r1_2 = r0_0;
                     r2_0 = r2_1 = r2_2 = r0_0;
                 }
                 else if ((r0+1) > r0_end)
                 {
-                    r0_2 = r0_1 = -1*std::numeric_limits<float>::max();
+                    r0_2 = r0_1 = -1*FLT_MAX;
                     r1_1 = r1_2 = r0_1;
                     r2_1 = r2_2 = r0_1;
                 }
                 else if ((r0+2) > r0_end)
                 {
-                    r0_2 = -1*std::numeric_limits<float>::max();
+                    r0_2 = -1*FLT_MAX;
                     r1_2 = r0_2;
                     r2_2 = r0_2;
                 }
@@ -399,48 +404,41 @@ static void pooling3x3s2_max_neon(float *input, int w, int h, int inch, float *o
                 float max0 = std::max(std::max(r0_0, r0_1), r0_2);
                 float max1 = std::max(std::max(r1_0, r1_1), r1_2);
                 float max2 = std::max(std::max(r2_0, r2_1), r2_2);
-
                 *outptr = std::max(std::max(max0, max1), max2);
-
                 r0 += 2;
                 r1 += 2;
                 r2 += 2;
-
                 outptr++;
             }
         }
-#if 1
-        for (int j = outh - 1; j <= (outh - 1); j++)
-        {
-            float *p = output + q*outh*outw + j*outw;
-            for(int l=0; l<outw; l++)
-                p[l] = -1*std::numeric_limits<float>::max();
 
-            int tmp_pos = j*2;
+        {
+            /* last row */
+            float *p = output + q*outh*outw + (outh - 1)*outw;
+            int tmp_pos = (outh - 1)*2;
             int x_min = MAX(tmp_pos, 0);
             int x_max = MIN((int)(tmp_pos+3), (int) h);
+            fill(p, outw, -1*FLT_MAX);
 
-            for(int x=x_min; x<x_max; ++x)
+            for(int x = x_min; x < x_max; ++x)
             {
                 int xpos = q * h * w + x*w;
-
                 for (int k = 0; k<outw; k ++)
                 {
-                    float total = -1*std::numeric_limits<float>::max();
+                    float total   = -1*FLT_MAX;
                     int local_pos = k*2;
                     int y_min     = MAX(local_pos, 0);
                     int y_max     = MIN((int)(local_pos + 3), (int) w);
 
-                    for (int y=y_min; y < y_max; ++y)
+                    for (int y = y_min; y < y_max; ++y)
                     {
                         float value = input[xpos + y];
                         total = total>value?total:value;
                     }
-                    p[k]  = (p[k]>total) ? p[k]:total;
+                    p[k] = (p[k]>total) ? p[k]:total;
                 }
             }
         }
-#endif
     }
 }
 
@@ -501,32 +499,32 @@ public:
         else
         {
             #pragma omp parallel for schedule(static) num_threads(num_threads)
-            for (int i=0; i<input_channels; ++i)
+            for (int i = 0; i < input_channels; ++i)
             {
-                for (int j=0; j<output_height; j ++)
+                for (int j = 0; j < output_height; j ++)
                 {
                     float *p = output + i*output_height*output_width + j*output_width;
-                    for(int l=0; l<output_width; l++)
-                        p[l] = (this->method != PoolingParameter_::PoolMethod_MAX_?0:-1*std::numeric_limits<float>::max()) ;
-
                     int tmp_pos = j*(int)stride_height - (int)pad_height;
                     int x_min = MAX(tmp_pos, 0);
                     int x_max = MIN((int)(tmp_pos+kernel_height), (int) input_height);
+                    if (this->method == PoolingParameter_::PoolMethod_MAX_)
+                        fill(p, output_width, -1*FLT_MAX);
+                    else
+                        fill(p, output_width, .0f);
 
-                    for(int x=x_min; x<x_max; ++x)
+                    for(int x = x_min; x < x_max; ++x)
                     {
                         int xpos = i * input_height * input_width + x*input_width;
 
                         for (int k = 0; k<output_width; k ++)
                         {
-                            float total = (this->method != PoolingParameter_::PoolMethod_MAX_?0:-1*std::numeric_limits<float>::max());
-                            int counter=0;
-
+                            float total   = (this->method != PoolingParameter_::PoolMethod_MAX_?0:-1*std::numeric_limits<float>::max());
+                            int counter   = 0;
                             int local_pos = k*(int)stride_width - (int)pad_width;
                             int y_min     = MAX(local_pos, 0);
                             int y_max     = MIN((int)(local_pos + kernel_width), (int) input_width);
 
-                            for (int y=y_min; y < y_max; ++y)
+                            for (int y = y_min; y < y_max; ++y)
                             {
                                 float value = input[xpos + y];
                                 if(this->method != PoolingParameter_::PoolMethod_MAX_)
@@ -535,7 +533,7 @@ public:
                                     total = total>value?total:value;
                             }
                             if(this->method != PoolingParameter_::PoolMethod_MAX_)
-                                p[k] += total / (counter) / kernel_height;
+                                p[k] += total / (counter * kernel_height);
                             else
                                 p[k]  = (p[k]>total) ? p[k]:total;
                         }

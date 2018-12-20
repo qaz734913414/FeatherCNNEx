@@ -10,6 +10,7 @@ if(NOT DEFINED CMAKE_INSTALL_PREFIX)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Installation Directory")
 endif()
 message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "CMAKE_SYSTEM_PROCESSOR ${CMAKE_SYSTEM_PROCESSOR}")
 
 project(feather)
 
@@ -52,31 +53,26 @@ if(FEATHER_OPENMP)
 endif()
 
 #add_definitions(-Wall -Wextra -Wno-unused-function)
-add_definitions(-fPIC)
+#add_definitions(-march=native)
+#add_definitions(-flto)
+add_definitions(-fPIC -Wno-unused-result)
 add_definitions(-Ofast)
 add_definitions(-ffast-math)
 add_definitions(-fvisibility=hidden -fvisibility-inlines-hidden)
 add_definitions(-fdata-sections -ffunction-sections)
 add_definitions(-fpermissive)
-message(STATUS "CMAKE_SYSTEM_PROCESSOR ${CMAKE_SYSTEM_PROCESSOR}")
 if( CMAKE_SYSTEM_PROCESSOR MATCHES armv7-a )
 add_definitions(-mfpu=neon-fp16)
 endif()
-# add_definitions(-march=native)
-
-# add_definitions(-flto)
 
 if(ANDROID)
-    # disable shared library on android
     set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS FALSE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 elseif(IOS)
-    # disable shared library on xcode ios
     add_definitions(-isysroot ${IOS_SDK_PATH} -arch ${IOS_ARCH})
     set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS FALSE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
 ##############################################
-
 add_subdirectory(src)

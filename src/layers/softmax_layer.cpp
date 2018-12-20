@@ -15,6 +15,7 @@
 #include "softmax_layer.h"
 #include "arm/generic_kernels.h"
 #include <math.h>
+#include <float.h>
 #include "neon_mathfun.h"
 #include "utils.h"
 

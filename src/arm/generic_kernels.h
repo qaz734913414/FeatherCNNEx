@@ -15,6 +15,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <stdint.h>
 
 void add_relu(float* dst, const float* A, const float* B, const size_t len, bool fuse_relu, const size_t num_threads);
 

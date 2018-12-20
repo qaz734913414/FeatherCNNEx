@@ -46,7 +46,7 @@ class CaffeModelWeightsConvert
 public:
     CaffeModelWeightsConvert(std::string caffe_prototxt_name, std::string caffe_model_name, std::string output_name);
     bool Convert();
-    void SaveModelWeights(uint32_t fractions, float threshold, uint32_t crypto);
+    void SaveModelWeights(uint32_t fuseBN, uint32_t fractions, float threshold, uint32_t crypto);
 
 private :
     bool ReadNetParam();
@@ -113,7 +113,7 @@ bool CaffeModelWeightsConvert::ReadNetParam()
     return true;
 }
 
-void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, uint32_t crypto)
+void CaffeModelWeightsConvert::SaveModelWeights(uint32_t fuseBN, uint32_t frac, float threshold, uint32_t crypto)
 {
     struct AES_ctx ctx;
     if (0 != crypto)
@@ -122,7 +122,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
         printf("Encrpty init ok\n");
     }
     std::map<std::string, std::string> top_vec_map;
-
+    std::vector<uint32_t> layer_fused_vec;
+    uint32_t fusedLayerCnt = 0, realLayerCnt = 0;
     std::string OutputLayerName;
     {
         uint32_t totalConvCnt = 0, dwConvCnt = 0, sgemmConvCnt = 0, winogradConvCnt = 0;
@@ -212,8 +213,8 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
 
         std::vector<fix16_t> blob_data_vec_fix;
         std::vector<fix8_t> blob_data_vec_fix8;
-
         std::vector<float> blob_data_vec;
+        std::vector<float> bn_blob_data_alpha;
 
         std::map<std::string, int> caffe_model_layer_map;
         for (int i = 0; i != caffe_weight.layer_size(); ++i)
@@ -223,15 +224,25 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             //printf("[%d] %s\n", i, layer_name.c_str());
         }
 
+        layer_fused_vec.resize(caffe_prototxt.layer_size());
         std::map<std::string, std::string> inplace_blob_map;
+        fusedLayerCnt = 0;
+        realLayerCnt = 0;
         for (int i = 0; i != caffe_prototxt.layer_size(); ++i)
         {
+            uint32_t flagConvFuseBN = 0;
+            uint32_t flagConvFuseScale = 0;
+            uint32_t needAddBias = 0;
             uint32_t fractions = 0;
             auto caffe_layer = caffe_prototxt.layer(i);
             std::string layer_name = caffe_layer.name();
             std::string layer_type = caffe_layer.type();
-
-            if(layer_type.compare("Input")==0) continue;
+            layer_fused_vec[i] = 0;
+            if(layer_type.compare("Input")==0)
+            {
+                realLayerCnt++;
+                continue;
+            }
 
             std::vector<std::string> bottom_vec;
             std::vector<std::string> top_vec;
@@ -242,7 +253,47 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             for(int j = 0; j < caffe_layer.top_size(); ++j)
                 top_vec.push_back(caffe_layer.top(j));
 
-            PRINTF("---------------------------------------\nLayer %d name %s type %s\nBottom: ", i, layer_name.c_str(), layer_type.c_str());
+            if (1 == fuseBN)
+            {
+                if (((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)) && ((i+1) < caffe_prototxt.layer_size()))
+                {
+                    assert(1 == top_vec.size());
+                    auto next_caffe_layer = caffe_prototxt.layer(i+1);
+                    std::string next_layer_type = next_caffe_layer.type();
+                    if (next_layer_type.compare("BatchNorm")==0)
+                    {
+                        //printf("Bn conv top change from %s to ", top_vec[0].c_str());
+                        top_vec.clear();
+                        for(int j = 0; j < next_caffe_layer.top_size(); ++j)
+                            top_vec.push_back(next_caffe_layer.top(j));
+                        //printf(" %s \n", top_vec[0].c_str());
+                        layer_fused_vec[i+1] = 1;
+                        fusedLayerCnt++;
+                    }
+
+                    if ((i+2) < caffe_prototxt.layer_size())
+                    {
+                        auto next2_caffe_layer = caffe_prototxt.layer(i+2);
+                        std::string next2_layer_type = next2_caffe_layer.type();
+                        std::string next2_layer_name = next2_caffe_layer.name();
+                        auto next2_caffe_model_layer = caffe_weight.layer(caffe_model_layer_map[next2_layer_name]);
+                        if (next2_layer_type.compare("Scale")==0)
+                        {
+                            //printf("scale conv top change from %s to ", top_vec[0].c_str());
+                            top_vec.clear();
+                            for(int j = 0; j < next2_caffe_layer.top_size(); ++j)
+                                top_vec.push_back(next2_caffe_layer.top(j));
+                            //printf(" %s \n", top_vec[0].c_str());
+                            layer_fused_vec[i+2] = 1;
+                            fusedLayerCnt++;
+                        }
+                    }
+                    assert(1 == top_vec.size());
+                }
+            }
+
+
+            //printf("---------------------------------------\nLayer %d name %s type %s\nBottom: ", i, layer_name.c_str(), layer_type.c_str());
 
             /*Print bottom and tops*/
             for(int t = 0; t < bottom_vec.size(); ++t)
@@ -290,8 +341,9 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 PRINTF(" %s", bottom_vec[i].c_str());
             }
             auto bottom_fbvec = fbb.CreateVector<Offset<flatbuffers::String>>(bottom_fbstr_vec);
-            PRINTF("\nNew Top:");
 
+            assert(1 == top_vec.size());
+            PRINTF("\nNew Top:");
             std::vector<Offset<flatbuffers::String>> top_fbstr_vec;
             std::string top_names;
             for(int i = 0; i < top_vec.size(); ++i)
@@ -413,7 +465,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
 
             /* Blobs */
             auto caffe_model_layer = caffe_weight.layer(caffe_model_layer_map[layer_name]);
-            //printf("Blob num (%s): %d, fractions: %d\n", layer_type.c_str(), caffe_model_layer.blobs_size(), fractions);
+            //printf("Blob num (%s): %d, fractions: %d, %d\n", layer_type.c_str(), caffe_model_layer.blobs_size(), fractions, caffe_model_layer.blobs_size());
             std::vector<Offset<feather::BlobProto> > blob_vec;
             float scaleThre = .0f;
             for (int j = 0; j != caffe_model_layer.blobs_size(); ++j)
@@ -424,12 +476,16 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
 
                 auto caffe_blob = caffe_model_layer.blobs(j);
                 int dim_len = caffe_blob.shape().dim_size();
-
-                PRINTF("	Blob[%02d], dim_len: %02d, data size: %d\n", j, dim_len, caffe_blob.data_size());
+#if 0
+                printf("	Blob[%02d], dim_len: %02d, data size: %d ", j, dim_len, caffe_blob.data_size());
+                for (int i = 0 ; i < dim_len; i++)
+                    printf("%d ", caffe_blob.shape().dim(i));
+                printf("\n");
+#endif
                 if(0 == layer_type.compare("BatchNorm"))
                 {
                     auto caffe_param = caffe_layer.batch_norm_param();
-                    //printf("---eps: %f---------\n", caffe_param.eps());
+                    //printf("--- eps: %f---------\n", caffe_param.eps());
                     float scale_factor = caffe_model_layer.blobs(2).data(0) == 0 ? 0:(1.0f/caffe_model_layer.blobs(2).data(0));
                     if (0 == j)
                     {
@@ -543,9 +599,140 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     }
                 }
 
+                if (1 == fuseBN)
+                {
+                    /* Do Conv fuse BN & scale */
+                    if (((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)) && ((i+1) < caffe_prototxt.layer_size()))
+                    {
+                        auto next_caffe_layer = caffe_prototxt.layer(i+1);
+                        std::string next_layer_type = next_caffe_layer.type();
+                        std::string next_layer_name = next_caffe_layer.name();
+                        auto next_caffe_model_layer = caffe_weight.layer(caffe_model_layer_map[next_layer_name]);
+                        //printf("cur layer %s, type %s", layer_name.c_str(), layer_type.c_str());
+                        auto caffe_conv_param = caffe_layer.convolution_param();
+                        if (next_layer_type.compare("BatchNorm")==0)
+                        {
+                            //printf(" fuse BN [%d] ", next_caffe_model_layer.blobs_size());
+                            std::vector<float> bn_blob_data_vec_0;
+                            std::vector<float> bn_blob_data_vec_1;
+                            std::vector<float> bn_blob_data_vec_2;
+                            flagConvFuseBN = 1;
+                            assert(next_caffe_model_layer.blobs_size() >= 2);
+                            for (int j = 0; j != next_caffe_model_layer.blobs_size(); ++j)
+                            {
+                                auto bn_caffe_blob = next_caffe_model_layer.blobs(j);
+                                auto bn_caffe_param = next_caffe_layer.batch_norm_param();
+                                //printf(" %d ", bn_caffe_blob.data_size());
+                                //printf("---eps: %f---------\n", bn_caffe_param.eps());
+                                float scale_factor = next_caffe_model_layer.blobs(2).data(0) == 0 ? 0:(1.0f/next_caffe_model_layer.blobs(2).data(0));
+                                if (0 == j)
+                                {
+                                    needAddBias = 1;
+                                    for(int k = 0; k != bn_caffe_blob.data_size(); ++k)
+                                    {
+                                        float data = bn_caffe_blob.data(k);
+                                        bn_blob_data_vec_0.push_back(data*scale_factor);
+                                    }
+                                }
+                                else if (1 == j)
+                                {
+                                    for(int k = 0; k != bn_caffe_blob.data_size(); ++k)
+                                    {
+                                        float data = bn_caffe_blob.data(k);
+                                        bn_blob_data_vec_1.push_back(data*scale_factor+bn_caffe_param.eps());
+                                    }
+                                }
+                                else if (2 == j)
+                                {
+                                    //printf("%d, %f\n", bn_caffe_blob.data_size(), bn_caffe_blob.data(0)); /* 1, 1.000000 */
+                                    for(int k = 0; k != bn_caffe_blob.data_size(); ++k)
+                                    {
+                                        float data = bn_caffe_blob.data(k);
+                                        bn_blob_data_vec_2.push_back(data);
+                                    }
+                                }
+                            }
+
+                            float *mean_data  = bn_blob_data_vec_0.data();
+                            float *var_data   = bn_blob_data_vec_1.data();
+                            std::vector<float> bn_blob_data_beta;
+                            bn_blob_data_alpha.resize(bn_blob_data_vec_0.size());
+                            bn_blob_data_beta.resize(bn_blob_data_vec_1.size());
+                            for (int i = 0; i < caffe_conv_param.num_output(); i++)
+                            {
+                                float sqrt_var = sqrtf(var_data[i]);
+                                bn_blob_data_alpha[i] = 0.f - mean_data[i] / sqrt_var;
+                                bn_blob_data_beta[i] = 1.0 / sqrt_var;
+                            }
+
+                            if ((i+2) < caffe_prototxt.layer_size())
+                            {
+                                auto next2_caffe_layer = caffe_prototxt.layer(i+2);
+                                std::string next2_layer_type = next2_caffe_layer.type();
+                                std::string next2_layer_name = next2_caffe_layer.name();
+                                auto next2_caffe_model_layer = caffe_weight.layer(caffe_model_layer_map[next2_layer_name]);
+                                if (next2_layer_type.compare("Scale")==0)
+                                {
+                                    //printf(" fuse scale ");
+                                    auto caffe_scale_param = next2_caffe_layer.scale_param();
+                                    auto scale_data_blob = next2_caffe_model_layer.blobs(0);
+                                    flagConvFuseScale = 1;
+                                    for (int i = 0; i < caffe_conv_param.num_output(); i++)
+                                    {
+                                        bn_blob_data_alpha[i] *= scale_data_blob.data(i);
+                                        bn_blob_data_beta[i]  *= scale_data_blob.data(i);
+                                    }
+
+                                    if (caffe_scale_param.bias_term())
+                                    {
+                                        needAddBias = 1;
+                                        auto scale_data_bias_blob = next2_caffe_model_layer.blobs(1);
+                                        for (int i = 0; i < caffe_conv_param.num_output(); i++)
+                                            bn_blob_data_alpha[i] += scale_data_bias_blob.data(i);
+                                    }
+                                }
+                            }
+
+                            /* fp16 & int8 need to add: TODO  */
+                            uint32_t validSize = blob_data_vec.size();
+                            assert(0 != caffe_conv_param.num_output());
+                            assert(0 == (validSize%caffe_conv_param.num_output()));
+                            uint32_t convWeightsSizePerChannel = validSize/caffe_conv_param.num_output();
+                            //printf("size: %d c: %d\n", validSize, caffe_conv_param.num_output());
+                            if (0 == j)
+                            {
+                                for (int i = 0; i < caffe_conv_param.num_output(); i++)
+                                {
+                                    float *pWeight = &blob_data_vec[i*convWeightsSizePerChannel];
+                                    for (int k = 0; k < convWeightsSizePerChannel; ++k)
+                                    {
+                                        pWeight[k] *= bn_blob_data_beta[i];
+                                    }
+                                }
+                            }
+                            else if (1 == j)
+                            {
+                                for (int i = 0; i < caffe_conv_param.num_output(); i++)
+                                    blob_data_vec[i] = blob_data_vec[i]*bn_blob_data_beta[i] + bn_blob_data_alpha[i];
+                            }
+                        }
+
+                        if ((j+1) == caffe_model_layer.blobs_size())
+                        {
+                            ;//printf("conv fuse BN: %d, fuse scale: %d, %s, %d, %lu\n", flagConvFuseBN, flagConvFuseScale, (j > 0)?"has bias":"no bias", caffe_model_layer.blobs_size(), bn_blob_data_alpha.size());
+                        }
+
+                        if (caffe_model_layer.blobs_size() >= 2)
+                            needAddBias = 0;
+                    }
+                    /* ----------Do Conv fuse BN & scale end------------- */
+                }
+
+                /* do conv weights encpty */
                 Offset<Vector<int8_t> > blob_data_fbvec_fix8;
                 Offset<Vector<fix16_t> > blob_data_fbvec_fix;
                 Offset<Vector<float> > blob_data_fbvec;
+                Offset<Vector<float> > bn_blob_data_alpha_fbvec;
                 unsigned validSize = 0, realSize = 0;
                 if ((0 == j) && (0 != fractions) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
                 {
@@ -618,6 +805,11 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                     realSize = validSize = blob_data_vec.size();
                     blob_data_fbvec = fbb.CreateVector<float>(blob_data_vec);
                 }
+
+                if ((1 == fuseBN) && (needAddBias))
+                    bn_blob_data_alpha_fbvec = fbb.CreateVector<float>(bn_blob_data_alpha);
+                /* -----------------do conv weights encpty------------------- */
+
                 feather::BlobProtoBuilder blob_builder(fbb);
                 if ((0 == j) && (0 != fractions) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
                 {
@@ -686,27 +878,31 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                         printf("Unsupported dimension with dim size %d\n", caffe_blob.shape().dim_size());
                 }
 
-                PRINTF("	[%ld, %ld, %ld, %ld, Fractions:", num, channels, height, width);
-
+#if 0
+                if ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0))
+                {
+                    auto caffe_conv_param = caffe_layer.convolution_param();
+                    printf("	[%d/%d] %ld, %ld, %ld, %ld, %u", j, caffe_model_layer.blobs_size(), num, channels, height, width, caffe_conv_param.group());
+                }
+#endif
                 if ((0 == j) && (0 != fractions) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
                 {
                     blob_builder.add_fractions(fractions);
                     blob_builder.add_crypto(crypto);
-                    PRINTF(" %d]\n", fractions);
-                    printf("crypto: %d validSize: %d, realSize: %d\n", crypto, validSize, realSize);
+                    PRINTF(" Fractions: %d\n", fractions);
+                    PRINTF("crypto: %d validSize: %d, realSize: %d\n", crypto, validSize, realSize);
                 }
                 else if ((0 == j) && ((layer_type.compare("Convolution")==0) || (layer_type.compare("ConvolutionDepthwise")==0)))
                 {
                     blob_builder.add_fractions(0);
                     blob_builder.add_crypto(crypto);
-                    PRINTF(" 0]\n");
+                    PRINTF(" Fractions: 0\n");
                     PRINTF("crypto: %d validSize: %d, realSize: %d\n", crypto, validSize, realSize);
                 }
                 else
                 {
                     blob_builder.add_fractions(0);
                     blob_builder.add_crypto(0);
-                    PRINTF(" 0]\n");
                     PRINTF("crypto: %d validSize: %d, realSize: %d\n", 0, validSize, realSize);
                 }
                 blob_builder.add_num(num);
@@ -715,9 +911,26 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 blob_builder.add_validSize(validSize);
                 blob_builder.add_width(width);
                 blob_vec.push_back(blob_builder.Finish());
+
+                if ((1 == fuseBN) && (needAddBias))
+                {
+                    validSize = bn_blob_data_alpha.size();
+                    feather::BlobProtoBuilder blob_builder(fbb);
+                    blob_builder.add_data(bn_blob_data_alpha_fbvec);
+                    blob_builder.add_fractions(0);
+                    blob_builder.add_crypto(0);
+                    blob_builder.add_num(num);
+                    blob_builder.add_channels(1);
+                    blob_builder.add_height(1);
+                    blob_builder.add_validSize(validSize);
+                    blob_builder.add_width(1);
+                    blob_vec.push_back(blob_builder.Finish());
+                    bn_blob_data_alpha.clear();
+                    //printf("add bias %d\n", validSize);
+                }
+
                 blob_data_vec_fix.clear();
                 blob_data_vec_fix8.clear();
-
                 blob_data_vec.clear();
             }
             auto blobs_fbvec = fbb.CreateVector<Offset<feather::BlobProto> >(blob_vec);
@@ -751,7 +964,13 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
                 auto caffe_conv_param = caffe_layer.convolution_param();
                 feather::ConvolutionParameterBuilder conv_param_builder(fbb);
                 PRINTF("+ bias term %d\n", caffe_conv_param.bias_term());
-                conv_param_builder.add_bias_term(caffe_conv_param.bias_term());
+                if ((1 == fuseBN) && (needAddBias))
+                {
+                    conv_param_builder.add_bias_term(true);
+                    //printf("add bias as fuse with BN\n");
+                }
+                else
+                    conv_param_builder.add_bias_term(caffe_conv_param.bias_term());
 
                 if(caffe_conv_param.has_tf_pad())
                     conv_param_builder.add_tf_pad((feather::ConvolutionParameter_::TFPaddingMethod)caffe_conv_param.tf_pad());
@@ -1344,14 +1563,18 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
             {
             }
             layer_vec.push_back(layer_builder.Finish());
+            i += flagConvFuseBN + flagConvFuseScale;
+            realLayerCnt++;
         }
 
-        printf("\nTotal Conv: %02d, Sgemm Conv: %02d, DW Conv: %02d, winograd Conv: %02d\n", totalConvCnt, sgemmConvCnt, dwConvCnt, totalConvCnt - sgemmConvCnt - dwConvCnt);
+        printf("\nTotal realLayerCnt: %d, orgLayerSize: %d\n", realLayerCnt, caffe_prototxt.layer_size());
 
         FILE *layerBlobTxt = NULL;
         layerBlobTxt = fopen((output_name+"_BlobNameMap.txt").c_str(), "wb");
         for (int i = 0; i != caffe_prototxt.layer_size(); ++i)
         {
+            if ((1 == fuseBN) && layer_fused_vec[i])
+                continue;
             auto caffe_layer = caffe_prototxt.layer(i);
             std::string layer_name = caffe_layer.name();
             fprintf(layerBlobTxt, "[%s] -%s\n", layer_name.c_str(), top_vec_map[layer_name].c_str());
@@ -1376,7 +1599,7 @@ void CaffeModelWeightsConvert::SaveModelWeights(uint32_t frac, float threshold, 
         fwrite(net_buffer_pointer, sizeof(uint8_t), size, netfp);
         fclose(netfp);
         printf("\nconvert ok!!!!!!\n");
-        printf("Model file: %s, size: %ld\n\n", outfile.c_str(), size);
+        printf("Model file: %s, size: %ld, fusedLayerCnt:%d\n\n", outfile.c_str(), size, fusedLayerCnt);
     }
 }
 
@@ -1421,24 +1644,25 @@ int main(int argc, char *argv[])
 {
     const char *pSerialFile = NULL;
     const char *pInt8ScaleFile = NULL;
-    uint32_t fractions = 0, crypto = 0;
+    uint32_t fractions = 0, crypto = 0, fuseBN = 1;
     float threshold = 0.02f;
     if (argc < 3 || argc > 9)
     {
-        printf("Usage: ./caffe_model_convert $1(caffe_prototxt) $2(caffe_model_name) [$3(output_model_name_prefix)] [$4(fractions)] [$5(threshold)] [$6(crpty)] [$7(SNFile)] [$9(Int8ScaleFile)]\n");
+        printf("Usage: ./caffe_model_convert $1(caffe_prototxt) $2(caffe_model_name) [$3(output_model_name_prefix)] [$4(fuseBN)] [$4(fractions)] [$5(threshold)] [$6(crpty)] [$7(SNFile)] [$9(Int8ScaleFile)]\n");
         return -1;
     }
     std::string output_model_name = "out";
     std::string caffe_prototxt_name = argv[1];
     std::string caffe_model_name = argv[2];
     if (argc > 3) output_model_name = (argv[3]);
-    if (argc > 4) fractions = atoi(argv[4]);
-    if (argc > 5) threshold = atof(argv[5]);
-    if (argc > 6) crypto = atoi(argv[6]);
-    if (argc > 7) pSerialFile = argv[7];
-    if (argc > 8) pInt8ScaleFile = argv[8];
+    if (argc > 4) fuseBN = atoi(argv[4]);
+    if (argc > 5) fractions = atoi(argv[5]);
+    if (argc > 6) threshold = atof(argv[6]);
+    if (argc > 7) crypto = atoi(argv[7]);
+    if (argc > 8) pSerialFile = argv[8];
+    if (argc > 9) pInt8ScaleFile = argv[9];
 
-    printf("%s caffe proto: %s caffe model: %s featherCNN: %s fractions:%d threshold:%.3f crypto:%d SerialFile: %s Int8ScaleFile: %s\n", argv[0], argv[1], argv[2], output_model_name.c_str(), fractions, threshold, crypto, pSerialFile, pInt8ScaleFile);
+    printf("%s caffe proto: %s caffe model: %s featherCNN: %s fuseBN: %d fractions:%d threshold:%.3f crypto:%d SerialFile: %s Int8ScaleFile: %s\n", argv[0], argv[1], argv[2], output_model_name.c_str(), fuseBN, fractions, threshold, crypto, pSerialFile, pInt8ScaleFile);
     if ((NULL != pSerialFile) && (0 != crypto))
     {
         unsigned char *pFileBuff = readFile(pSerialFile);
@@ -1467,6 +1691,6 @@ int main(int argc, char *argv[])
         return -2;
     }
 
-    convert.SaveModelWeights(fractions, threshold, crypto);
+    convert.SaveModelWeights(fuseBN, fractions, threshold, crypto);
     return 0;
 }

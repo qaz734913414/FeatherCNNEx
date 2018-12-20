@@ -160,10 +160,14 @@ public:
     {
         return _fractions;
     }
+    size_t validSize() const
+    {
+        return _validSize;
+    }
     void PrintBlobInfo() const
     {
         printf("----BlobInfo----\n");
-        printf("Shape in nchw (%zu %zu %zu %zu %zu) [Fractions: %zu]\n", _num, _channels, _validChannels, _height, _width, _fractions);
+        printf("Shape in nchw (%zu (%zu/%zu) %zu %zu) [Fractions: %zu]\n", _num, _channels, _validChannels, _height, _width, _fractions);
         if (0 == _fractions)
             printf("Data (%9.6f %9.6f %9.6f %9.6f)\n", *((Dtype*)_data+0), *((Dtype*)_data+1), *((Dtype*)_data+2), *((Dtype*)_data+3));
         else
